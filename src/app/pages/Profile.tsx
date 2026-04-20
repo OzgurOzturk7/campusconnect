@@ -6,8 +6,9 @@ import { Avatar } from "../components/Avatar";
 import {
   Github, Linkedin, Mail, MapPin, GraduationCap,
   Edit, X, Loader2, Check, Sparkles, BookOpen,
-  AlertCircle, RefreshCw
+  AlertCircle, RefreshCw, Users, LogOut
 } from "lucide-react";
+import { Link } from "react-router";
 import { apiFetch } from "../lib/api";
 
 interface UserProfile {
@@ -33,6 +34,18 @@ interface AIAnalysis {
   event_suggestions: string[];
 }
 
+interface MyClub {
+  id: string;
+  name: string;
+  description: string;
+  category: string;
+  cover_url?: string;
+  is_open: boolean;
+  member_count?: number;
+  my_role: string;
+  my_status: string;
+}
+
 export function Profile() {
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,6 +56,11 @@ export function Profile() {
   const [aiAnalysis, setAiAnalysis] = useState<AIAnalysis | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
+
+  const [myClubs, setMyClubs] = useState<MyClub[]>([]);
+  const [isLoadingClubs, setIsLoadingClubs] = useState(false);
+  const [leavingClubId, setLeavingClubId] = useState<string | null>(null);
+  const [leaveConfirm, setLeaveConfirm] = useState<{ id: string; name: string } | null>(null);
 
   const [editForm, setEditForm] = useState({
     name: "",
@@ -58,7 +76,52 @@ export function Profile() {
 
   useEffect(() => {
     fetchProfile();
+    fetchMyClubs();
   }, []);
+
+  async function fetchMyClubs() {
+    try {
+      setIsLoadingClubs(true);
+      // Get my memberships
+      const memberships = await apiFetch("/api/clubs/my-memberships");
+      if (!memberships || memberships.length === 0) { setMyClubs([]); return; }
+
+      // Fetch club details for each membership
+      const clubPromises = memberships.map(async (m: { club_id: string; role: string; status: string }) => {
+        try {
+          const club = await apiFetch(`/api/clubs/${m.club_id}`);
+          return { ...club, my_role: m.role, my_status: m.status };
+        } catch {
+          return null;
+        }
+      });
+      const results = await Promise.all(clubPromises);
+      setMyClubs(results.filter(Boolean));
+    } catch {
+      console.error("Failed to load clubs");
+    } finally {
+      setIsLoadingClubs(false);
+    }
+  }
+
+  async function handleLeaveClub(clubId: string, clubName: string) {
+    setLeaveConfirm({ id: clubId, name: clubName });
+  }
+
+  async function confirmLeave() {
+    if (!leaveConfirm) return;
+    const { id: clubId } = leaveConfirm;
+    setLeaveConfirm(null);
+    try {
+      setLeavingClubId(clubId);
+      await apiFetch(`/api/clubs/${clubId}/leave`, { method: "DELETE" });
+      setMyClubs((prev) => prev.filter((c) => c.id !== clubId));
+    } catch (err: unknown) {
+      alert(err instanceof Error ? err.message : "Failed to leave club");
+    } finally {
+      setLeavingClubId(null);
+    }
+  }
 
   async function fetchProfile() {
     try {
@@ -405,6 +468,136 @@ export function Profile() {
           </Card>
         </div>
       </div>
+
+      {/* ── My Clubs ── */}
+      <div>
+        <div className="flex items-center gap-2 mb-4">
+          <Users className="w-5 h-5 text-primary" />
+          <h2 className="text-xl font-bold">My Clubs</h2>
+          <span className="text-sm text-muted-foreground">({myClubs.length})</span>
+        </div>
+
+        {isLoadingClubs ? (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="w-6 h-6 animate-spin text-primary" />
+          </div>
+        ) : myClubs.length === 0 ? (
+          <Card className="p-8 text-center">
+            <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+            <p className="text-muted-foreground text-sm">You haven't joined any clubs yet.</p>
+            <Link to="/clubs" className="inline-block mt-3">
+              <Button variant="outline" size="sm">Browse Clubs</Button>
+            </Link>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {myClubs.map((club) => {
+              const GRADIENTS: Record<string, string> = {
+                Technical: "from-blue-500 to-indigo-600",
+                Social: "from-green-400 to-teal-500",
+                Sports: "from-orange-400 to-red-500",
+                Arts: "from-pink-400 to-purple-500",
+                Research: "from-cyan-500 to-blue-500",
+                Business: "from-yellow-400 to-orange-500",
+                default: "from-primary to-secondary",
+              };
+              const gradient = GRADIENTS[club.category] || GRADIENTS.default;
+
+              return (
+                <Card key={club.id} className="overflow-hidden hover:shadow-md transition-shadow flex flex-col">
+                  {/* Cover / gradient */}
+                  <div className="relative h-28 flex-shrink-0">
+                    {club.cover_url ? (
+                      <img src={club.cover_url} alt={club.name} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
+                        <span className="text-white text-4xl font-bold opacity-25">{club.name[0]}</span>
+                      </div>
+                    )}
+                    {/* Role badge */}
+                    <div className="absolute top-2 right-2">
+                      <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-black/50 text-white capitalize">
+                        {club.my_role}
+                      </span>
+                    </div>
+                    {/* Pending badge */}
+                    {club.my_status === "pending" && (
+                      <div className="absolute top-2 left-2">
+                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500 text-white">
+                          Pending
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Body */}
+                  <div className="p-4 flex flex-col flex-1">
+                    <div className="flex items-start justify-between mb-1">
+                      <h3 className="font-bold text-sm leading-tight flex-1 mr-2">{club.name}</h3>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">{club.category}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground line-clamp-2 mb-3 flex-1">
+                      {club.description}
+                    </p>
+                    <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
+                      <Users className="w-3.5 h-3.5" />
+                      <span>{club.member_count ?? 0} members</span>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Link to={`/clubs/${club.id}`} className="flex-1">
+                        <Button variant="outline" className="w-full text-xs py-1.5">View Club</Button>
+                      </Link>
+                      {club.my_role !== "president" && (
+                        <Button
+                          variant="outline"
+                          className="text-xs py-1.5 text-red-500 border-red-200 hover:bg-red-50"
+                          onClick={() => handleLeaveClub(club.id, club.name)}
+                          disabled={leavingClubId === club.id}
+                        >
+                          {leavingClubId === club.id
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <LogOut className="w-3.5 h-3.5" />
+                          }
+                        </Button>
+                      )}
+                    </div>
+                  </div>
+                </Card>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── Leave Club Confirm Modal ── */}
+      {leaveConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
+                <LogOut className="w-5 h-5 text-red-500" />
+              </div>
+              <h3 className="font-bold text-base">Leave Club</h3>
+            </div>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to leave <span className="font-semibold text-foreground">"{leaveConfirm.name}"</span>? You can rejoin later.
+            </p>
+            <div className="flex gap-3">
+              <Button
+                onClick={confirmLeave}
+                className="flex-1"
+                style={{ background: "#ef4444" }}
+              >
+                Leave Club
+              </Button>
+              <Button variant="outline" className="flex-1" onClick={() => setLeaveConfirm(null)}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── Edit Modal ── */}
       {isEditing && (

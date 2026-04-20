@@ -5,9 +5,10 @@ from datetime import datetime
 
 class StudyGroupCreate(BaseModel):
     course_name: str
-    course_code: str
+    course_code: Optional[str] = None
     description: Optional[str] = None
     university: Optional[str] = None
+    is_private: bool = False
 
 
 class StudyGroupUpdate(BaseModel):
@@ -15,16 +16,18 @@ class StudyGroupUpdate(BaseModel):
     course_code: Optional[str] = None
     description: Optional[str] = None
     is_active: Optional[bool] = None
+    is_private: Optional[bool] = None
 
 
 class StudyGroupResponse(BaseModel):
     id: str
     course_name: str
-    course_code: str
+    course_code: Optional[str]
     description: Optional[str]
     creator_id: str
     university: Optional[str]
     is_active: bool
+    is_private: bool
     created_at: datetime
 
 
@@ -42,3 +45,7 @@ class MessageResponse(BaseModel):
     file_url: Optional[str]
     file_name: Optional[str]
     created_at: datetime
+
+
+class MemberStatusUpdate(BaseModel):
+    status: str

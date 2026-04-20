@@ -11,6 +11,7 @@ class EventCreate(BaseModel):
     location: str
     capacity: Optional[int] = None
     is_school_wide: bool = False
+    is_members_only: bool = False
 
 
 class EventUpdate(BaseModel):
@@ -19,6 +20,7 @@ class EventUpdate(BaseModel):
     event_date: Optional[datetime] = None
     location: Optional[str] = None
     capacity: Optional[int] = None
+    is_members_only: Optional[bool] = None
 
 
 class EventResponse(BaseModel):
@@ -31,4 +33,6 @@ class EventResponse(BaseModel):
     location: str
     capacity: Optional[int]
     is_school_wide: bool
+    is_members_only: bool
+    cover_url: Optional[str]
     created_at: datetime

@@ -89,13 +89,14 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [remember, setRemember] = useState(false);
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
     setIsLoading(true);
     try {
-      await login(email, password);
+      await login(email, password, remember);
       navigate("/", { replace: true });
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Login failed. Please try again.");
@@ -126,27 +127,36 @@ export function Login() {
             src="/logo.png"
             alt="CampusConnect"
             style={{
-              width: "450px",
-              maxWidth: "100%",
+              width: "460px",
+              maxWidth: "88%",
               height: "auto",
               objectFit: "contain",
               marginBottom: "24px",
-              mixBlendMode: "multiply",
             }}
           />
-
+          <p
+            style={{
+              color: "#2a5a8a",
+              fontSize: "16px",
+              lineHeight: "1.7",
+              maxWidth: "320px",
+              fontWeight: 500,
+            }}
+          >
+            One platform for all your university needs — clubs, events, and academic resources.
+          </p>
         </div>
       </div>
 
       {/* ── Right panel ── */}
-      <div className="flex-1 flex items-center justify-center p-10 relative" style={{ background: "linear-gradient(160deg, #f0f7ff 0%, #f0fbf8 100%)" }}>
+      <div className="flex-1 flex items-center justify-center p-10 relative" style={{ background: "linear-gradient(160deg, #ddeeff 0%, #d6f0ea 100%)" }}>
         <div
           className="absolute -top-16 -right-16 w-56 h-56 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle,rgba(26,173,130,0.12) 0%,transparent 70%)" }}
+          style={{ background: "radial-gradient(circle,rgba(26,173,130,0.25) 0%,transparent 70%)" }}
         />
         <div
           className="absolute -bottom-12 -left-12 w-44 h-44 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle,rgba(26,58,143,0.1) 0%,transparent 70%)" }}
+          style={{ background: "radial-gradient(circle,rgba(26,58,143,0.18) 0%,transparent 70%)" }}
         />
 
         <div className="w-full max-w-sm relative z-10">
@@ -155,7 +165,7 @@ export function Login() {
             <img
               src="/logo.png"
               alt="CampusConnect"
-              style={{ height: "40px", objectFit: "contain", mixBlendMode: "multiply" }}
+              style={{ height: "40px", objectFit: "contain" }}
             />
           </div>
 
@@ -224,14 +234,17 @@ export function Login() {
               </button>
             </div>
 
-            <div className="flex items-center justify-between py-3 mb-3">
+            <div className="flex items-center py-3 mb-3">
               <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#4a7aaa" }}>
-                <input type="checkbox" className="w-3.5 h-3.5" style={{ accentColor: "#1a3a8f" }} />
+                <input
+                  type="checkbox"
+                  checked={remember}
+                  onChange={(e) => setRemember(e.target.checked)}
+                  className="w-3.5 h-3.5"
+                  style={{ accentColor: "#1a3a8f" }}
+                />
                 Remember me
               </label>
-              <span className="text-xs font-medium cursor-pointer" style={{ color: "#1aad82" }}>
-                Forgot password?
-              </span>
             </div>
 
             <button

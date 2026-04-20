@@ -76,11 +76,13 @@ export function Notifications() {
   async function markRead(id: string) {
     await apiFetch(`/api/notifications/${id}/read`, { method: "PATCH" });
     setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n));
+    window.dispatchEvent(new Event("notifications-updated"));
   }
 
   async function markAllRead() {
     await apiFetch("/api/notifications/read-all", { method: "PATCH" });
     setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
+    window.dispatchEvent(new Event("notifications-updated"));
   }
 
   const unreadCount = notifications.filter((n) => !n.is_read).length;

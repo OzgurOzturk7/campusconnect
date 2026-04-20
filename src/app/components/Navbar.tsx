@@ -1,4 +1,4 @@
-import { Bell, Search, LogOut } from "lucide-react";
+import { Bell, Search, GraduationCap, LogOut } from "lucide-react";
 import { Link } from "react-router";
 import { Avatar } from "./Avatar";
 import { useAuth } from "../context/AuthContext";
@@ -13,7 +13,11 @@ export function Navbar() {
     if (!user) return;
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, 30000);
-    return () => clearInterval(interval);
+    window.addEventListener("notifications-updated", fetchUnreadCount);
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener("notifications-updated", fetchUnreadCount);
+    };
   }, [user]);
 
   async function fetchUnreadCount() {
@@ -27,12 +31,8 @@ export function Navbar() {
 
   return (
     <header className="fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-50 flex items-center px-6 gap-4">
-      <Link to="/" className="mr-6 flex-shrink-0 ml-[-30px]">
-        <img
-          src="/logo.png"
-          alt="CampusConnect"
-          className="h-28 w-auto object-contain"
-        />
+      <Link to="/" className="flex items-center gap-2 mr-6">
+        <img src="/logo.png" alt="CampusConnect" className="h-8 object-contain" style={{ mixBlendMode: "multiply" }} />
       </Link>
 
       <div className="flex-1 max-w-md relative">

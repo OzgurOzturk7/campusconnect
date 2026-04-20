@@ -61,6 +61,8 @@ export function Events() {
   // Delete confirm
   const [deleteConfirm, setDeleteConfirm] = useState<{ id: string; title: string } | null>(null);
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
+  const [attendingIds, setAttendingIds] = useState<Set<string>>(new Set());
+  const [togglingAttendId, setTogglingAttendId] = useState<string | null>(null);
 
   // Toast
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -80,6 +82,7 @@ export function Events() {
   useEffect(() => {
     fetchEvents();
     fetchMyAdminClubs();
+    fetchAttending();
   }, []);
 
   async function fetchEvents() {
@@ -99,6 +102,36 @@ export function Events() {
       const data = await apiFetch("/api/clubs/");
       setMyAdminClubs(data.filter((c: Club) => c.admin_user_id === user?.user_id));
     } catch { /* ignore */ }
+  }
+
+  async function fetchAttending() {
+    try {
+      const data = await apiFetch("/api/events/my-attending");
+      setAttendingIds(new Set(data.map((e: { event_id: string }) => e.event_id)));
+    } catch { /* ignore */ }
+  }
+
+  async function handleToggleAttend(eventId: string) {
+    try {
+      setTogglingAttendId(eventId);
+      if (attendingIds.has(eventId)) {
+        await apiFetch(`/api/events/${eventId}/attend`, { method: "DELETE" });
+        setAttendingIds((prev) => { const s = new Set(prev); s.delete(eventId); return s; });
+        setEvents((prev) => prev.map((e) =>
+          e.id === eventId ? { ...e, attendee_count: Math.max(0, (e.attendee_count || 1) - 1) } : e
+        ));
+      } else {
+        await apiFetch(`/api/events/${eventId}/attend`, { method: "POST" });
+        setAttendingIds((prev) => new Set(prev).add(eventId));
+        setEvents((prev) => prev.map((e) =>
+          e.id === eventId ? { ...e, attendee_count: (e.attendee_count || 0) + 1 } : e
+        ));
+      }
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "Failed to update attendance", false);
+    } finally {
+      setTogglingAttendId(null);
+    }
   }
 
   async function handleCreate() {
@@ -375,6 +408,7 @@ export function Events() {
               const isPast = new Date(event.event_date) < now;
               const eventDate = new Date(event.event_date);
               const canEditThis = isAdmin || myAdminClubs.some((c) => c.id === event.club_id);
+              const isAttending = attendingIds.has(event.id);
 
               return (
                 <Card key={event.id} className={`overflow-hidden hover:shadow-lg transition-shadow flex flex-col ${isPast ? "opacity-70" : ""}`}>
@@ -407,6 +441,11 @@ export function Events() {
                       {event.is_members_only && (
                         <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500 text-white">
                           <Lock className="w-3 h-3" /> Members
+                        </span>
+                      )}
+                      {isAttending && !isAdmin && (
+                        <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-green-500 text-white">
+                          <Check className="w-3 h-3" /> Attending
                         </span>
                       )}
                       {isPast && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-black/40 text-white">Past</span>}
@@ -456,6 +495,27 @@ export function Events() {
                         </div>
                       )}
                     </div>
+
+                    {/* Mark as Attending — students only, upcoming events only */}
+                    {!isAdmin && !isPast && (
+                      <button
+                        onClick={() => handleToggleAttend(event.id)}
+                        disabled={togglingAttendId === event.id}
+                        className={`mt-3 w-full py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                          isAttending
+                            ? "bg-green-50 text-green-700 border border-green-300 hover:bg-green-100"
+                            : "bg-muted text-foreground border border-border hover:bg-muted/80"
+                        }`}
+                      >
+                        {togglingAttendId === event.id ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : isAttending ? (
+                          <><Check className="w-4 h-4" /> Attending</>
+                        ) : (
+                          <>+ Mark as Attending</>
+                        )}
+                      </button>
+                    )}
                   </div>
                 </Card>
               );

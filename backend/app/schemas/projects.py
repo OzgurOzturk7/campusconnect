@@ -9,6 +9,7 @@ class ProjectPostCreate(BaseModel):
     tech_stack: List[str] = []
     roles_needed: List[str] = []
     github_url: Optional[str] = None
+    duration: Optional[str] = None
 
 
 class ProjectPostUpdate(BaseModel):
@@ -17,6 +18,7 @@ class ProjectPostUpdate(BaseModel):
     tech_stack: Optional[List[str]] = None
     roles_needed: Optional[List[str]] = None
     github_url: Optional[str] = None
+    duration: Optional[str] = None
     status: Optional[str] = None
 
 
@@ -29,6 +31,7 @@ class ProjectPostResponse(BaseModel):
     roles_needed: List[str]
     status: str
     github_url: Optional[str]
+    duration: Optional[str]
     created_at: datetime
 
 
@@ -49,3 +52,4 @@ class ApplicationResponse(BaseModel):
 
 class ApplicationStatusUpdate(BaseModel):
     status: str
+    reason: Optional[str] = None

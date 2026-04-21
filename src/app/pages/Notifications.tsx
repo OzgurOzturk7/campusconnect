@@ -4,6 +4,7 @@ import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
 import { Bell, Briefcase, Calendar, MessageSquare, Users, CheckCheck, Loader2 } from "lucide-react";
 import { apiFetch } from "../lib/api";
+import { useNavigate } from "react-router";
 
 type NotifType = "project_application" | "project_application_result" | "project_team_join" |
   "club_announcement" | "club_application_result" | "new_event" | "event_reminder" |
@@ -56,6 +57,7 @@ export function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchNotifications();
@@ -73,10 +75,18 @@ export function Notifications() {
     }
   }
 
-  async function markRead(id: string) {
-    await apiFetch(`/api/notifications/${id}/read`, { method: "PATCH" });
-    setNotifications((prev) => prev.map((n) => n.id === id ? { ...n, is_read: true } : n));
-    window.dispatchEvent(new Event("notifications-updated"));
+  async function handleNotifClick(notif: Notification) {
+    // Mark as read in background
+    if (!notif.is_read) {
+      apiFetch(`/api/notifications/${notif.id}/read`, { method: "PATCH" }).then(() => {
+        window.dispatchEvent(new Event("notifications-updated"));
+      });
+      setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, is_read: true } : n));
+    }
+    // Navigate - use replace to force re-render even on same path
+    if (notif.link) {
+      navigate(notif.link, { replace: false });
+    }
   }
 
   async function markAllRead() {
@@ -134,7 +144,7 @@ export function Notifications() {
             <Card
               key={notif.id}
               className={`p-4 transition-all hover:shadow-md cursor-pointer ${!notif.is_read ? "border-primary/20 bg-accent" : ""}`}
-              onClick={() => { if (!notif.is_read) markRead(notif.id); }}
+              onClick={() => handleNotifClick(notif)}
             >
               <div className="flex items-start gap-4">
                 <div className="relative flex-shrink-0">
@@ -148,7 +158,10 @@ export function Notifications() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-start justify-between gap-2 mb-1">
                     <h3 className="font-semibold text-sm">{notif.title}</h3>
-                    <Tag variant="muted" className="text-xs flex-shrink-0">{notif.type.split("_")[0]}</Tag>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <Tag variant="muted" className="text-xs">{notif.type.split("_")[0]}</Tag>
+                      {notif.link && <span className="text-xs text-primary">→</span>}
+                    </div>
                   </div>
                   <p className="text-sm text-muted-foreground mb-1">{notif.body}</p>
                   <p className="text-xs text-muted-foreground">{timeAgo(notif.created_at)}</p>

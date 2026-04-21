@@ -66,7 +66,7 @@ export function Dashboard() {
         apiFetch("/api/events/"),
         apiFetch("/api/projects/"),
         apiFetch("/api/notifications/"),
-        apiFetch("/api/projects/my/applications"),
+        apiFetch("/api/projects/mine/applications"),
         apiFetch("/api/clubs/"),
       ]);
 

@@ -622,12 +622,18 @@ export function Clubs() {
                             </>
                           )}
 
-                          {/* Club admin (not platform admin) */}
+                          {/* Club admin (not platform admin) — show manage */}
                           {!isAdmin && isClubAdmin && (
                             <Link to={`/clubs/${club.id}`} className="flex-1">
                               <Button className="w-full text-sm">Manage</Button>
                             </Link>
                           )}
+                          {/* Club president/admin member — also show manage */}
+                          {!isAdmin && !isClubAdmin && mem?.role === "president" || !isAdmin && !isClubAdmin && mem?.role === "admin" ? (
+                            <Link to={`/clubs/${club.id}`} className="flex-1">
+                              <Button className="w-full text-sm">Manage</Button>
+                            </Link>
+                          ) : null}
 
                           {/* Regular student */}
                           {!isAdmin && !isClubAdmin && (

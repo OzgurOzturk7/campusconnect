@@ -20,27 +20,26 @@ def _with_attendee_count(supabase, events: list) -> list:
 @router.get("/")
 def list_events(current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
-    result = supabase.table("events").select("*").order("event_date").execute()
+    result = supabase.table("events").select("*, event_attendees(count)").order("event_date").execute()
     all_events = result.data or []
 
     # Get clubs the user is a member of
-    memberships = supabase.table("club_memberships").select("club_id").eq("user_id", current_user["id"]).eq("status", "approved").execute()
+    memberships = supabase.table("club_memberships").select("club_id") \
+        .eq("user_id", current_user["id"]).eq("status", "approved").execute()
     my_club_ids = {m["club_id"] for m in (memberships.data or [])}
 
-    # Filter: show event if:
-    # - not members_only (visible to all)
-    # - members_only but user is a member of that club
-    # - user is admin (sees everything)
     visible = []
     for e in all_events:
+        attendees = e.pop("event_attendees", [])
+        e["attendee_count"] = attendees[0]["count"] if attendees else 0
         if current_user["role"] == "admin":
             visible.append(e)
         elif e.get("is_members_only") and e.get("club_id") not in my_club_ids:
-            continue  # hide members-only event from non-members
+            continue
         else:
             visible.append(e)
 
-    return _with_attendee_count(supabase, visible)
+    return visible
 
 
 @router.get("/my-attending")
@@ -76,8 +75,14 @@ def create_event(body: EventCreate, current_user: dict = Depends(get_current_use
         club = supabase.table("clubs").select("admin_user_id, name").eq("id", body.club_id).single().execute()
         if not club.data:
             raise HTTPException(status_code=404, detail="Club not found")
-        if club.data["admin_user_id"] != current_user["id"] and current_user["role"] != "admin":
-            raise HTTPException(status_code=403, detail="Only club admins can create club events")
+        # Check if user is platform admin, club creator, or club president/admin
+        is_manager = current_user["role"] == "admin" or club.data["admin_user_id"] == current_user["id"]
+        if not is_manager:
+            member = supabase.table("club_memberships").select("role").eq("club_id", body.club_id).eq("user_id", current_user["id"]).eq("status", "approved").execute()
+            if member.data and member.data[0]["role"] in ("president", "admin"):
+                is_manager = True
+        if not is_manager:
+            raise HTTPException(status_code=403, detail="Only club managers can create club events")
 
     result = supabase.table("events").insert({
         "title": body.title,
@@ -141,10 +146,24 @@ def update_event(event_id: str, body: EventUpdate, current_user: dict = Depends(
 @router.delete("/{event_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_event(event_id: str, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
-    event = supabase.table("events").select("created_by").eq("id", event_id).single().execute()
+    event = supabase.table("events").select("created_by, club_id").eq("id", event_id).single().execute()
     if not event.data:
         raise HTTPException(status_code=404, detail="Event not found")
-    if event.data["created_by"] != current_user["id"] and current_user["role"] != "admin":
+
+    is_authorized = (
+        current_user["role"] == "admin" or
+        event.data["created_by"] == current_user["id"]
+    )
+    # Also allow club president/admin to delete their club's events
+    if not is_authorized and event.data.get("club_id"):
+        member = supabase.table("club_memberships").select("role") \
+            .eq("club_id", event.data["club_id"]) \
+            .eq("user_id", current_user["id"]) \
+            .eq("status", "approved").execute()
+        if member.data and member.data[0]["role"] in ("president", "admin"):
+            is_authorized = True
+
+    if not is_authorized:
         raise HTTPException(status_code=403, detail="Not authorized")
     supabase.table("events").delete().eq("id", event_id).execute()
 

@@ -424,10 +424,14 @@ export function ClubDetail() {
 
   const approvedMembers = members.filter((m) => m.status === "approved");
   const pendingMembers = members.filter((m) => m.status === "pending");
-  const isAdmin = user?.role === "admin" || club.admin_user_id === user?.user_id;
+  const myMembership = members.find((m) => m.user_id === user?.user_id);
+  const isClubManager =
+    user?.role === "admin" ||
+    club.admin_user_id === user?.user_id ||
+    myMembership?.role === "president" ||
+    myMembership?.role === "admin";
   const isApprovedMember = members.some((m) => m.user_id === user?.user_id && m.status === "approved");
   const isPending = members.some((m) => m.user_id === user?.user_id && m.status === "pending");
-  const isClubMember = isApprovedMember || isPending;
   const upcomingEvents = clubEvents.filter((e) => new Date(e.event_date) >= new Date());
   const pastEvents = clubEvents.filter((e) => new Date(e.event_date) < new Date());
 
@@ -482,7 +486,7 @@ export function ClubDetail() {
               <span className="text-white text-7xl font-bold opacity-20">{club.name[0]}</span>
             </div>
           )}
-          {isAdmin && (
+          {isClubManager && (
             <button
               onClick={() => coverInputRef.current?.click()}
               className="absolute bottom-3 right-3 flex items-center gap-1.5 text-xs bg-black/50 hover:bg-black/70 text-white px-3 py-1.5 rounded-lg transition-colors"
@@ -503,7 +507,7 @@ export function ClubDetail() {
                 <Tag variant={club.is_open ? "primary" : "secondary"}>
                   {club.is_open ? "Open Membership" : "Approval Required"}
                 </Tag>
-                {isAdmin && pendingMembers.length > 0 && (
+                {isClubManager && pendingMembers.length > 0 && (
                   <Tag variant="secondary">{pendingMembers.length} pending</Tag>
                 )}
               </div>
@@ -514,7 +518,7 @@ export function ClubDetail() {
               </div>
             </div>
             <div className="flex gap-2 ml-4 flex-shrink-0">
-              {!isAdmin && (
+              {!isClubManager && (
                 isApprovedMember ? (
                   <Button variant="outline" onClick={handleLeave} disabled={isJoining}>
                     {isJoining ? <Loader2 className="w-4 h-4 animate-spin" /> : <><UserMinus className="w-4 h-4" /> Leave</>}
@@ -537,7 +541,7 @@ export function ClubDetail() {
         {[
           { key: "overview", label: "Overview" },
           { key: "announcements", label: `Events & Announcements${clubEvents.length + announcements.length > 0 ? ` (${clubEvents.length + announcements.length})` : ""}` },
-          ...(isAdmin ? [{ key: "manage", label: "Manage" }] : []),
+          ...(isClubManager ? [{ key: "manage", label: "Manage" }] : []),
         ].map((tab) => (
           <button
             key={tab.key}
@@ -599,7 +603,7 @@ export function ClubDetail() {
         <div className="space-y-6">
 
           {/* Admin actions */}
-          {isAdmin && (
+          {isClubManager && (
             <div className="flex gap-3 flex-wrap">
               <Button onClick={() => setShowEventForm(!showEventForm)}>
                 <Plus className="w-4 h-4" /> Add Event
@@ -611,7 +615,7 @@ export function ClubDetail() {
           )}
 
           {/* New event form */}
-          {showEventForm && isAdmin && (
+          {showEventForm && isClubManager && (
             <Card className="p-6">
               <h3 className="font-bold mb-4 flex items-center gap-2">
                 <Calendar className="w-5 h-5 text-primary" /> New Club Event
@@ -703,7 +707,7 @@ export function ClubDetail() {
           )}
 
           {/* New announcement form */}
-          {showAnnouncementForm && isAdmin && (
+          {showAnnouncementForm && isClubManager && (
             <Card className="p-6">
               <h3 className="font-bold mb-4 flex items-center gap-2">
                 <Megaphone className="w-5 h-5 text-primary" /> New Announcement
@@ -756,7 +760,7 @@ export function ClubDetail() {
                               <p className="text-sm text-muted-foreground mb-3">{event.description}</p>
                             )}
                           </div>
-                          {isAdmin && (
+                          {isClubManager && (
                             <button
                               onClick={() => handleDeleteEvent(event.id, event.title)}
                               disabled={isDeletingEvent === event.id}
@@ -805,7 +809,7 @@ export function ClubDetail() {
                   <Card key={ann.id} className="p-6">
                     <div className="flex items-start justify-between mb-2">
                       <h3 className="font-bold text-base">{ann.title}</h3>
-                      {isAdmin && (
+                      {isClubManager && (
                         <button onClick={() => handleDeleteAnnouncement(ann.id)} className="text-muted-foreground hover:text-destructive ml-4">
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -831,7 +835,7 @@ export function ClubDetail() {
       )}
 
       {/* MANAGE TAB */}
-      {activeTab === "manage" && isAdmin && (
+      {activeTab === "manage" && isClubManager && (
         <div className="space-y-6">
 
           {/* Edit club */}

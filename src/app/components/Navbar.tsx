@@ -1,4 +1,4 @@
-import { Bell, Search, GraduationCap, LogOut } from "lucide-react";
+import { Bell, LogOut } from "lucide-react";
 import { Link } from "react-router";
 import { Avatar } from "./Avatar";
 import { useAuth } from "../context/AuthContext";
@@ -30,13 +30,19 @@ export function Navbar() {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-50 flex items-center px-6 gap-4">
-      <Link to="/" className="flex items-center gap-2 mr-6">
-        <img src="/logo.png" alt="CampusConnect" className="h-8 object-contain" style={{ mixBlendMode: "multiply" }} />
+    <header className="fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-50 flex items-center px-4 gap-4">
+      <Link to="/" className="flex items-center mr-6 flex-shrink-0">
+        <img
+          src="/logo.png"
+          alt="CampusConnect"
+          className="h-30 w-auto object-contain"
+        />
       </Link>
 
       <div className="flex-1 max-w-md relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <svg className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
         <input
           type="text"
           placeholder="Search students, clubs, projects..."

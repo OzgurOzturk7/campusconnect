@@ -8,6 +8,7 @@ import {
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { getStoredToken } from "../context/AuthContext";
+import { useToast } from "../context/ToastContext";
 import { createClient } from "@supabase/supabase-js";
 
 const supabase = createClient(
@@ -49,6 +50,7 @@ type ModalType = "create" | "edit" | "members" | null;
 
 export function StudyGroups() {
   const { user } = useAuth();
+  const { success, error: toastError, info } = useToast();
   const [groups, setGroups] = useState<StudyGroup[]>([]);
   const [membershipMap, setMembershipMap] = useState<Record<string, string>>({});
   const [selectedGroup, setSelectedGroup] = useState<StudyGroup | null>(null);
@@ -138,17 +140,15 @@ export function StudyGroups() {
       setIsSubmitting(true);
       const data = await apiFetch("/api/study-groups/", {
         method: "POST",
-        body: JSON.stringify({
-          ...createForm,
-          course_code: createForm.course_code || null,
-        })
+        body: JSON.stringify({ ...createForm, course_code: createForm.course_code || null })
       });
       setGroups(prev => [data, ...prev]);
       setMembershipMap(prev => ({ ...prev, [data.id]: "approved" }));
       setModal(null);
       setCreateForm({ course_name: "", course_code: "", description: "", is_private: false });
       setSelectedGroup(data);
-    } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed"); }
+      success("Study group created!");
+    } catch (err: unknown) { toastError(err instanceof Error ? err.message : "Failed to create group"); }
     finally { setIsSubmitting(false); }
   }
 
@@ -164,18 +164,20 @@ export function StudyGroups() {
       setSelectedGroup(updated);
       setGroups(prev => prev.map(g => g.id === selectedGroup.id ? { ...g, ...editForm } : g));
       setModal(null);
-    } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed"); }
+      success("Group updated!");
+    } catch (err: unknown) { toastError(err instanceof Error ? err.message : "Failed to update group"); }
     finally { setIsSubmitting(false); }
   }
 
   async function handleDelete(groupId: string) {
-    if (!confirm("Delete this group? All messages will be lost.")) return;
+    if (!window.confirm("Delete this group? All messages will be lost.")) return;
     try {
       await apiFetch(`/api/study-groups/${groupId}`, { method: "DELETE" });
       setGroups(prev => prev.filter(g => g.id !== groupId));
       setMembershipMap(prev => { const n = { ...prev }; delete n[groupId]; return n; });
       if (selectedGroup?.id === groupId) setSelectedGroup(null);
-    } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed"); }
+      success("Group deleted.");
+    } catch (err: unknown) { toastError(err instanceof Error ? err.message : "Failed to delete group"); }
   }
 
   async function handleJoin(groupId: string) {
@@ -185,16 +187,19 @@ export function StudyGroups() {
       const newStatus = group?.is_private ? "pending" : "approved";
       setMembershipMap(prev => ({ ...prev, [groupId]: newStatus }));
       fetchMembers(groupId);
-    } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed"); }
+      if (newStatus === "pending") info("Join request sent! Waiting for approval.");
+      else success("Joined successfully!");
+    } catch (err: unknown) { toastError(err instanceof Error ? err.message : "Failed to join group"); }
   }
 
   async function handleLeave(groupId: string) {
-    if (!confirm("Leave this group?")) return;
+    if (!window.confirm("Leave this group?")) return;
     try {
       await apiFetch(`/api/study-groups/${groupId}/leave`, { method: "DELETE" });
       setMembershipMap(prev => { const n = { ...prev }; delete n[groupId]; return n; });
       if (selectedGroup?.id === groupId) setSelectedGroup(null);
-    } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed"); }
+      success("Left the group.");
+    } catch (err: unknown) { toastError(err instanceof Error ? err.message : "Failed to leave group"); }
   }
 
   async function handleApprove(groupId: string, userId: string) {
@@ -204,7 +209,8 @@ export function StudyGroups() {
         body: JSON.stringify({ status: "approved" })
       });
       fetchMembers(groupId);
-    } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed"); }
+      success("Member approved!");
+    } catch (err: unknown) { toastError(err instanceof Error ? err.message : "Failed"); }
   }
 
   async function handleReject(groupId: string, userId: string) {
@@ -214,7 +220,8 @@ export function StudyGroups() {
         body: JSON.stringify({ status: "rejected" })
       });
       fetchMembers(groupId);
-    } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed"); }
+      info("Request rejected.");
+    } catch (err: unknown) { toastError(err instanceof Error ? err.message : "Failed"); }
   }
 
   async function handleSendMessage() {
@@ -226,7 +233,7 @@ export function StudyGroups() {
         body: JSON.stringify({ content: messageText }),
       });
       setMessageText("");
-    } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed"); }
+    } catch (err: unknown) { toastError(err instanceof Error ? err.message : "Failed to send message"); }
     finally { setIsSending(false); }
   }
 
@@ -250,7 +257,8 @@ export function StudyGroups() {
         body: JSON.stringify({ file_url, file_name }),
       });
       fetchMessages(selectedGroup.id);
-    } catch (err: unknown) { alert(err instanceof Error ? err.message : "Failed"); }
+      success("File uploaded!");
+    } catch (err: unknown) { toastError(err instanceof Error ? err.message : "Failed to upload"); }
     finally {
       setIsUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -268,7 +276,7 @@ export function StudyGroups() {
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(link.href);
-    } catch { alert("Download failed"); }
+    } catch { toastError("Download failed"); }
   }
 
   const approvedMembers = members.filter(m => m.status === "approved");
@@ -298,15 +306,12 @@ export function StudyGroups() {
 
       {/* LEFT SIDEBAR */}
       <div className="w-80 flex-shrink-0 flex flex-col border-r border-border bg-card">
-
-        {/* Sidebar Header */}
         <div className="p-4 border-b border-border">
           <div className="flex items-center justify-between mb-3">
             <h1 className="text-xl font-bold">Study Groups</h1>
             <button
               onClick={() => setModal("create")}
               className="w-9 h-9 flex items-center justify-center rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-              title="Create Group"
             >
               <Plus className="w-4 h-4" />
             </button>
@@ -323,22 +328,16 @@ export function StudyGroups() {
           </div>
           <div className="flex gap-1 mt-3">
             {(["all", "my"] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
+              <button key={tab} onClick={() => setActiveTab(tab)}
                 className={`flex-1 py-1.5 text-xs font-medium rounded-lg transition-colors ${
-                  activeTab === tab
-                    ? "bg-primary text-primary-foreground"
-                    : "text-muted-foreground hover:bg-muted"
-                }`}
-              >
+                  activeTab === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"
+                }`}>
                 {tab === "all" ? `All (${groups.length})` : `Joined (${Object.values(membershipMap).filter(s => s === "approved").length})`}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Group List */}
         <div className="flex-1 overflow-y-auto">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
@@ -349,55 +348,40 @@ export function StudyGroups() {
               <BookOpen className="w-10 h-10 mx-auto mb-2 opacity-20" />
               <p className="text-sm">No groups found</p>
             </div>
-          ) : (
-            filtered.map(group => {
-              const status = membershipMap[group.id];
-              const isSelected = selectedGroup?.id === group.id;
-              return (
-                <div
-                  key={group.id}
-                  onClick={() => setSelectedGroup(group)}
-                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-border/50 ${
-                    isSelected ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50"
-                  }`}
-                >
-                  {/* Group Avatar */}
-                  <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0 ${
-                    group.is_private ? "bg-gradient-to-br from-purple-500 to-indigo-600" : "bg-gradient-to-br from-primary to-teal-500"
-                  }`}>
-                    {group.course_name[0].toUpperCase()}
+          ) : filtered.map(group => {
+            const status = membershipMap[group.id];
+            const isSelected = selectedGroup?.id === group.id;
+            return (
+              <div key={group.id} onClick={() => setSelectedGroup(group)}
+                className={`flex items-center gap-3 px-4 py-3 cursor-pointer transition-colors border-b border-border/50 ${
+                  isSelected ? "bg-primary/10 border-l-2 border-l-primary" : "hover:bg-muted/50"
+                }`}>
+                <div className={`w-12 h-12 rounded-full flex items-center justify-center text-white font-bold text-lg flex-shrink-0 ${
+                  group.is_private ? "bg-gradient-to-br from-purple-500 to-indigo-600" : "bg-gradient-to-br from-primary to-teal-500"
+                }`}>
+                  {group.course_name[0].toUpperCase()}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <p className="font-semibold text-sm truncate">{group.course_name}</p>
+                    {group.is_private ? <Lock className="w-3 h-3 text-muted-foreground flex-shrink-0" /> : <Globe className="w-3 h-3 text-muted-foreground flex-shrink-0" />}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between">
-                      <p className="font-semibold text-sm truncate">{group.course_name}</p>
-                      <div className="flex items-center gap-1 flex-shrink-0 ml-2">
-                        {group.is_private
-                          ? <Lock className="w-3 h-3 text-muted-foreground" />
-                          : <Globe className="w-3 h-3 text-muted-foreground" />
-                        }
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between mt-0.5">
-                      <p className="text-xs text-muted-foreground truncate">
-                        {group.course_code && <span className="font-medium text-primary">{group.course_code} · </span>}
-                        {group.description || (group.is_private ? "Private group" : "Open group")}
-                      </p>
-                      {status === "pending" && (
-                        <span className="text-xs text-orange-500 font-medium flex-shrink-0 ml-1">Pending</span>
-                      )}
-                      {status === "approved" && (
-                        <Check className="w-3 h-3 text-green-500 flex-shrink-0 ml-1" />
-                      )}
-                    </div>
+                  <div className="flex items-center justify-between mt-0.5">
+                    <p className="text-xs text-muted-foreground truncate">
+                      {group.course_code && <span className="font-medium text-primary">{group.course_code} · </span>}
+                      {group.description || (group.is_private ? "Private group" : "Open group")}
+                    </p>
+                    {status === "pending" && <span className="text-xs text-orange-500 font-medium flex-shrink-0 ml-1">Pending</span>}
+                    {status === "approved" && <Check className="w-3 h-3 text-green-500 flex-shrink-0 ml-1" />}
                   </div>
                 </div>
-              );
-            })
-          )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
-      {/* RIGHT — CHAT AREA */}
+      {/* RIGHT CHAT */}
       <div className="flex-1 flex flex-col min-w-0">
         {!selectedGroup ? (
           <div className="flex-1 flex items-center justify-center bg-muted/20">
@@ -409,7 +393,7 @@ export function StudyGroups() {
           </div>
         ) : (
           <>
-            {/* Chat Header */}
+            {/* Header */}
             <div className="px-5 py-3 border-b border-border bg-card flex items-center gap-3 flex-shrink-0">
               <div className={`w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0 ${
                 selectedGroup.is_private ? "bg-gradient-to-br from-purple-500 to-indigo-600" : "bg-gradient-to-br from-primary to-teal-500"
@@ -426,8 +410,7 @@ export function StudyGroups() {
                   )}
                   {selectedGroup.is_private
                     ? <Lock className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                    : <Globe className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                  }
+                    : <Globe className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />}
                 </div>
                 <p className="text-xs text-muted-foreground">
                   {approvedMembers.length} members
@@ -436,81 +419,58 @@ export function StudyGroups() {
                   )}
                 </p>
               </div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1">
                 {isCreator && pendingMembers.length > 0 && (
-                  <button
-                    onClick={() => setModal("members")}
-                    className="relative p-2 rounded-lg hover:bg-muted transition-colors text-orange-500"
-                    title="Pending requests"
-                  >
+                  <button onClick={() => setModal("members")}
+                    className="relative p-2 rounded-lg hover:bg-muted transition-colors text-orange-500">
                     <Bell className="w-5 h-5" />
                     <span className="absolute -top-1 -right-1 w-4 h-4 bg-orange-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
                       {pendingMembers.length}
                     </span>
                   </button>
                 )}
-                <button
-                  onClick={() => setModal("members")}
-                  className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                  title="Members"
-                >
+                <button onClick={() => setModal("members")}
+                  className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
                   <Users className="w-5 h-5" />
                 </button>
                 {isCreator && (
                   <>
-                    <button
-                      onClick={() => {
-                        setEditForm({
-                          course_name: selectedGroup.course_name,
-                          course_code: selectedGroup.course_code || "",
-                          description: selectedGroup.description || "",
-                          is_private: selectedGroup.is_private,
-                        });
-                        setModal("edit");
-                      }}
-                      className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-                    >
+                    <button onClick={() => {
+                      setEditForm({ course_name: selectedGroup.course_name, course_code: selectedGroup.course_code || "", description: selectedGroup.description || "", is_private: selectedGroup.is_private });
+                      setModal("edit");
+                    }} className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground">
                       <Pencil className="w-4 h-4" />
                     </button>
-                    <button
-                      onClick={() => handleDelete(selectedGroup.id)}
-                      className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-destructive"
-                    >
+                    <button onClick={() => handleDelete(selectedGroup.id)}
+                      className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-destructive">
                       <Trash2 className="w-4 h-4" />
                     </button>
                   </>
                 )}
                 {!isCreator && isApproved && (
-                  <button
-                    onClick={() => handleLeave(selectedGroup.id)}
-                    className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-destructive"
-                    title="Leave group"
-                  >
+                  <button onClick={() => handleLeave(selectedGroup.id)}
+                    className="p-2 rounded-lg hover:bg-destructive/10 transition-colors text-destructive">
                     <LogOut className="w-4 h-4" />
                   </button>
                 )}
               </div>
             </div>
 
-            {/* Messages or Status */}
+            {/* Body */}
             {!myStatus ? (
               <div className="flex-1 flex items-center justify-center bg-muted/10">
                 <div className="text-center max-w-sm px-6">
-                  <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${
-                    selectedGroup.is_private ? "bg-purple-100" : "bg-primary/10"
-                  }`}>
+                  <div className={`w-20 h-20 rounded-full mx-auto mb-4 flex items-center justify-center ${selectedGroup.is_private ? "bg-purple-100" : "bg-primary/10"}`}>
                     {selectedGroup.is_private ? <Lock className="w-8 h-8 text-purple-500" /> : <Globe className="w-8 h-8 text-primary" />}
                   </div>
                   <h3 className="text-lg font-bold mb-2">{selectedGroup.course_name}</h3>
                   <p className="text-sm text-muted-foreground mb-6">
                     {selectedGroup.is_private
-                      ? "This is a private group. Join to request access — the creator will approve your request."
+                      ? "This is a private group. The creator will approve your request."
                       : "Join this group to participate in discussions and access shared files."}
                   </p>
-                  <button
-                    onClick={() => handleJoin(selectedGroup.id)}
-                    className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors"
-                  >
+                  <button onClick={() => handleJoin(selectedGroup.id)}
+                    className="px-6 py-2.5 bg-primary text-primary-foreground rounded-xl font-medium hover:bg-primary/90 transition-colors">
                     {selectedGroup.is_private ? "Request to Join" : "Join Group"}
                   </button>
                 </div>
@@ -523,12 +483,10 @@ export function StudyGroups() {
                   </div>
                   <h3 className="text-lg font-bold mb-2">Request Pending</h3>
                   <p className="text-sm text-muted-foreground mb-6">
-                    Your request to join <strong>{selectedGroup.course_name}</strong> is waiting for approval from the group creator.
+                    Your request to join <strong>{selectedGroup.course_name}</strong> is waiting for approval.
                   </p>
-                  <button
-                    onClick={() => handleLeave(selectedGroup.id)}
-                    className="px-6 py-2.5 text-destructive border border-destructive rounded-xl font-medium hover:bg-destructive/10 transition-colors text-sm"
-                  >
+                  <button onClick={() => handleLeave(selectedGroup.id)}
+                    className="px-6 py-2.5 text-destructive border border-destructive rounded-xl font-medium hover:bg-destructive/10 transition-colors text-sm">
                     Cancel Request
                   </button>
                 </div>
@@ -548,100 +506,73 @@ export function StudyGroups() {
                       No messages yet. Say hello! 👋
                     </p>
                   </div>
-                ) : (
-                  messages.map((message, idx) => {
-                    const isOwn = message.sender_id === user?.user_id;
-                    const senderName = message.users?.name || "Unknown";
-                    const prevMsg = messages[idx - 1];
-                    const showAvatar = !isOwn && (!prevMsg || prevMsg.sender_id !== message.sender_id);
-                    const showName = !isOwn && showAvatar;
-
-                    return (
-                      <div key={message.id} className={`flex gap-2 ${isOwn ? "flex-row-reverse" : ""} ${showAvatar ? "mt-3" : "mt-0.5"}`}>
-                        <div className="w-8 flex-shrink-0">
-                          {showAvatar && !isOwn && (
-                            <Avatar name={senderName} src={message.users?.avatar_url} size="sm" />
-                          )}
-                        </div>
-                        <div className={`max-w-[70%] ${isOwn ? "flex flex-col items-end" : ""}`}>
-                          {showName && (
-                            <p className="text-xs font-semibold text-primary mb-1 ml-1">{senderName}</p>
-                          )}
-                          {message.content && (
-                            <div className={`px-3.5 py-2 rounded-2xl text-sm shadow-sm ${
-                              isOwn
-                                ? "bg-primary text-primary-foreground rounded-tr-sm"
-                                : "bg-card text-foreground rounded-tl-sm border border-border"
-                            }`}>
-                              <p className="leading-relaxed">{message.content}</p>
-                              <p className={`text-xs mt-1 text-right ${isOwn ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
-                                {formatTime(message.created_at)}
-                              </p>
-                            </div>
-                          )}
-                          {message.file_url && message.file_name && (
-                            <div className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl shadow-sm border ${
-                              isOwn
-                                ? "bg-primary/15 border-primary/20 rounded-tr-sm"
-                                : "bg-card border-border rounded-tl-sm"
-                            }`}>
-                              <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
-                                <FileText className="w-4 h-4 text-primary" />
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">{message.file_name}</p>
-                                <p className="text-xs text-muted-foreground">{formatTime(message.created_at)}</p>
-                              </div>
-                              <button
-                                onClick={() => handleDownload(message.file_url!, message.file_name!)}
-                                className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors"
-                              >
-                                <Download className="w-4 h-4" />
-                              </button>
-                            </div>
-                          )}
-                        </div>
+                ) : messages.map((message, idx) => {
+                  const isOwn = message.sender_id === user?.user_id;
+                  const senderName = message.users?.name || "Unknown";
+                  const prevMsg = messages[idx - 1];
+                  const showAvatar = !isOwn && (!prevMsg || prevMsg.sender_id !== message.sender_id);
+                  return (
+                    <div key={message.id} className={`flex gap-2 ${isOwn ? "flex-row-reverse" : ""} ${showAvatar ? "mt-3" : "mt-0.5"}`}>
+                      <div className="w-8 flex-shrink-0">
+                        {showAvatar && !isOwn && <Avatar name={senderName} src={message.users?.avatar_url} size="sm" />}
                       </div>
-                    );
-                  })
-                )}
+                      <div className={`max-w-[70%] ${isOwn ? "flex flex-col items-end" : ""}`}>
+                        {showAvatar && !isOwn && (
+                          <p className="text-xs font-semibold text-primary mb-1 ml-1">{senderName}</p>
+                        )}
+                        {message.content && (
+                          <div className={`px-3.5 py-2 rounded-2xl text-sm shadow-sm ${
+                            isOwn ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-card text-foreground rounded-tl-sm border border-border"
+                          }`}>
+                            <p className="leading-relaxed">{message.content}</p>
+                            <p className={`text-xs mt-1 text-right ${isOwn ? "text-primary-foreground/60" : "text-muted-foreground"}`}>
+                              {formatTime(message.created_at)}
+                            </p>
+                          </div>
+                        )}
+                        {message.file_url && message.file_name && (
+                          <div className={`flex items-center gap-3 px-3.5 py-2.5 rounded-2xl shadow-sm border ${
+                            isOwn ? "bg-primary/15 border-primary/20 rounded-tr-sm" : "bg-card border-border rounded-tl-sm"
+                          }`}>
+                            <div className="w-9 h-9 bg-primary/10 rounded-xl flex items-center justify-center flex-shrink-0">
+                              <FileText className="w-4 h-4 text-primary" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium truncate">{message.file_name}</p>
+                              <p className="text-xs text-muted-foreground">{formatTime(message.created_at)}</p>
+                            </div>
+                            <button onClick={() => handleDownload(message.file_url!, message.file_name!)}
+                              className="p-1.5 rounded-lg hover:bg-primary/10 text-primary transition-colors">
+                              <Download className="w-4 h-4" />
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
                 <div ref={messagesEndRef} />
               </div>
             )}
 
-            {/* Input */}
             {isApproved && (
               <div className="px-4 py-3 border-t border-border bg-card flex-shrink-0">
                 <div className="flex items-center gap-2">
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    onChange={handleFileUpload}
-                    className="hidden"
-                    accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.zip"
-                  />
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={isUploading}
-                    className="w-10 h-10 rounded-full flex items-center justify-center bg-muted hover:bg-muted/80 text-muted-foreground transition-colors flex-shrink-0"
-                  >
+                  <input ref={fileInputRef} type="file" onChange={handleFileUpload} className="hidden"
+                    accept=".pdf,.doc,.docx,.ppt,.pptx,.txt,.png,.jpg,.jpeg,.zip" />
+                  <button onClick={() => fileInputRef.current?.click()} disabled={isUploading}
+                    className="w-10 h-10 rounded-full flex items-center justify-center bg-muted hover:bg-muted/80 text-muted-foreground transition-colors flex-shrink-0">
                     {isUploading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Upload className="w-4 h-4" />}
                   </button>
                   <div className="flex-1 flex items-center bg-muted rounded-full px-4 py-2.5">
-                    <input
-                      type="text"
-                      value={messageText}
+                    <input type="text" value={messageText}
                       onChange={e => setMessageText(e.target.value)}
                       onKeyDown={e => e.key === "Enter" && !e.shiftKey && handleSendMessage()}
                       placeholder="Type a message..."
-                      className="flex-1 text-sm bg-transparent focus:outline-none"
-                    />
+                      className="flex-1 text-sm bg-transparent focus:outline-none" />
                   </div>
-                  <button
-                    onClick={handleSendMessage}
-                    disabled={isSending || !messageText.trim()}
-                    className="w-10 h-10 rounded-full flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex-shrink-0"
-                  >
+                  <button onClick={handleSendMessage} disabled={isSending || !messageText.trim()}
+                    className="w-10 h-10 rounded-full flex items-center justify-center bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 flex-shrink-0">
                     {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                   </button>
                 </div>
@@ -657,11 +588,8 @@ export function StudyGroups() {
           <div className="bg-card rounded-2xl border border-border w-full max-w-sm shadow-2xl overflow-hidden">
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <h2 className="font-bold text-lg">Group Members</h2>
-              <button onClick={() => setModal(null)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setModal(null)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
             </div>
-
             {isCreator && pendingMembers.length > 0 && (
               <div className="px-5 py-3 bg-orange-50 border-b border-orange-100">
                 <p className="text-xs font-semibold text-orange-600 mb-2">Pending Requests ({pendingMembers.length})</p>
@@ -683,7 +611,6 @@ export function StudyGroups() {
                 </div>
               </div>
             )}
-
             <div className="px-5 py-3 max-h-64 overflow-y-auto">
               <p className="text-xs font-semibold text-muted-foreground mb-2">Members ({approvedMembers.length})</p>
               <div className="space-y-3">
@@ -692,9 +619,7 @@ export function StudyGroups() {
                     <Avatar name={m.users?.name || "?"} src={m.users?.avatar_url} size="sm" />
                     <div className="flex-1">
                       <p className="text-sm font-medium">{m.users?.name || "Unknown"}</p>
-                      {m.user_id === selectedGroup.creator_id && (
-                        <p className="text-xs text-primary">Creator</p>
-                      )}
+                      {m.user_id === selectedGroup.creator_id && <p className="text-xs text-primary">Creator</p>}
                     </div>
                   </div>
                 ))}
@@ -710,50 +635,38 @@ export function StudyGroups() {
           <div className="bg-card rounded-2xl border border-border w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h2 className="text-xl font-bold">New Study Group</h2>
-              <button onClick={() => setModal(null)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setModal(null)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1.5">Course Name <span className="text-destructive">*</span></label>
-                <input value={createForm.course_name}
-                  onChange={e => setCreateForm({ ...createForm, course_name: e.target.value })}
+                <input value={createForm.course_name} onChange={e => setCreateForm({ ...createForm, course_name: e.target.value })}
                   placeholder="e.g. Data Structures and Algorithms"
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">Course Code <span className="text-muted-foreground text-xs">(optional)</span></label>
-                <input value={createForm.course_code}
-                  onChange={e => setCreateForm({ ...createForm, course_code: e.target.value })}
+                <input value={createForm.course_code} onChange={e => setCreateForm({ ...createForm, course_code: e.target.value })}
                   placeholder="e.g. CS301"
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">Description <span className="text-muted-foreground text-xs">(optional)</span></label>
-                <textarea value={createForm.description}
-                  onChange={e => setCreateForm({ ...createForm, description: e.target.value })}
-                  placeholder="What will this group focus on?"
-                  rows={2}
+                <textarea value={createForm.description} onChange={e => setCreateForm({ ...createForm, description: e.target.value })}
+                  placeholder="What will this group focus on?" rows={2}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
               </div>
               <div className="flex items-center gap-3 p-3 bg-muted rounded-xl">
-                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${
-                  createForm.is_private ? "bg-purple-100" : "bg-primary/10"
-                }`}>
+                <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${createForm.is_private ? "bg-purple-100" : "bg-primary/10"}`}>
                   {createForm.is_private ? <Lock className="w-5 h-5 text-purple-500" /> : <Globe className="w-5 h-5 text-primary" />}
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">{createForm.is_private ? "Private Group" : "Public Group"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {createForm.is_private ? "Members need approval to join" : "Anyone can join instantly"}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{createForm.is_private ? "Members need approval to join" : "Anyone can join instantly"}</p>
                 </div>
-                <button
-                  onClick={() => setCreateForm(f => ({ ...f, is_private: !f.is_private }))}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${createForm.is_private ? "bg-purple-500" : "bg-muted-foreground/30"}`}
-                >
-                  <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${createForm.is_private ? "translate-x-5.5 left-0.5" : "left-0.5"}`} />
+                <button onClick={() => setCreateForm(f => ({ ...f, is_private: !f.is_private }))}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${createForm.is_private ? "bg-purple-500" : "bg-muted-foreground/30"}`}>
+                  <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${createForm.is_private ? "left-5" : "left-0.5"}`} />
                 </button>
               </div>
             </div>
@@ -763,9 +676,7 @@ export function StudyGroups() {
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Group"}
               </button>
               <button onClick={() => setModal(null)}
-                className="px-4 py-2.5 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors">
-                Cancel
-              </button>
+                className="px-4 py-2.5 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors">Cancel</button>
             </div>
           </div>
         </div>
@@ -777,29 +688,23 @@ export function StudyGroups() {
           <div className="bg-card rounded-2xl border border-border w-full max-w-md shadow-2xl">
             <div className="flex items-center justify-between px-6 py-4 border-b border-border">
               <h2 className="text-xl font-bold">Edit Group</h2>
-              <button onClick={() => setModal(null)} className="text-muted-foreground hover:text-foreground">
-                <X className="w-5 h-5" />
-              </button>
+              <button onClick={() => setModal(null)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
             </div>
             <div className="px-6 py-5 space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1.5">Course Name</label>
-                <input value={editForm.course_name}
-                  onChange={e => setEditForm({ ...editForm, course_name: e.target.value })}
+                <input value={editForm.course_name} onChange={e => setEditForm({ ...editForm, course_name: e.target.value })}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">Course Code <span className="text-muted-foreground text-xs">(optional)</span></label>
-                <input value={editForm.course_code}
-                  onChange={e => setEditForm({ ...editForm, course_code: e.target.value })}
+                <input value={editForm.course_code} onChange={e => setEditForm({ ...editForm, course_code: e.target.value })}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">Description</label>
-                <textarea value={editForm.description}
-                  onChange={e => setEditForm({ ...editForm, description: e.target.value })}
-                  rows={2}
-                  className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+                <textarea value={editForm.description} onChange={e => setEditForm({ ...editForm, description: e.target.value })}
+                  rows={2} className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
               </div>
               <div className="flex items-center gap-3 p-3 bg-muted rounded-xl">
                 <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 ${editForm.is_private ? "bg-purple-100" : "bg-primary/10"}`}>
@@ -807,15 +712,11 @@ export function StudyGroups() {
                 </div>
                 <div className="flex-1">
                   <p className="text-sm font-medium">{editForm.is_private ? "Private Group" : "Public Group"}</p>
-                  <p className="text-xs text-muted-foreground">
-                    {editForm.is_private ? "Members need approval to join" : "Anyone can join instantly"}
-                  </p>
+                  <p className="text-xs text-muted-foreground">{editForm.is_private ? "Members need approval to join" : "Anyone can join instantly"}</p>
                 </div>
-                <button
-                  onClick={() => setEditForm(f => ({ ...f, is_private: !f.is_private }))}
-                  className={`relative w-11 h-6 rounded-full transition-colors ${editForm.is_private ? "bg-purple-500" : "bg-muted-foreground/30"}`}
-                >
-                  <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${editForm.is_private ? "translate-x-5.5 left-0.5" : "left-0.5"}`} />
+                <button onClick={() => setEditForm(f => ({ ...f, is_private: !f.is_private }))}
+                  className={`relative w-11 h-6 rounded-full transition-colors ${editForm.is_private ? "bg-purple-500" : "bg-muted-foreground/30"}`}>
+                  <div className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${editForm.is_private ? "left-5" : "left-0.5"}`} />
                 </button>
               </div>
             </div>
@@ -825,9 +726,7 @@ export function StudyGroups() {
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
               </button>
               <button onClick={() => setModal(null)}
-                className="px-4 py-2.5 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors">
-                Cancel
-              </button>
+                className="px-4 py-2.5 bg-muted text-foreground rounded-xl font-medium hover:bg-muted/80 transition-colors">Cancel</button>
             </div>
           </div>
         </div>

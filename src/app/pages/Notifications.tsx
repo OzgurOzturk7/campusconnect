@@ -4,7 +4,6 @@ import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
 import { Bell, Briefcase, Calendar, MessageSquare, Users, CheckCheck, Loader2 } from "lucide-react";
 import { apiFetch } from "../lib/api";
-import { useNavigate } from "react-router";
 
 type NotifType = "project_application" | "project_application_result" | "project_team_join" |
   "club_announcement" | "club_application_result" | "new_event" | "event_reminder" |
@@ -44,6 +43,8 @@ const colorMap: Record<string, string> = {
   system: "bg-primary/10 text-primary",
 };
 
+const PER_PAGE = 10;
+
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
@@ -57,7 +58,7 @@ export function Notifications() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
-  const navigate = useNavigate();
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     fetchNotifications();
@@ -76,16 +77,15 @@ export function Notifications() {
   }
 
   async function handleNotifClick(notif: Notification) {
-    // Mark as read in background
     if (!notif.is_read) {
       apiFetch(`/api/notifications/${notif.id}/read`, { method: "PATCH" }).then(() => {
         window.dispatchEvent(new Event("notifications-updated"));
       });
       setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, is_read: true } : n));
     }
-    // Navigate - use replace to force re-render even on same path
+
     if (notif.link) {
-      navigate(notif.link, { replace: false });
+      window.location.href = notif.link;
     }
   }
 
@@ -95,8 +95,16 @@ export function Notifications() {
     window.dispatchEvent(new Event("notifications-updated"));
   }
 
+  function handleFilterChange(newFilter: "all" | "unread") {
+    setFilter(newFilter);
+    setCurrentPage(1);
+  }
+
   const unreadCount = notifications.filter((n) => !n.is_read).length;
   const filtered = filter === "unread" ? notifications.filter((n) => !n.is_read) : notifications;
+
+  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
 
   if (isLoading) {
     return (
@@ -109,23 +117,18 @@ export function Notifications() {
   return (
     <div className="space-y-8">
       <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Notifications</h1>
-          <p className="text-muted-foreground">Stay up to date with everything happening on campus</p>
-        </div>
-        {unreadCount > 0 && (
-          <Button variant="outline" onClick={markAllRead}>
-            <CheckCheck className="w-4 h-4" />
-            Mark all as read
-          </Button>
-        )}
+        <h1 className="text-3xl font-bold">Notifications</h1>
+        <Button variant="outline" onClick={markAllRead} disabled={unreadCount === 0}>
+          <CheckCheck className="w-4 h-4" />
+          Mark all as read
+        </Button>
       </div>
 
       <div className="flex gap-2">
-        <Button variant={filter === "all" ? "primary" : "outline"} size="sm" onClick={() => setFilter("all")}>
+        <Button variant={filter === "all" ? "primary" : "outline"} size="sm" onClick={() => handleFilterChange("all")}>
           All ({notifications.length})
         </Button>
-        <Button variant={filter === "unread" ? "primary" : "outline"} size="sm" onClick={() => setFilter("unread")}>
+        <Button variant={filter === "unread" ? "primary" : "outline"} size="sm" onClick={() => handleFilterChange("unread")}>
           Unread ({unreadCount})
         </Button>
       </div>
@@ -138,7 +141,8 @@ export function Notifications() {
             <p className="text-muted-foreground text-sm">You are all caught up!</p>
           </Card>
         )}
-        {filtered.map((notif) => {
+
+        {paginated.map((notif) => {
           const Icon = iconMap[notif.type] || Bell;
           return (
             <Card
@@ -170,6 +174,55 @@ export function Notifications() {
             </Card>
           );
         })}
+
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-2 pt-4">
+            <button
+              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+              disabled={currentPage === 1}
+              className="px-4 py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              ← Previous
+            </button>
+            <div className="flex gap-1">
+              {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
+                const show = page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1;
+                const showEllipsisBefore = page === currentPage - 2 && currentPage > 4;
+                const showEllipsisAfter = page === currentPage + 2 && currentPage < totalPages - 3;
+                if (showEllipsisBefore || showEllipsisAfter) {
+                  return <span key={page} className="px-1 py-2 text-sm text-muted-foreground">…</span>;
+                }
+                if (!show) return null;
+                return (
+                  <button
+                    key={page}
+                    onClick={() => setCurrentPage(page)}
+                    className={`w-9 h-9 rounded-lg text-sm font-medium transition-colors ${
+                      currentPage === page
+                        ? "bg-primary text-primary-foreground"
+                        : "bg-card border border-border hover:bg-muted"
+                    }`}
+                  >
+                    {page}
+                  </button>
+                );
+              })}
+            </div>
+            <button
+              onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+              disabled={currentPage === totalPages}
+              className="px-4 py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Next →
+            </button>
+          </div>
+        )}
+
+        {totalPages > 1 && (
+          <p className="text-xs text-muted-foreground text-center">
+            Showing {(currentPage - 1) * PER_PAGE + 1}–{Math.min(currentPage * PER_PAGE, filtered.length)} of {filtered.length}
+          </p>
+        )}
       </div>
     </div>
   );

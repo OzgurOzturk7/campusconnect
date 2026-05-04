@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
-import { Calendar, MapPin, Users, Briefcase, Bell, Loader2 } from "lucide-react";
+import { Calendar, MapPin, Users, Briefcase, Bell, Loader2, Clock, CalendarPlus } from "lucide-react";
 import { Link } from "react-router";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -10,8 +10,13 @@ import { useAuth } from "../context/AuthContext";
 interface Event {
   id: string;
   title: string;
+  description: string;
   event_date: string;
   location: string;
+  is_school_wide: boolean;
+  club_id?: string;
+  cover_url?: string;
+  attendee_count?: number;
 }
 
 interface Project {
@@ -28,6 +33,7 @@ interface Notification {
   type: string;
   title: string;
   body: string;
+  link?: string;
   is_read: boolean;
   created_at: string;
 }
@@ -45,6 +51,20 @@ function timeAgo(dateStr: string) {
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
   return `${Math.floor(hours / 24)}d ago`;
+}
+
+function buildGoogleCalendarUrl(event: Event): string {
+  const startDate = new Date(event.event_date);
+  const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+  const formatDate = (d: Date) => d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+  const params = new URLSearchParams({
+    action: "TEMPLATE",
+    text: event.title,
+    dates: `${formatDate(startDate)}/${formatDate(endDate)}`,
+    details: event.description || "",
+    location: event.location || "",
+  });
+  return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
 export function Dashboard() {
@@ -73,12 +93,13 @@ export function Dashboard() {
       const now = new Date();
       const upcoming = eventsData
         .filter((e: Event) => new Date(e.event_date) > now)
-        .slice(0, 3);
+        .sort((a: Event, b: Event) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
+        .slice(0, 4);
       setEvents(upcoming);
 
       const openProjects = projectsData
         .filter((p: Project) => p.status === "open")
-        .slice(0, 2);
+        .slice(0, 3);
       setProjects(openProjects);
 
       setNotifications(notificationsData.slice(0, 4));
@@ -87,11 +108,9 @@ export function Dashboard() {
         (a: { status: string }) => a.status === "accepted"
       ).length;
 
-      const joinedClubs = myClubs.filter(() => true).length;
-
       setStats({
         activeProjects: acceptedApplications,
-        clubsJoined: joinedClubs,
+        clubsJoined: myClubs.length,
         eventsRsvpd: eventsData.length,
       });
     } catch (err) {
@@ -101,11 +120,22 @@ export function Dashboard() {
     }
   }
 
-  async function markNotificationRead(id: string) {
-    await apiFetch(`/api/notifications/${id}/read`, { method: "PATCH" });
-    setNotifications((prev) =>
-      prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-    );
+  async function handleNotifClick(notif: Notification) {
+    if (!notif.is_read) {
+      apiFetch(`/api/notifications/${notif.id}/read`, { method: "PATCH" }).then(() => {
+        window.dispatchEvent(new Event("notifications-updated"));
+      });
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n))
+      );
+    }
+    if (notif.link) {
+      window.location.href = notif.link;
+    }
+  }
+
+  function handleAddToCalendar(event: Event) {
+    window.open(buildGoogleCalendarUrl(event), "_blank", "noopener,noreferrer");
   }
 
   if (isLoading) {
@@ -162,8 +192,97 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left — Projects */}
+        {/* Left — Upcoming Events (büyük kartlar) */}
         <div className="lg:col-span-2 space-y-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-2xl font-bold">Upcoming Events</h2>
+            <Link to="/events">
+              <Button variant="ghost" size="sm">View all</Button>
+            </Link>
+          </div>
+          {events.length === 0 ? (
+            <Card className="p-8 text-center">
+              <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+              <p className="text-muted-foreground">No upcoming events.</p>
+              <Link to="/events">
+                <Button className="mt-4">Browse Events</Button>
+              </Link>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {events.map((event) => {
+                const eventDate = new Date(event.event_date);
+                return (
+                  <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
+                    {/* Cover */}
+                    <div className="relative h-40 flex-shrink-0">
+                      {event.cover_url ? (
+                        <img src={event.cover_url} alt={event.title} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className={`w-full h-full flex items-center justify-center ${
+                          event.is_school_wide ? "bg-gradient-to-br from-primary to-blue-700"
+                          : event.club_id ? "bg-gradient-to-br from-secondary to-teal-600"
+                          : "bg-gradient-to-br from-slate-400 to-slate-600"
+                        }`}>
+                          <Calendar className="w-12 h-12 text-white opacity-30" />
+                        </div>
+                      )}
+                      {/* Date badge */}
+                      <div className="absolute top-3 left-3 bg-white rounded-xl overflow-hidden shadow-md text-center w-12">
+                        <div className="bg-primary text-white text-xs font-bold py-0.5">
+                          {eventDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase()}
+                        </div>
+                        <div className="text-foreground text-lg font-bold leading-tight py-0.5">{eventDate.getDate()}</div>
+                      </div>
+                      {/* Type badge */}
+                      <div className="absolute top-3 right-3">
+                        {event.is_school_wide && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary text-white">School-Wide</span>}
+                        {event.club_id && !event.is_school_wide && (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-secondary text-white">Club Event</span>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Body */}
+                    <div className="p-4 flex flex-col flex-1">
+                      <h3 className="font-bold text-base mb-1 line-clamp-1">{event.title}</h3>
+                      {event.description && (
+                        <p className="text-sm text-muted-foreground mb-3 line-clamp-2">{event.description}</p>
+                      )}
+                      <div className="space-y-1.5 text-xs text-muted-foreground flex-1">
+                        <div className="flex items-center gap-1.5">
+                          <Clock className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span>{eventDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {eventDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
+                          <span className="truncate">{event.location}</span>
+                        </div>
+                        {(event.attendee_count ?? 0) > 0 && (
+                          <div className="flex items-center gap-1.5">
+                            <Users className="w-3.5 h-3.5 flex-shrink-0" />
+                            <span>{event.attendee_count} attending</span>
+                          </div>
+                        )}
+                      </div>
+                      <button
+                        onClick={() => handleAddToCalendar(event)}
+                        className="mt-3 w-full py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted transition-colors flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+                      >
+                        <CalendarPlus className="w-4 h-4" />
+                        Add to Calendar
+                      </button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Right — Open Projects + Notifications */}
+        <div className="space-y-8">
+          {/* Open Projects */}
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold">Open Projects</h2>
@@ -172,73 +291,25 @@ export function Dashboard() {
               </Link>
             </div>
             {projects.length === 0 ? (
-              <Card className="p-8 text-center">
-                <p className="text-muted-foreground">No open projects yet.</p>
-                <Link to="/projects">
-                  <Button className="mt-4">Browse Projects</Button>
-                </Link>
-              </Card>
-            ) : (
-              <div className="space-y-4">
-                {projects.map((project) => (
-                  <Card key={project.id} className="p-6">
-                    <h3 className="text-xl font-semibold mb-2">{project.title}</h3>
-                    <p className="text-muted-foreground mb-4">{project.description}</p>
-                    <div className="flex flex-wrap gap-2 mb-3">
-                      {project.tech_stack.map((tech) => (
-                        <Tag key={tech} variant="primary">{tech}</Tag>
-                      ))}
-                    </div>
-                    <div className="flex flex-wrap gap-2 mb-4">
-                      {project.roles_needed.map((role) => (
-                        <Tag key={role} variant="secondary">{role}</Tag>
-                      ))}
-                    </div>
-                    <div className="flex gap-3">
-                      <Link to="/projects">
-                        <Button>Apply Now</Button>
-                      </Link>
-                      <Link to="/projects">
-                        <Button variant="outline">Learn More</Button>
-                      </Link>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Right — Events + Notifications */}
-        <div className="space-y-8">
-          <div>
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold">Upcoming Events</h2>
-              <Link to="/events">
-                <Button variant="ghost" size="sm">View all</Button>
-              </Link>
-            </div>
-            {events.length === 0 ? (
               <Card className="p-6 text-center">
-                <p className="text-muted-foreground text-sm">No upcoming events.</p>
+                <p className="text-muted-foreground text-sm">No open projects yet.</p>
               </Card>
             ) : (
-              <div className="space-y-4">
-                {events.map((event) => (
-                  <Card key={event.id} className="p-5">
-                    <h3 className="font-semibold mb-3">{event.title}</h3>
-                    <div className="space-y-2 text-sm text-muted-foreground mb-4">
-                      <div className="flex items-center gap-2">
-                        <Calendar className="w-4 h-4" />
-                        <span>{new Date(event.event_date).toLocaleDateString()}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>{event.location}</span>
-                      </div>
+              <div className="space-y-3">
+                {projects.map((project) => (
+                  <Card key={project.id} className="p-4 hover:shadow-md transition-shadow">
+                    <h3 className="font-semibold text-sm mb-1 line-clamp-1">{project.title}</h3>
+                    <p className="text-xs text-muted-foreground mb-3 line-clamp-2">{project.description}</p>
+                    <div className="flex flex-wrap gap-1 mb-3">
+                      {project.tech_stack.slice(0, 3).map((tech) => (
+                        <Tag key={tech} variant="primary" className="text-xs">{tech}</Tag>
+                      ))}
+                      {project.tech_stack.length > 3 && (
+                        <span className="text-xs text-muted-foreground">+{project.tech_stack.length - 3}</span>
+                      )}
                     </div>
-                    <Link to="/events">
-                      <Button className="w-full">RSVP</Button>
+                    <Link to="/projects">
+                      <Button variant="outline" className="w-full text-xs py-1.5">View Project</Button>
                     </Link>
                   </Card>
                 ))}
@@ -246,6 +317,7 @@ export function Dashboard() {
             )}
           </div>
 
+          {/* Notifications */}
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Bell className="w-5 h-5 text-primary" />
@@ -268,7 +340,7 @@ export function Dashboard() {
                     className={`p-4 cursor-pointer hover:shadow-md transition-all ${
                       !notification.is_read ? "bg-accent border-primary/20" : ""
                     }`}
-                    onClick={() => { if (!notification.is_read) markNotificationRead(notification.id); }}
+                    onClick={() => handleNotifClick(notification)}
                   >
                     <div className="flex items-start gap-3">
                       <div className="relative">

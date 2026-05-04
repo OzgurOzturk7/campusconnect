@@ -4,7 +4,8 @@ import { Button } from "../components/Button";
 import {
   Calendar, MapPin, Users, Clock, Search,
   Plus, X, Loader2, ChevronLeft, ChevronRight,
-  List, CalendarDays, Edit, Trash2, Check, Globe, Lock
+  List, CalendarDays, Edit, Trash2, Check, Globe, Lock,
+  CalendarPlus
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -109,6 +110,32 @@ export function Events() {
       const data = await apiFetch("/api/events/my-attending");
       setAttendingIds(new Set(data.map((e: { event_id: string }) => e.event_id)));
     } catch { /* ignore */ }
+  }
+
+  function buildGoogleCalendarUrl(event: Event): string {
+    const startDate = new Date(event.event_date);
+    // Default duration: 1 hour
+    const endDate = new Date(startDate.getTime() + 60 * 60 * 1000);
+
+    // Google Calendar expects format YYYYMMDDTHHMMSSZ
+    const formatDate = (d: Date) => {
+      return d.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}/, "");
+    };
+
+    const params = new URLSearchParams({
+      action: "TEMPLATE",
+      text: event.title,
+      dates: `${formatDate(startDate)}/${formatDate(endDate)}`,
+      details: event.description || "",
+      location: event.location || "",
+    });
+
+    return `https://calendar.google.com/calendar/render?${params.toString()}`;
+  }
+
+  function handleAddToCalendar(event: Event) {
+    const url = buildGoogleCalendarUrl(event);
+    window.open(url, "_blank", "noopener,noreferrer");
   }
 
   async function handleToggleAttend(eventId: string) {
@@ -514,6 +541,17 @@ export function Events() {
                         ) : (
                           <>+ Mark as Attending</>
                         )}
+                      </button>
+                    )}
+
+                    {/* Add to Google Calendar — anyone, upcoming events only */}
+                    {!isPast && (
+                      <button
+                        onClick={() => handleAddToCalendar(event)}
+                        className="mt-2 w-full py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted transition-colors flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
+                      >
+                        <CalendarPlus className="w-4 h-4" />
+                        Add to Google Calendar
                       </button>
                     )}
                   </div>

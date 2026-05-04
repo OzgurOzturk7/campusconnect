@@ -82,11 +82,8 @@ export function Profile() {
   async function fetchMyClubs() {
     try {
       setIsLoadingClubs(true);
-      // Get my memberships
       const memberships = await apiFetch("/api/clubs/my-memberships");
       if (!memberships || memberships.length === 0) { setMyClubs([]); return; }
-
-      // Fetch club details for each membership
       const clubPromises = memberships.map(async (m: { club_id: string; role: string; status: string }) => {
         try {
           const club = await apiFetch(`/api/clubs/${m.club_id}`);
@@ -159,18 +156,13 @@ export function Profile() {
           github_url: editForm.github_url || undefined,
           linkedin_url: editForm.linkedin_url || undefined,
           bio: editForm.bio || undefined,
-          skills: editForm.skills
-            ? editForm.skills.split(",").map((s) => s.trim()).filter(Boolean)
-            : undefined,
-          courses: editForm.courses
-            ? editForm.courses.split(",").map((s) => s.trim()).filter(Boolean)
-            : undefined,
+          skills: editForm.skills ? editForm.skills.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
+          courses: editForm.courses ? editForm.courses.split(",").map((s) => s.trim()).filter(Boolean) : undefined,
         }),
       });
       setSaveSuccess(true);
       setIsEditing(false);
       fetchProfile();
-      // Invalidate AI cache on profile update
       setAiAnalysis(null);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: unknown) {
@@ -206,7 +198,7 @@ export function Profile() {
   }
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       {saveSuccess && (
         <div className="flex items-center gap-2 bg-green-50 text-green-700 border border-green-200 rounded-lg px-4 py-3 text-sm">
           <Check className="w-4 h-4" />
@@ -228,7 +220,7 @@ export function Profile() {
                       <GraduationCap className="w-4 h-4" />
                       <span>
                         {profile.department}
-                        {profile.year ? `, Year ${profile.year}` : ""}
+                        {profile.year ? `, Semester ${profile.year}` : ""}
                       </span>
                     </div>
                   )}
@@ -277,197 +269,145 @@ export function Profile() {
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 space-y-8">
+      {/* ── About ── */}
+      <Card className="p-6">
+        <h2 className="text-xl font-bold mb-4">About</h2>
+        {profile.bio ? (
+          <p className="text-muted-foreground leading-relaxed">{profile.bio}</p>
+        ) : (
+          <p className="text-muted-foreground italic">No bio yet. Click Edit Profile to add one.</p>
+        )}
+      </Card>
 
-          {/* ── About ── */}
-          <Card className="p-6">
-            <h2 className="text-xl font-bold mb-4">About</h2>
-            {profile.bio ? (
-              <p className="text-muted-foreground leading-relaxed">{profile.bio}</p>
-            ) : (
-              <p className="text-muted-foreground italic">No bio yet. Click Edit Profile to add one.</p>
-            )}
-          </Card>
+      {/* ── Skills + Courses (side by side) ── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-bold">Skills</h2>
+            <span className="text-sm font-medium text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
+              {profile.skills?.length || 0}
+            </span>
+          </div>
+          {profile.skills && profile.skills.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {profile.skills.map((skill) => (
+                <Tag key={skill} variant="primary">{skill}</Tag>
+              ))}
+            </div>
+          ) : (
+            <p className="text-muted-foreground italic">No skills added yet.</p>
+          )}
+        </Card>
 
-          {/* ── Skills ── */}
-          <Card className="p-6">
-            <h2 className="text-xl font-bold mb-4">Skills</h2>
-            {profile.skills && profile.skills.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {profile.skills.map((skill) => (
-                  <Tag key={skill} variant="primary">{skill}</Tag>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground italic">No skills added yet.</p>
-            )}
-          </Card>
-
-          {/* ── Courses ── */}
-          <Card className="p-6">
-            <div className="flex items-center gap-2 mb-4">
+        <Card className="p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-primary" />
               <h2 className="text-xl font-bold">Current Courses</h2>
             </div>
-            {profile.courses && profile.courses.length > 0 ? (
-              <div className="flex flex-wrap gap-2">
-                {profile.courses.map((course) => (
-                  <Tag key={course} variant="muted">{course}</Tag>
-                ))}
-              </div>
-            ) : (
-              <p className="text-muted-foreground italic">No courses added yet.</p>
-            )}
-          </Card>
-
-          {/* ── AI Profile Analysis ── */}
-          <Card className="p-6">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-primary" />
-                <h2 className="text-xl font-bold">AI Profile Analysis</h2>
-              </div>
-              <Button
-                variant="outline"
-                onClick={fetchAIAnalysis}
-                disabled={isAnalyzing}
-              >
-                {isAnalyzing ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing...</>
-                ) : aiAnalysis ? (
-                  <><RefreshCw className="w-4 h-4" /> Refresh</>
-                ) : (
-                  <><Sparkles className="w-4 h-4" /> Analyze Profile</>
-                )}
-              </Button>
+            <span className="text-sm font-medium text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
+              {profile.courses?.length || 0}
+            </span>
+          </div>
+          {profile.courses && profile.courses.length > 0 ? (
+            <div className="flex flex-wrap gap-2">
+              {profile.courses.map((course) => (
+                <Tag key={course} variant="muted">{course}</Tag>
+              ))}
             </div>
-
-            {analysisError && (
-              <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4">
-                <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                {analysisError}
-              </div>
-            )}
-
-            {!aiAnalysis && !isAnalyzing && !analysisError && (
-              <p className="text-muted-foreground text-sm">
-                Get personalized tips, club suggestions, and improvement ideas based on your profile.
-                Analysis is cached for 24 hours.
-              </p>
-            )}
-
-            {aiAnalysis && (
-              <div className="space-y-5">
-                {/* Missing fields warning */}
-                {aiAnalysis.missing_fields.length > 0 && (
-                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                    <p className="text-sm font-medium text-amber-800 mb-2">
-                      Complete your profile for better suggestions:
-                    </p>
-                    <div className="flex flex-wrap gap-2">
-                      {aiAnalysis.missing_fields.map((f) => (
-                        <span
-                          key={f}
-                          className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full capitalize"
-                        >
-                          {f.replace("_", " ")}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Tips */}
-                {aiAnalysis.tips.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2 text-foreground">
-                      Profile Improvement Tips
-                    </h3>
-                    <ul className="space-y-2">
-                      {aiAnalysis.tips.map((tip, i) => (
-                        <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
-                          <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
-                          {tip}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-
-                {/* Club suggestions */}
-                {aiAnalysis.club_suggestions.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2 text-foreground">
-                      Suggested Clubs for You
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {aiAnalysis.club_suggestions.map((club) => (
-                        <Tag key={club} variant="primary">{club}</Tag>
-                      ))}
-                    </div>
-                  </div>
-                )}
-
-                {/* Event suggestions */}
-                {aiAnalysis.event_suggestions.length > 0 && (
-                  <div>
-                    <h3 className="text-sm font-semibold mb-2 text-foreground">
-                      Recommended Event Types
-                    </h3>
-                    <div className="flex flex-wrap gap-2">
-                      {aiAnalysis.event_suggestions.map((ev) => (
-                        <Tag key={ev} variant="muted">{ev}</Tag>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
-            )}
-          </Card>
-        </div>
-
-        {/* ── Right sidebar ── */}
-        <div>
-          <Card className="p-6">
-            <h3 className="font-bold mb-4">Profile Info</h3>
-            <div className="space-y-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Role</span>
-                <Tag variant={profile.role === "admin" ? "primary" : "muted"} className="text-xs capitalize">
-                  {profile.role}
-                </Tag>
-              </div>
-              {profile.university && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">University</span>
-                  <span className="font-medium text-right max-w-[60%]">{profile.university}</span>
-                </div>
-              )}
-              {profile.department && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Department</span>
-                  <span className="font-medium text-right max-w-[60%]">{profile.department}</span>
-                </div>
-              )}
-              {profile.year && (
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Year</span>
-                  <span className="font-medium">Year {profile.year}</span>
-                </div>
-              )}
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Skills</span>
-                <span className="font-medium">{profile.skills?.length || 0}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Courses</span>
-                <span className="font-medium">{profile.courses?.length || 0}</span>
-              </div>
-            </div>
-          </Card>
-        </div>
+          ) : (
+            <p className="text-muted-foreground italic">No courses added yet.</p>
+          )}
+        </Card>
       </div>
+
+      {/* ── AI Profile Analysis ── */}
+      <Card className="p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-2">
+            <Sparkles className="w-5 h-5 text-primary" />
+            <h2 className="text-xl font-bold">AI Profile Analysis</h2>
+          </div>
+          <Button variant="outline" onClick={fetchAIAnalysis} disabled={isAnalyzing}>
+            {isAnalyzing ? (
+              <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing...</>
+            ) : aiAnalysis ? (
+              <><RefreshCw className="w-4 h-4" /> Refresh</>
+            ) : (
+              <><Sparkles className="w-4 h-4" /> Analyze Profile</>
+            )}
+          </Button>
+        </div>
+
+        {analysisError && (
+          <div className="flex items-center gap-2 text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-3 mb-4">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            {analysisError}
+          </div>
+        )}
+
+        {!aiAnalysis && !isAnalyzing && !analysisError && (
+          <p className="text-muted-foreground text-sm">
+            Get personalized tips, club suggestions, and improvement ideas based on your profile.
+            Analysis is cached for 24 hours.
+          </p>
+        )}
+
+        {aiAnalysis && (
+          <div className="space-y-5">
+            {aiAnalysis.missing_fields.length > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <p className="text-sm font-medium text-amber-800 mb-2">
+                  Complete your profile for better suggestions:
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {aiAnalysis.missing_fields.map((f) => (
+                    <span key={f} className="text-xs bg-amber-100 text-amber-700 px-2 py-1 rounded-full capitalize">
+                      {f.replace("_", " ")}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {aiAnalysis.tips.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2 text-foreground">Profile Improvement Tips</h3>
+                <ul className="space-y-2">
+                  {aiAnalysis.tips.map((tip, i) => (
+                    <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
+                      <Check className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                      {tip}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {aiAnalysis.club_suggestions.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2 text-foreground">Suggested Clubs for You</h3>
+                <div className="flex flex-wrap gap-2">
+                  {aiAnalysis.club_suggestions.map((club) => (
+                    <Tag key={club} variant="primary">{club}</Tag>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {aiAnalysis.event_suggestions.length > 0 && (
+              <div>
+                <h3 className="text-sm font-semibold mb-2 text-foreground">Recommended Event Types</h3>
+                <div className="flex flex-wrap gap-2">
+                  {aiAnalysis.event_suggestions.map((ev) => (
+                    <Tag key={ev} variant="muted">{ev}</Tag>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
 
       {/* ── My Clubs ── */}
       <div>
@@ -505,7 +445,6 @@ export function Profile() {
 
               return (
                 <Card key={club.id} className="overflow-hidden hover:shadow-md transition-shadow flex flex-col">
-                  {/* Cover / gradient */}
                   <div className="relative h-28 flex-shrink-0">
                     {club.cover_url ? (
                       <img src={club.cover_url} alt={club.name} className="w-full h-full object-cover" />
@@ -514,13 +453,11 @@ export function Profile() {
                         <span className="text-white text-4xl font-bold opacity-25">{club.name[0]}</span>
                       </div>
                     )}
-                    {/* Role badge */}
                     <div className="absolute top-2 right-2">
                       <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-black/50 text-white capitalize">
                         {club.my_role}
                       </span>
                     </div>
-                    {/* Pending badge */}
                     {club.my_status === "pending" && (
                       <div className="absolute top-2 left-2">
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500 text-white">
@@ -530,7 +467,6 @@ export function Profile() {
                     )}
                   </div>
 
-                  {/* Body */}
                   <div className="p-4 flex flex-col flex-1">
                     <div className="flex items-start justify-between mb-1">
                       <h3 className="font-bold text-sm leading-tight flex-1 mr-2">{club.name}</h3>
@@ -584,11 +520,7 @@ export function Profile() {
               Are you sure you want to leave <span className="font-semibold text-foreground">"{leaveConfirm.name}"</span>? You can rejoin later.
             </p>
             <div className="flex gap-3">
-              <Button
-                onClick={confirmLeave}
-                className="flex-1"
-                style={{ background: "#ef4444" }}
-              >
+              <Button onClick={confirmLeave} className="flex-1" style={{ background: "#ef4444" }}>
                 Leave Club
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => setLeaveConfirm(null)}>
@@ -638,15 +570,15 @@ export function Profile() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Year</label>
+                <label className="block text-sm font-medium mb-1.5">Semester</label>
                 <select
                   value={editForm.year}
                   onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 >
-                  <option value="">Select year</option>
-                  {[1, 2, 3, 4, 5, 6].map((y) => (
-                    <option key={y} value={y}>Year {y}</option>
+                  <option value="">Select semester</option>
+                  {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
+                    <option key={s} value={s}>Semester {s}</option>
                   ))}
                 </select>
               </div>

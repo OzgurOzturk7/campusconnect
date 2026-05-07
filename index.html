@@ -9,6 +9,25 @@
     <link rel="icon" type="image/png" sizes="16x16" href="/favicon-16x16.png" />
     <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/site.webmanifest" />
+
+    <!-- Performance: preconnect to font origins early -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="preload"
+      as="style"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap"
+    />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&display=swap"
+    />
+
+    <!-- Preload above-the-fold logo for instant LCP -->
+    <link rel="preload" as="image" href="/logo.png" fetchpriority="high" />
+
+    <!-- Preconnect to Google Identity Services (login) -->
+    <link rel="preconnect" href="https://accounts.google.com" />
   </head>
   <body>
     <div id="root"></div>

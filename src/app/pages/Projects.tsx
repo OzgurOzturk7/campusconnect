@@ -51,7 +51,7 @@ interface Application {
 
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-green-100 text-green-700",
-  closed: "bg-gray-100 text-gray-600",
+  closed: "bg-muted text-muted-foreground",
   completed: "bg-blue-100 text-blue-700",
 };
 
@@ -337,21 +337,27 @@ export function Projects() {
               </div>
             </div>
             <div className="mb-5">
-              <label className="block text-sm font-medium mb-1.5">Reason for rejection <span className="text-muted-foreground font-normal">(optional)</span></label>
+              <label className="block text-sm font-medium mb-1.5">
+                Reason for rejection <span className="text-destructive font-normal">*</span>
+              </label>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
                 placeholder="e.g. We already found someone for this role, or your skills don't match our current needs..."
                 rows={3}
+                required
                 className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
               />
+              <p className="text-xs text-muted-foreground mt-1.5">
+                Please provide a reason — this helps the applicant understand and improve.
+              </p>
             </div>
             <div className="flex gap-3">
               <Button
                 className="flex-1"
                 style={{ background: "#ef4444" }}
                 onClick={() => handleApplicationStatus(rejectModal.appId, rejectModal.projectId, "rejected", rejectReason)}
-                disabled={updatingAppId === rejectModal.appId}
+                disabled={updatingAppId === rejectModal.appId || !rejectReason.trim()}
               >
                 {updatingAppId === rejectModal.appId
                   ? <Loader2 className="w-4 h-4 animate-spin" />

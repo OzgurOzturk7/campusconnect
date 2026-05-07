@@ -453,8 +453,8 @@ export function Events() {
                       </div>
                     )}
                     {/* Date badge */}
-                    <div className="absolute top-3 left-3 bg-white rounded-xl overflow-hidden shadow-md text-center w-12">
-                      <div className="bg-primary text-white text-xs font-bold py-0.5">
+                    <div className="absolute top-3 left-3 bg-card rounded-xl overflow-hidden shadow-md text-center w-12">
+                      <div className="bg-primary text-primary-foreground text-xs font-bold py-0.5">
                         {eventDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase()}
                       </div>
                       <div className="text-foreground text-lg font-bold leading-tight py-0.5">{eventDate.getDate()}</div>
@@ -481,7 +481,7 @@ export function Events() {
                     {canEditThis && !isPast && (
                       <div className="absolute bottom-3 right-3 flex gap-1.5">
                         <button onClick={() => openEdit(event)}
-                          className="flex items-center gap-1 text-xs bg-white/90 hover:bg-white text-foreground px-2.5 py-1.5 rounded-lg shadow transition-colors font-medium">
+                          className="flex items-center gap-1 text-xs bg-card/90 hover:bg-card text-foreground px-2.5 py-1.5 rounded-lg shadow transition-colors font-medium">
                           <Edit className="w-3.5 h-3.5" /> Edit
                         </button>
                         <button onClick={() => setDeleteConfirm({ id: event.id, title: event.title })}

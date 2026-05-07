@@ -12,6 +12,7 @@ interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string, remember: boolean) => Promise<void>;
+  loginWithGoogle: (credential: string, remember: boolean) => Promise<void>;
   logout: () => void;
   isAdmin: boolean;
   isStudent: boolean;
@@ -83,6 +84,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData);
   };
 
+  const persistSession = (data: any, remember: boolean) => {
+    const userData: User = {
+      user_id: data.user_id,
+      name: data.name,
+      email: data.email,
+      role: data.role,
+      access_token: data.access_token,
+    };
+    if (remember) {
+      localStorage.setItem(TOKEN_KEY, data.access_token);
+      localStorage.setItem(USER_KEY, JSON.stringify(userData));
+      sessionStorage.removeItem(USER_KEY);
+      sessionStorage.removeItem(TOKEN_KEY);
+    } else {
+      sessionStorage.setItem(TOKEN_KEY, data.access_token);
+      sessionStorage.setItem(USER_KEY, JSON.stringify(userData));
+      localStorage.removeItem(USER_KEY);
+      localStorage.removeItem(TOKEN_KEY);
+    }
+    setUser(userData);
+  };
+
+  const loginWithGoogle = async (credential: string, remember: boolean) => {
+    const response = await fetch(`${API_BASE}/api/auth/google`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ credential }),
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({}));
+      throw new Error(error.detail || "Google sign-in failed");
+    }
+    const data = await response.json();
+    persistSession(data, remember);
+  };
+
   const logout = () => {
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(USER_KEY);
@@ -97,6 +134,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         user,
         isLoading,
         login,
+        loginWithGoogle,
         logout,
         isAdmin: user?.role === "admin",
         isStudent: user?.role === "student",

@@ -1,12 +1,15 @@
 from fastapi import APIRouter, HTTPException, status, Depends
-from app.schemas.auth import LoginRequest, LoginResponse, UserPublic, UserUpdate, AIAnalysisResponse
+from app.schemas.auth import LoginRequest, LoginResponse, GoogleLoginRequest, UserPublic, UserUpdate, AIAnalysisResponse
 from app.core.supabase import get_supabase, get_supabase_admin
 from app.core.security import create_access_token, get_current_user
+from app.core.config import settings
 import os
 import json
 from datetime import datetime, timedelta
 
 router = APIRouter()
+
+ALLOWED_GOOGLE_DOMAIN = "final.edu.tr"
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -42,6 +45,126 @@ def login(body: LoginRequest):
         raise HTTPException(status_code=404, detail="User profile not found. Contact admin.")
 
     user = result.data
+    token = create_access_token(data={"sub": user["id"], "role": user["role"], "email": user["email"]})
+
+    return LoginResponse(
+        access_token=token,
+        role=user["role"],
+        user_id=user["id"],
+        name=user["name"],
+        email=user["email"],
+    )
+
+
+@router.post("/google", response_model=LoginResponse)
+def google_login(body: GoogleLoginRequest):
+    """
+    Verify a Google ID token (credential) from Google Identity Services.
+    Only @final.edu.tr accounts are allowed.
+    The user must already exist in the `users` table — this endpoint does not create accounts.
+    """
+    google_client_id = settings.GOOGLE_CLIENT_ID or os.getenv("GOOGLE_CLIENT_ID", "")
+    if not google_client_id:
+        raise HTTPException(status_code=500, detail="Google sign-in not configured on server")
+
+    try:
+        from google.oauth2 import id_token
+        from google.auth.transport import requests as g_requests
+    except ImportError as e:
+        print("GOOGLE AUTH IMPORT ERROR:", e)
+        raise HTTPException(status_code=500, detail=f"google-auth import failed: {e}")
+
+    try:
+        info = id_token.verify_oauth2_token(
+            body.credential,
+            g_requests.Request(),
+            google_client_id,
+            clock_skew_in_seconds=10,
+        )
+    except Exception as e:
+        print("GOOGLE TOKEN VERIFY ERROR:", repr(e))
+        print("USING CLIENT ID:", google_client_id)
+        raise HTTPException(status_code=401, detail=f"Invalid Google credential: {e}")
+
+    email = (info.get("email") or "").lower()
+    email_verified = info.get("email_verified", False)
+    hd = info.get("hd")
+
+    if not email or not email_verified:
+        raise HTTPException(status_code=401, detail="Email not verified by Google")
+
+    # Domain restriction — both `hd` claim and email suffix
+    if hd != ALLOWED_GOOGLE_DOMAIN and not email.endswith(f"@{ALLOWED_GOOGLE_DOMAIN}"):
+        raise HTTPException(
+            status_code=403,
+            detail=f"Only @{ALLOWED_GOOGLE_DOMAIN} accounts are allowed.",
+        )
+
+    name = info.get("name") or email.split("@")[0]
+    avatar_url = info.get("picture")
+
+    supabase = get_supabase_admin()
+
+    # 1) Check if user already exists in public.users
+    try:
+        result = (
+            supabase.table("users")
+            .select("id, email, name, role")
+            .eq("email", email)
+            .maybe_single()
+            .execute()
+        )
+    except Exception as e:
+        print("DB ERROR:", e)
+        raise HTTPException(status_code=500, detail="Database error")
+
+    user = result.data if result and result.data else None
+
+    # 2) Auto-provision on first sign-in
+    if not user:
+        try:
+            # Create Supabase Auth user (foreign key target for public.users.id)
+            auth_user = supabase.auth.admin.create_user({
+                "email": email,
+                "email_confirm": True,
+                "user_metadata": {
+                    "name": name,
+                    "avatar_url": avatar_url,
+                    "provider": "google",
+                },
+            })
+            new_id = auth_user.user.id
+        except Exception as e:
+            # If user already exists in auth but not in public.users, try to fetch it
+            print("AUTH CREATE ERROR:", repr(e))
+            try:
+                listed = supabase.auth.admin.list_users()
+                match = next((u for u in (listed or []) if (getattr(u, "email", "") or "").lower() == email), None)
+                if not match:
+                    raise HTTPException(status_code=500, detail=f"Could not provision account: {e}")
+                new_id = match.id
+            except HTTPException:
+                raise
+            except Exception as e2:
+                raise HTTPException(status_code=500, detail=f"Could not provision account: {e2}")
+
+        # Insert profile row
+        try:
+            insert_payload = {
+                "id": new_id,
+                "email": email,
+                "name": name,
+                "role": "student",
+            }
+            if avatar_url:
+                insert_payload["avatar_url"] = avatar_url
+
+            inserted = supabase.table("users").insert(insert_payload).execute()
+            user = inserted.data[0] if inserted.data else insert_payload
+        except Exception as e:
+            print("PROFILE INSERT ERROR:", repr(e))
+            raise HTTPException(status_code=500, detail=f"Could not create profile: {e}")
+
     token = create_access_token(data={"sub": user["id"], "role": user["role"], "email": user["email"]})
 
     return LoginResponse(

@@ -252,7 +252,7 @@ export function Clubs() {
     return matchSearch && matchCat && matchMem && matchType;
   });
 
-  const totalPages = Math.ceil(filtered.length / CLUBS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / CLUBS_PER_PAGE));
   const paginated = filtered.slice((currentPage - 1) * CLUBS_PER_PAGE, currentPage * CLUBS_PER_PAGE);
 
   if (isLoading) {
@@ -516,8 +516,7 @@ export function Clubs() {
             )}
 
             <p className="text-sm text-muted-foreground">
-              {filtered.length} club{filtered.length !== 1 ? "s" : ""} found
-              {totalPages > 1 && ` — page ${currentPage} of ${totalPages}`}
+              {filtered.length} club{filtered.length !== 1 ? "s" : ""} found — page {currentPage} of {totalPages}
             </p>
           </div>
 
@@ -665,15 +664,20 @@ export function Clubs() {
                 })}
               </div>
 
-              {/* Pagination */}
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center gap-2 pt-2">
+              {/* Pagination — always shown */}
+              <div className="flex items-center justify-between gap-4 flex-wrap pt-4">
+                <p className="text-xs text-muted-foreground">
+                  Showing <span className="font-semibold text-foreground">{(currentPage - 1) * CLUBS_PER_PAGE + 1}</span>
+                  –<span className="font-semibold text-foreground">{Math.min(currentPage * CLUBS_PER_PAGE, filtered.length)}</span>
+                  {" "}of <span className="font-semibold text-foreground">{filtered.length}</span>
+                </p>
+                <div className="flex items-center gap-1.5">
                   <button
                     onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className="px-4 py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
-                    ← Previous
+                    ← Prev
                   </button>
                   <div className="flex gap-1">
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
@@ -681,7 +685,7 @@ export function Clubs() {
                       const showEllipsisBefore = page === currentPage - 2 && currentPage > 4;
                       const showEllipsisAfter = page === currentPage + 2 && currentPage < totalPages - 3;
                       if (showEllipsisBefore || showEllipsisAfter) {
-                        return <span key={page} className="px-1 py-2 text-sm text-muted-foreground">…</span>;
+                        return <span key={page} className="px-1 self-center text-sm text-muted-foreground">…</span>;
                       }
                       if (!show) return null;
                       return (
@@ -702,12 +706,16 @@ export function Clubs() {
                   <button
                     onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className="px-4 py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                    className="px-3 py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
                     Next →
                   </button>
                 </div>
-              )}
+                <p className="text-xs text-muted-foreground">
+                  Page <span className="font-semibold text-foreground">{currentPage}</span> of{" "}
+                  <span className="font-semibold text-foreground">{totalPages}</span>
+                </p>
+              </div>
             </>
           )}
         </div>

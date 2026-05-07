@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
-import { Calendar, MapPin, Users, Briefcase, Bell, Loader2, Clock, CalendarPlus } from "lucide-react";
-import { Link } from "react-router";
+import { Calendar, MapPin, Users, Bell, Loader2, Clock, CalendarPlus } from "lucide-react";
+import { Link, useNavigate } from "react-router";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 
@@ -39,7 +39,6 @@ interface Notification {
 }
 
 interface Stats {
-  activeProjects: number;
   clubsJoined: number;
   eventsRsvpd: number;
 }
@@ -69,10 +68,11 @@ function buildGoogleCalendarUrl(event: Event): string {
 
 export function Dashboard() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [events, setEvents] = useState<Event[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
-  const [stats, setStats] = useState<Stats>({ activeProjects: 0, clubsJoined: 0, eventsRsvpd: 0 });
+  const [stats, setStats] = useState<Stats>({ clubsJoined: 0, eventsRsvpd: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -82,11 +82,10 @@ export function Dashboard() {
   async function fetchAll() {
     try {
       setIsLoading(true);
-      const [eventsData, projectsData, notificationsData, myApplications, myClubs] = await Promise.all([
+      const [eventsData, projectsData, notificationsData, myClubs] = await Promise.all([
         apiFetch("/api/events/"),
         apiFetch("/api/projects/"),
         apiFetch("/api/notifications/"),
-        apiFetch("/api/projects/mine/applications"),
         apiFetch("/api/clubs/"),
       ]);
 
@@ -104,12 +103,7 @@ export function Dashboard() {
 
       setNotifications(notificationsData.slice(0, 4));
 
-      const acceptedApplications = myApplications.filter(
-        (a: { status: string }) => a.status === "accepted"
-      ).length;
-
       setStats({
-        activeProjects: acceptedApplications,
         clubsJoined: myClubs.length,
         eventsRsvpd: eventsData.length,
       });
@@ -130,7 +124,7 @@ export function Dashboard() {
       );
     }
     if (notif.link) {
-      window.location.href = notif.link;
+      navigate(notif.link);
     }
   }
 
@@ -161,16 +155,7 @@ export function Dashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">Active Projects</p>
-              <p className="text-2xl font-bold mt-1">{stats.activeProjects}</p>
-            </div>
-            <Briefcase className="w-10 h-10 text-primary" />
-          </div>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
@@ -192,7 +177,7 @@ export function Dashboard() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left — Upcoming Events (büyük kartlar) */}
+        {/* Left — Upcoming Events */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-2xl font-bold">Upcoming Events</h2>
@@ -214,7 +199,6 @@ export function Dashboard() {
                 const eventDate = new Date(event.event_date);
                 return (
                   <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
-                    {/* Cover */}
                     <div className="relative h-40 flex-shrink-0">
                       {event.cover_url ? (
                         <img src={event.cover_url} alt={event.title} className="w-full h-full object-cover" />
@@ -227,14 +211,12 @@ export function Dashboard() {
                           <Calendar className="w-12 h-12 text-white opacity-30" />
                         </div>
                       )}
-                      {/* Date badge */}
-                      <div className="absolute top-3 left-3 bg-white rounded-xl overflow-hidden shadow-md text-center w-12">
-                        <div className="bg-primary text-white text-xs font-bold py-0.5">
+                      <div className="absolute top-3 left-3 bg-card rounded-xl overflow-hidden shadow-md text-center w-12">
+                        <div className="bg-primary text-primary-foreground text-xs font-bold py-0.5">
                           {eventDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase()}
                         </div>
                         <div className="text-foreground text-lg font-bold leading-tight py-0.5">{eventDate.getDate()}</div>
                       </div>
-                      {/* Type badge */}
                       <div className="absolute top-3 right-3">
                         {event.is_school_wide && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary text-white">School-Wide</span>}
                         {event.club_id && !event.is_school_wide && (
@@ -243,7 +225,6 @@ export function Dashboard() {
                       </div>
                     </div>
 
-                    {/* Body */}
                     <div className="p-4 flex flex-col flex-1">
                       <h3 className="font-bold text-base mb-1 line-clamp-1">{event.title}</h3>
                       {event.description && (
@@ -282,7 +263,6 @@ export function Dashboard() {
 
         {/* Right — Open Projects + Notifications */}
         <div className="space-y-8">
-          {/* Open Projects */}
           <div>
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold">Open Projects</h2>
@@ -317,7 +297,6 @@ export function Dashboard() {
             )}
           </div>
 
-          {/* Notifications */}
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Bell className="w-5 h-5 text-primary" />

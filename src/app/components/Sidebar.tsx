@@ -1,4 +1,4 @@
-import { Home, User, Users, Calendar, Briefcase, BookOpen, Bell } from "lucide-react";
+import { Home, User, Users, Calendar, Briefcase, MessageCircle, Bell } from "lucide-react";
 import { Link, useLocation } from "react-router";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
@@ -10,7 +10,7 @@ const navItems = [
   { icon: Users, label: "Clubs", path: "/clubs" },
   { icon: Calendar, label: "Events", path: "/events" },
   { icon: Briefcase, label: "Projects", path: "/projects" },
-  { icon: BookOpen, label: "Study Groups", path: "/study-groups" },
+  { icon: MessageCircle, label: "Chats", path: "/chats" },
   { icon: Bell, label: "Notifications", path: "/notifications" },
 ];
 

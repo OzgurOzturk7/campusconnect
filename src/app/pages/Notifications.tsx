@@ -1,13 +1,23 @@
 import { useState, useEffect } from "react";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
-import { Tag } from "../components/Tag";
-import { Bell, Briefcase, Calendar, MessageSquare, Users, CheckCheck, Loader2 } from "lucide-react";
+import {
+  Bell, Briefcase, Calendar, MessageSquare, Users,
+  CheckCheck, Loader2, ChevronLeft, ChevronRight, Inbox,
+} from "lucide-react";
 import { apiFetch } from "../lib/api";
+import { useNavigate } from "react-router";
 
-type NotifType = "project_application" | "project_application_result" | "project_team_join" |
-  "club_announcement" | "club_application_result" | "new_event" | "event_reminder" |
-  "study_file_upload" | "system";
+type NotifType =
+  | "project_application"
+  | "project_application_result"
+  | "project_team_join"
+  | "club_announcement"
+  | "club_application_result"
+  | "new_event"
+  | "event_reminder"
+  | "study_file_upload"
+  | "system";
 
 interface Notification {
   id: string;
@@ -32,15 +42,27 @@ const iconMap: Record<string, React.ElementType> = {
 };
 
 const colorMap: Record<string, string> = {
-  project_application: "bg-blue-50 text-blue-600",
-  project_application_result: "bg-blue-50 text-blue-600",
-  project_team_join: "bg-blue-50 text-blue-600",
-  club_announcement: "bg-green-50 text-green-600",
-  club_application_result: "bg-green-50 text-green-600",
-  new_event: "bg-orange-50 text-orange-600",
-  event_reminder: "bg-orange-50 text-orange-600",
-  study_file_upload: "bg-purple-50 text-purple-600",
-  system: "bg-primary/10 text-primary",
+  project_application: "bg-blue-50 text-blue-600 ring-blue-100",
+  project_application_result: "bg-blue-50 text-blue-600 ring-blue-100",
+  project_team_join: "bg-blue-50 text-blue-600 ring-blue-100",
+  club_announcement: "bg-green-50 text-green-600 ring-green-100",
+  club_application_result: "bg-green-50 text-green-600 ring-green-100",
+  new_event: "bg-orange-50 text-orange-600 ring-orange-100",
+  event_reminder: "bg-orange-50 text-orange-600 ring-orange-100",
+  study_file_upload: "bg-purple-50 text-purple-600 ring-purple-100",
+  system: "bg-primary/10 text-primary ring-primary/20",
+};
+
+const labelMap: Record<string, string> = {
+  project_application: "Project",
+  project_application_result: "Project",
+  project_team_join: "Project",
+  club_announcement: "Club",
+  club_application_result: "Club",
+  new_event: "Event",
+  event_reminder: "Event",
+  study_file_upload: "Study",
+  system: "System",
 };
 
 const PER_PAGE = 10;
@@ -48,10 +70,13 @@ const PER_PAGE = 10;
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
+  if (minutes < 1) return "just now";
   if (minutes < 60) return `${minutes}m ago`;
   const hours = Math.floor(minutes / 60);
   if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  const days = Math.floor(hours / 24);
+  if (days < 7) return `${days}d ago`;
+  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
 
 export function Notifications() {
@@ -59,6 +84,7 @@ export function Notifications() {
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [currentPage, setCurrentPage] = useState(1);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchNotifications();
@@ -83,10 +109,7 @@ export function Notifications() {
       });
       setNotifications((prev) => prev.map((n) => n.id === notif.id ? { ...n, is_read: true } : n));
     }
-
-    if (notif.link) {
-      window.location.href = notif.link;
-    }
+    if (notif.link) navigate(notif.link);
   }
 
   async function markAllRead() {
@@ -103,7 +126,7 @@ export function Notifications() {
   const unreadCount = notifications.filter((n) => !n.is_read).length;
   const filtered = filter === "unread" ? notifications.filter((n) => !n.is_read) : notifications;
 
-  const totalPages = Math.ceil(filtered.length / PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE));
   const paginated = filtered.slice((currentPage - 1) * PER_PAGE, currentPage * PER_PAGE);
 
   if (isLoading) {
@@ -115,74 +138,112 @@ export function Notifications() {
   }
 
   return (
-    <div className="space-y-8">
-      <div className="flex items-start justify-between">
-        <h1 className="text-3xl font-bold">Notifications</h1>
+    <div className="max-w-5xl mx-auto space-y-6">
+      {/* Header */}
+      <div className="flex items-end justify-between flex-wrap gap-4">
+        <div>
+          <h1 className="text-3xl font-bold mb-1">Notifications</h1>
+          <p className="text-sm text-muted-foreground">
+            {unreadCount > 0
+              ? `You have ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}.`
+              : "You are all caught up."}
+          </p>
+        </div>
         <Button variant="outline" onClick={markAllRead} disabled={unreadCount === 0}>
           <CheckCheck className="w-4 h-4" />
           Mark all as read
         </Button>
       </div>
 
-      <div className="flex gap-2">
-        <Button variant={filter === "all" ? "primary" : "outline"} size="sm" onClick={() => handleFilterChange("all")}>
-          All ({notifications.length})
-        </Button>
-        <Button variant={filter === "unread" ? "primary" : "outline"} size="sm" onClick={() => handleFilterChange("unread")}>
-          Unread ({unreadCount})
-        </Button>
+      {/* Filter tabs */}
+      <div className="flex items-center gap-1 p-1 bg-muted rounded-lg w-fit">
+        <button
+          onClick={() => handleFilterChange("all")}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            filter === "all" ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          All
+          <span className="ml-2 text-xs text-muted-foreground">{notifications.length}</span>
+        </button>
+        <button
+          onClick={() => handleFilterChange("unread")}
+          className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${
+            filter === "unread" ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Unread
+          <span className="ml-2 text-xs text-muted-foreground">{unreadCount}</span>
+        </button>
       </div>
 
-      <div className="max-w-2xl space-y-3">
-        {filtered.length === 0 && (
-          <Card className="p-12 text-center">
-            <Bell className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="font-semibold text-lg mb-2">No notifications</h3>
-            <p className="text-muted-foreground text-sm">You are all caught up!</p>
-          </Card>
-        )}
-
-        {paginated.map((notif) => {
-          const Icon = iconMap[notif.type] || Bell;
-          return (
-            <Card
-              key={notif.id}
-              className={`p-4 transition-all hover:shadow-md cursor-pointer ${!notif.is_read ? "border-primary/20 bg-accent" : ""}`}
-              onClick={() => handleNotifClick(notif)}
-            >
-              <div className="flex items-start gap-4">
-                <div className="relative flex-shrink-0">
-                  <div className={`w-10 h-10 rounded-full flex items-center justify-center ${colorMap[notif.type] || colorMap.system}`}>
-                    <Icon className="w-5 h-5" />
-                  </div>
-                  {!notif.is_read && (
-                    <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full border-2 border-card" />
-                  )}
+      {/* List */}
+      {filtered.length === 0 ? (
+        <Card className="p-16 text-center">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-muted flex items-center justify-center">
+            <Inbox className="w-8 h-8 text-muted-foreground" />
+          </div>
+          <h3 className="font-semibold text-lg mb-1">
+            {filter === "unread" ? "No unread notifications" : "No notifications yet"}
+          </h3>
+          <p className="text-muted-foreground text-sm">
+            {filter === "unread" ? "You are all caught up!" : "Your notifications will appear here."}
+          </p>
+        </Card>
+      ) : (
+        <Card className="overflow-hidden divide-y divide-border">
+          {paginated.map((notif) => {
+            const Icon = iconMap[notif.type] || Bell;
+            const color = colorMap[notif.type] || colorMap.system;
+            const label = labelMap[notif.type] || "System";
+            return (
+              <button
+                key={notif.id}
+                onClick={() => handleNotifClick(notif)}
+                className={`w-full text-left px-5 py-4 flex items-start gap-4 transition-colors hover:bg-muted/60 ${
+                  !notif.is_read ? "bg-accent/40" : ""
+                }`}
+              >
+                <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ${color}`}>
+                  <Icon className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-2 mb-1">
-                    <h3 className="font-semibold text-sm">{notif.title}</h3>
+                  <div className="flex items-start justify-between gap-3 mb-0.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <h3 className="font-semibold text-sm truncate">{notif.title}</h3>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded flex-shrink-0">
+                        {label}
+                      </span>
+                    </div>
                     <div className="flex items-center gap-2 flex-shrink-0">
-                      <Tag variant="muted" className="text-xs">{notif.type.split("_")[0]}</Tag>
-                      {notif.link && <span className="text-xs text-primary">→</span>}
+                      <span className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo(notif.created_at)}</span>
+                      {!notif.is_read && <span className="w-2 h-2 bg-primary rounded-full" />}
                     </div>
                   </div>
-                  <p className="text-sm text-muted-foreground mb-1">{notif.body}</p>
-                  <p className="text-xs text-muted-foreground">{timeAgo(notif.created_at)}</p>
+                  <p className="text-sm text-muted-foreground line-clamp-2">{notif.body}</p>
                 </div>
-              </div>
-            </Card>
-          );
-        })}
+              </button>
+            );
+          })}
+        </Card>
+      )}
 
-        {totalPages > 1 && (
-          <div className="flex items-center justify-center gap-2 pt-4">
+      {/* Pagination — always visible when there are notifications */}
+      {filtered.length > 0 && (
+        <div className="flex items-center justify-between gap-4 flex-wrap pt-2">
+          <p className="text-xs text-muted-foreground">
+            Showing <span className="font-semibold text-foreground">{(currentPage - 1) * PER_PAGE + 1}</span>
+            –<span className="font-semibold text-foreground">{Math.min(currentPage * PER_PAGE, filtered.length)}</span>
+            {" "}of <span className="font-semibold text-foreground">{filtered.length}</span>
+          </p>
+          <div className="flex items-center gap-1.5">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              className="px-4 py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              aria-label="Previous page"
+              className="w-9 h-9 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
             >
-              ← Previous
+              <ChevronLeft className="w-4 h-4" />
             </button>
             <div className="flex gap-1">
               {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
@@ -190,7 +251,7 @@ export function Notifications() {
                 const showEllipsisBefore = page === currentPage - 2 && currentPage > 4;
                 const showEllipsisAfter = page === currentPage + 2 && currentPage < totalPages - 3;
                 if (showEllipsisBefore || showEllipsisAfter) {
-                  return <span key={page} className="px-1 py-2 text-sm text-muted-foreground">…</span>;
+                  return <span key={page} className="px-1 self-center text-sm text-muted-foreground">…</span>;
                 }
                 if (!show) return null;
                 return (
@@ -211,19 +272,18 @@ export function Notifications() {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              className="px-4 py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              aria-label="Next page"
+              className="w-9 h-9 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
             >
-              Next →
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
-        )}
-
-        {totalPages > 1 && (
-          <p className="text-xs text-muted-foreground text-center">
-            Showing {(currentPage - 1) * PER_PAGE + 1}–{Math.min(currentPage * PER_PAGE, filtered.length)} of {filtered.length}
+          <p className="text-xs text-muted-foreground">
+            Page <span className="font-semibold text-foreground">{currentPage}</span> of{" "}
+            <span className="font-semibold text-foreground">{totalPages}</span>
           </p>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

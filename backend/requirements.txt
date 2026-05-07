@@ -7,3 +7,5 @@ pydantic-settings==2.6.1
 python-multipart==0.0.19
 httpx==0.27.2
 email-validator
+google-auth==2.35.0
+requests>=2.31.0

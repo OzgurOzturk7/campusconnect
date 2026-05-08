@@ -128,6 +128,8 @@ export function Chat() {
   const [emojiPickerFor, setEmojiPickerFor] = useState<string | null>(null);
   const [typingUsers, setTypingUsers] = useState<{ id: string; name: string }[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -237,14 +239,35 @@ export function Chat() {
       .subscribe();
     messagesChannelRef.current = msgsCh;
 
-    // 2) Reactions
+    // 2) Reactions — surgical state update (no full refetch)
     const rxCh = supabase.channel(`chat-rx-${chatId}`)
-      .on("postgres_changes", { event: "*", schema: "public", table: "message_reactions" },
-        async () => {
-          // simplest: refetch message reactions for visible messages
-          // (small optimization could be done; refetch is fine for MVP)
-          loadMessages(chatId);
-        })
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "message_reactions" }, (payload) => {
+        const r = payload.new as { message_id: string; user_id: string; emoji: string };
+        setMessages((prev) => prev.map((m) => {
+          if (m.id !== r.message_id) return m;
+          const reactions = [...(m.reactions || [])];
+          const idx = reactions.findIndex((x) => x.emoji === r.emoji);
+          if (idx >= 0) {
+            if (reactions[idx].user_ids.includes(r.user_id)) return m;
+            reactions[idx] = { ...reactions[idx], user_ids: [...reactions[idx].user_ids, r.user_id], count: reactions[idx].count + 1 };
+          } else {
+            reactions.push({ emoji: r.emoji, user_ids: [r.user_id], count: 1 });
+          }
+          return { ...m, reactions };
+        }));
+      })
+      .on("postgres_changes", { event: "DELETE", schema: "public", table: "message_reactions" }, (payload) => {
+        const r = payload.old as { message_id: string; user_id: string; emoji: string };
+        setMessages((prev) => prev.map((m) => {
+          if (m.id !== r.message_id) return m;
+          const reactions = (m.reactions || [])
+            .map((rx) => rx.emoji === r.emoji
+              ? { ...rx, user_ids: rx.user_ids.filter((u) => u !== r.user_id), count: rx.count - 1 }
+              : rx)
+            .filter((rx) => rx.count > 0);
+          return { ...m, reactions };
+        }));
+      })
       .subscribe();
     reactionsChannelRef.current = rxCh;
 
@@ -276,23 +299,32 @@ export function Chat() {
   async function sendMessage() {
     if (!activeChatId) return;
     const text = input.trim();
-    if (!text) return;
-    setInput("");
+    if (!text && !pendingFile) return;
+
+    const file = pendingFile;
     const replyId = replyTo?.id;
+
+    // Optimistic clear
+    setInput("");
     setReplyTo(null);
+    if (file) clearPendingFile();
+
     try {
-      const m = await apiFetch(`/api/chats/${activeChatId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ body: text, reply_to_id: replyId }),
-      });
-      setMessages((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
-      // Bump local chat list ordering
-      setChats((prev) => {
-        const c = prev.find((x) => x.id === activeChatId);
-        if (!c) return prev;
-        const updated = { ...c, last_message: m, updated_at: new Date().toISOString() };
-        return [updated, ...prev.filter((x) => x.id !== activeChatId)];
-      });
+      if (file) {
+        await uploadAndSend(file, text || null, replyId);
+      } else {
+        const m = await apiFetch(`/api/chats/${activeChatId}/messages`, {
+          method: "POST",
+          body: JSON.stringify({ body: text, reply_to_id: replyId }),
+        });
+        setMessages((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
+        setChats((prev) => {
+          const c = prev.find((x) => x.id === activeChatId);
+          if (!c) return prev;
+          const updated = { ...c, last_message: m, updated_at: new Date().toISOString() };
+          return [updated, ...prev.filter((x) => x.id !== activeChatId)];
+        });
+      }
     } catch (e: any) {
       toastError(e?.message || "Failed to send message");
     }
@@ -327,11 +359,26 @@ export function Chat() {
   }
 
   // ----------- Files -----------
-  async function handleFile(file: File) {
-    if (!activeChatId) return;
+  function pickFile(file: File) {
     if (file.size > 25 * 1024 * 1024) { toastError("Max file size is 25MB"); return; }
+    setPendingFile(file);
+    if (file.type.startsWith("image/")) {
+      setPendingPreviewUrl(URL.createObjectURL(file));
+    } else {
+      setPendingPreviewUrl(null);
+    }
+  }
+
+  function clearPendingFile() {
+    if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
+    setPendingFile(null);
+    setPendingPreviewUrl(null);
+  }
+
+  async function uploadAndSend(file: File, body: string | null, replyId?: string) {
+    if (!activeChatId) return;
+    setUploadingFile(true);
     try {
-      setUploadingFile(true);
       const fd = new FormData();
       fd.append("file", file);
       const token = getStoredToken();
@@ -346,13 +393,10 @@ export function Chat() {
         method: "POST",
         body: JSON.stringify({
           attachment_url: url, attachment_name: name, attachment_type: type,
-          body: input.trim() || null,
+          body: body || null, reply_to_id: replyId,
         }),
       });
-      setInput("");
       setMessages((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
-    } catch (e: any) {
-      toastError(e?.message || "Upload failed");
     } finally {
       setUploadingFile(false);
     }
@@ -779,6 +823,26 @@ export function Chat() {
               </div>
             )}
 
+            {/* Pending file preview */}
+            {pendingFile && (
+              <div className="px-4 py-2 border-t border-border bg-muted/30 flex items-center gap-3">
+                {pendingPreviewUrl ? (
+                  <img src={pendingPreviewUrl} alt="" className="w-12 h-12 object-cover rounded-md flex-shrink-0" />
+                ) : (
+                  <div className="w-12 h-12 rounded-md bg-card border border-border flex items-center justify-center flex-shrink-0">
+                    <FileText className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                )}
+                <div className="flex-1 min-w-0 text-xs">
+                  <div className="font-semibold truncate">{pendingFile.name}</div>
+                  <div className="text-muted-foreground">
+                    {(pendingFile.size / 1024).toFixed(0)} KB · Add a caption (optional) and press send
+                  </div>
+                </div>
+                <button onClick={clearPendingFile} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4" /></button>
+              </div>
+            )}
+
             {/* Reply preview */}
             {replyTo && (
               <div className="px-4 py-2 border-t border-border bg-muted/30 flex items-start gap-2">
@@ -797,7 +861,7 @@ export function Chat() {
                 ref={fileInputRef}
                 type="file"
                 hidden
-                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleFile(f); e.target.value = ""; }}
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) pickFile(f); e.target.value = ""; }}
               />
               <button
                 onClick={() => fileInputRef.current?.click()}
@@ -818,11 +882,11 @@ export function Chat() {
               />
               <button
                 onClick={sendMessage}
-                disabled={!input.trim()}
+                disabled={(!input.trim() && !pendingFile) || uploadingFile}
                 className="p-2.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-40"
                 title="Send"
               >
-                <Send className="w-4 h-4" />
+                {uploadingFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>
             </div>
           </>

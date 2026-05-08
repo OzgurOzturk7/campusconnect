@@ -1,105 +1,372 @@
-import { useState, FormEvent, useEffect, useRef } from "react";
+import { useState, FormEvent, useEffect, useRef, MouseEvent as ReactMouseEvent } from "react";
 import { useNavigate } from "react-router";
-import { Eye, EyeOff, Loader2, AlertCircle, ShieldCheck, Mail, ArrowLeft } from "lucide-react";
+import { Eye, EyeOff, Loader2, AlertCircle, ShieldCheck, Mail, ArrowLeft, Sparkles } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 const ALLOWED_EMAIL_DOMAIN = "final.edu.tr";
 
-declare global {
-  interface Window {
-    google?: any;
-  }
-}
+declare global { interface Window { google?: any; } }
 
-function NetworkCanvas({ density = 1, intensity = 1 }: { density?: number; intensity?: number }) {
+// =============================================================================
+// 1) Constellation — particles that connect to nearby cursor with smooth lines
+// =============================================================================
+function Constellation() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d")!;
-    let animId: number;
-    const mouse = { x: -999, y: -999 };
+    let raf = 0;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const mouse = { x: -9999, y: -9999, active: false };
 
     const resize = () => {
-      canvas.width = canvas.offsetWidth;
-      canvas.height = canvas.offsetHeight;
+      canvas.width = canvas.offsetWidth * dpr;
+      canvas.height = canvas.offsetHeight * dpr;
+      ctx.scale(dpr, dpr);
     };
     resize();
 
-    type Node = { x: number; y: number; vx: number; vy: number; r: number; blue: boolean };
-    const nodeCount = Math.round(64 * density);
-    const nodes: Node[] = Array.from({ length: nodeCount }, () => ({
-      x: Math.random() * canvas.width,
-      y: Math.random() * canvas.height,
-      vx: (Math.random() - 0.5) * 0.5,
-      vy: (Math.random() - 0.5) * 0.5,
-      r: Math.random() * 2.4 + 1.6,
-      blue: Math.random() < 0.55,
+    type P = { x: number; y: number; vx: number; vy: number; r: number; baseR: number; hue: number };
+    const w = () => canvas.offsetWidth;
+    const h = () => canvas.offsetHeight;
+
+    const particles: P[] = Array.from({ length: 70 }, () => ({
+      x: Math.random() * w(),
+      y: Math.random() * h(),
+      vx: (Math.random() - 0.5) * 0.3,
+      vy: (Math.random() - 0.5) * 0.3,
+      r: 1.5 + Math.random() * 1.5,
+      baseR: 1.5 + Math.random() * 1.5,
+      hue: 260 + Math.random() * 30,
     }));
 
     const onMove = (e: MouseEvent) => {
       const r = canvas.getBoundingClientRect();
       mouse.x = e.clientX - r.left;
       mouse.y = e.clientY - r.top;
+      mouse.active = true;
     };
-    const onLeave = () => { mouse.x = -999; mouse.y = -999; };
+    const onLeave = () => { mouse.active = false; mouse.x = -9999; mouse.y = -9999; };
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("mouseleave", onLeave);
     window.addEventListener("resize", resize);
 
     const draw = () => {
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      nodes.forEach((n, i) => {
-        n.x += n.vx; n.y += n.vy;
-        if (n.x < 0 || n.x > canvas.width) n.vx *= -1;
-        if (n.y < 0 || n.y > canvas.height) n.vy *= -1;
-        const dx = mouse.x - n.x, dy = mouse.y - n.y, d = Math.hypot(dx, dy);
-        if (d < 110) { n.x -= dx * 0.018; n.y -= dy * 0.018; }
+      ctx.clearRect(0, 0, w(), h());
 
-        nodes.slice(i + 1).forEach((m) => {
-          const ed = Math.hypot(m.x - n.x, m.y - n.y);
-          if (ed < 142) {
-            const a = 1 - ed / 142;
-            ctx.beginPath(); ctx.moveTo(n.x, n.y); ctx.lineTo(m.x, m.y);
-            ctx.strokeStyle = n.blue
-              ? `rgba(50,85,160,${a * 0.32 * intensity})`
-              : `rgba(50,150,128,${a * 0.32 * intensity})`;
-            ctx.lineWidth = 0.75;
-            ctx.stroke();
+      particles.forEach((p) => {
+        // gentle drift
+        p.x += p.vx; p.y += p.vy;
+        if (p.x < 0 || p.x > w()) p.vx *= -1;
+        if (p.y < 0 || p.y > h()) p.vy *= -1;
+
+        // attract slightly toward cursor when close
+        if (mouse.active) {
+          const dx = mouse.x - p.x, dy = mouse.y - p.y;
+          const d = Math.hypot(dx, dy);
+          if (d < 180) {
+            p.x += dx * 0.005;
+            p.y += dy * 0.005;
+            p.r = p.baseR + (1 - d / 180) * 2;
+          } else {
+            p.r += (p.baseR - p.r) * 0.1;
+          }
+        } else {
+          p.r += (p.baseR - p.r) * 0.1;
+        }
+
+        // particle dot with soft glow
+        const grad = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, p.r * 4);
+        grad.addColorStop(0, `hsla(${p.hue}, 80%, 60%, 0.4)`);
+        grad.addColorStop(1, `hsla(${p.hue}, 80%, 60%, 0)`);
+        ctx.fillStyle = grad;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r * 4, 0, Math.PI * 2); ctx.fill();
+
+        ctx.fillStyle = `hsla(${p.hue}, 80%, 55%, 0.85)`;
+        ctx.beginPath(); ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2); ctx.fill();
+      });
+
+      // connecting lines — particle to particle (only nearby)
+      for (let i = 0; i < particles.length; i++) {
+        for (let j = i + 1; j < particles.length; j++) {
+          const a = particles[i], b = particles[j];
+          const d = Math.hypot(a.x - b.x, a.y - b.y);
+          if (d < 110) {
+            const alpha = (1 - d / 110) * 0.18;
+            ctx.strokeStyle = `hsla(265, 80%, 60%, ${alpha})`;
+            ctx.lineWidth = 0.8;
+            ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+          }
+        }
+      }
+
+      // connecting lines — cursor to nearby particles (highlight)
+      if (mouse.active) {
+        particles.forEach((p) => {
+          const d = Math.hypot(mouse.x - p.x, mouse.y - p.y);
+          if (d < 180) {
+            const alpha = (1 - d / 180) * 0.5;
+            ctx.strokeStyle = `hsla(265, 90%, 60%, ${alpha})`;
+            ctx.lineWidth = 1;
+            ctx.beginPath(); ctx.moveTo(mouse.x, mouse.y); ctx.lineTo(p.x, p.y); ctx.stroke();
           }
         });
+      }
 
-        // soft glow halo
-        const grad = ctx.createRadialGradient(n.x, n.y, 0, n.x, n.y, n.r * 3.5);
-        grad.addColorStop(0, n.blue ? `rgba(50,85,160,${0.22 * intensity})` : `rgba(50,150,128,${0.24 * intensity})`);
-        grad.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = grad;
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, n.r * 3.5, 0, Math.PI * 2);
-        ctx.fill();
-
-        ctx.beginPath();
-        ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
-        ctx.fillStyle = n.blue ? `rgba(50,85,160,${0.65 * intensity})` : `rgba(50,150,128,${0.68 * intensity})`;
-        ctx.fill();
-      });
-      animId = requestAnimationFrame(draw);
+      raf = requestAnimationFrame(draw);
     };
     draw();
 
     return () => {
-      cancelAnimationFrame(animId);
+      cancelAnimationFrame(raf);
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("mouseleave", onLeave);
       window.removeEventListener("resize", resize);
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />;
+  return <canvas ref={canvasRef} className="absolute inset-0 w-full h-full pointer-events-auto" />;
 }
 
+// =============================================================================
+// 2) Morphing SVG blobs (smoother than CSS — uses interpolated path animation)
+// =============================================================================
+function MorphBlob({ className, color, dur }: { className?: string; color: string; dur: string }) {
+  return (
+    <svg viewBox="0 0 200 200" className={className} style={{ pointerEvents: "none" }}>
+      <defs>
+        <radialGradient id={`grad-${color.replace(/[^\w]/g, "")}`}>
+          <stop offset="0%" stopColor={color} stopOpacity="0.55" />
+          <stop offset="70%" stopColor={color} stopOpacity="0.15" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </radialGradient>
+      </defs>
+      <path fill={`url(#grad-${color.replace(/[^\w]/g, "")})`}>
+        <animate
+          attributeName="d"
+          dur={dur}
+          repeatCount="indefinite"
+          values="
+            M44.4,-58.6C56.7,-49.3,65.5,-34.6,69.3,-18.7C73.1,-2.8,72,14.3,64.6,28.5C57.2,42.7,43.6,53.9,28.4,60.3C13.2,66.6,-3.7,68.1,-19.5,63.7C-35.3,59.4,-50.1,49.1,-59.8,35.1C-69.5,21.1,-74.2,3.3,-71.8,-13.4C-69.4,-30,-59.8,-45.5,-46.5,-54.5C-33.2,-63.6,-16.6,-66.1,-0.2,-65.9C16.3,-65.7,32.6,-67.9,44.4,-58.6Z;
+            M40.7,-55.5C53.3,-44.5,64.4,-32.6,68.5,-18.5C72.6,-4.4,69.7,11.9,62.5,26.4C55.4,40.9,44,53.6,29.7,60.6C15.4,67.6,-1.8,68.8,-18.2,64.5C-34.6,60.1,-50.2,50.2,-60.2,36.4C-70.2,22.7,-74.5,5.1,-71.4,-11.1C-68.3,-27.4,-57.7,-42.4,-44.2,-53.7C-30.7,-65,-15.4,-72.6,-0.3,-72.2C14.8,-71.8,28.2,-66.5,40.7,-55.5Z;
+            M44.4,-58.6C56.7,-49.3,65.5,-34.6,69.3,-18.7C73.1,-2.8,72,14.3,64.6,28.5C57.2,42.7,43.6,53.9,28.4,60.3C13.2,66.6,-3.7,68.1,-19.5,63.7C-35.3,59.4,-50.1,49.1,-59.8,35.1C-69.5,21.1,-74.2,3.3,-71.8,-13.4C-69.4,-30,-59.8,-45.5,-46.5,-54.5C-33.2,-63.6,-16.6,-66.1,-0.2,-65.9C16.3,-65.7,32.6,-67.9,44.4,-58.6Z
+          "
+        />
+        <animateTransform attributeName="transform" type="translate" values="100 100" />
+      </path>
+    </svg>
+  );
+}
+
+// =============================================================================
+// 3) Cursor spotlight — soft glow follows cursor
+// =============================================================================
+function CursorSpotlight() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const move = (e: MouseEvent) => {
+      el.style.setProperty("--cx", `${e.clientX}px`);
+      el.style.setProperty("--cy", `${e.clientY}px`);
+    };
+    window.addEventListener("mousemove", move);
+    return () => window.removeEventListener("mousemove", move);
+  }, []);
+  return (
+    <div
+      ref={ref}
+      className="fixed inset-0 pointer-events-none z-0"
+      style={{ background: "radial-gradient(circle 520px at var(--cx, 50%) var(--cy, 50%), rgba(167,139,250,0.16), transparent 65%)" }}
+    />
+  );
+}
+
+// =============================================================================
+// 4) Click ripple
+// =============================================================================
+function useRipples() {
+  const [ripples, setRipples] = useState<{ id: number; x: number; y: number }[]>([]);
+  const idRef = useRef(0);
+  const onClick = (e: ReactMouseEvent) => {
+    const r = (e.currentTarget as HTMLElement).getBoundingClientRect();
+    const id = idRef.current++;
+    setRipples((p) => [...p, { id, x: e.clientX - r.left, y: e.clientY - r.top }]);
+    setTimeout(() => setRipples((p) => p.filter((x) => x.id !== id)), 900);
+  };
+  const layer = (
+    <>
+      {ripples.map((r) => (
+        <span
+          key={r.id}
+          className="absolute rounded-full pointer-events-none z-50"
+          style={{
+            left: r.x, top: r.y, width: 0, height: 0,
+            transform: "translate(-50%, -50%)",
+            animation: "cc-ripple 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards",
+            background: "radial-gradient(circle, rgba(167,139,250,0.45), rgba(167,139,250,0))",
+          }}
+        />
+      ))}
+    </>
+  );
+  return { onClick, layer };
+}
+
+// =============================================================================
+// 5) 3D tilting glass card with internal depth layers
+// =============================================================================
+function TiltCard({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const onMove = (e: ReactMouseEvent) => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width - 0.5) * 2;
+    const y = ((e.clientY - r.top) / r.height - 0.5) * 2;
+    el.style.transform = `perspective(1000px) rotateY(${x * 5}deg) rotateX(${-y * 5}deg) translateZ(0)`;
+    // Move shine highlight
+    el.style.setProperty("--shine-x", `${((e.clientX - r.left) / r.width) * 100}%`);
+    el.style.setProperty("--shine-y", `${((e.clientY - r.top) / r.height) * 100}%`);
+  };
+  const onLeave = () => {
+    if (ref.current) ref.current.style.transform = "perspective(1000px) rotateY(0deg) rotateX(0deg)";
+  };
+  return (
+    <div
+      ref={ref}
+      onMouseMove={onMove}
+      onMouseLeave={onLeave}
+      className="w-full max-w-md relative z-10 cc-fade-in"
+      style={{
+        transition: "transform 0.3s cubic-bezier(0.22, 1, 0.36, 1)",
+        transformStyle: "preserve-3d",
+      }}
+    >
+      {/* Outer soft glow */}
+      <div
+        className="absolute -inset-2 rounded-[28px] pointer-events-none"
+        style={{
+          background: "linear-gradient(135deg, rgba(124,58,237,0.4), rgba(167,139,250,0.4))",
+          filter: "blur(28px)",
+          opacity: 0.6,
+          transform: "translateZ(-30px)",
+        }}
+      />
+
+      {/* Glass card */}
+      <div
+        className="relative rounded-3xl px-10 py-11 overflow-hidden"
+        style={{
+          background: "rgba(255,255,255,0.72)",
+          backdropFilter: "blur(22px) saturate(180%)",
+          WebkitBackdropFilter: "blur(22px) saturate(180%)",
+          border: "1px solid rgba(255,255,255,0.6)",
+          boxShadow: "0 30px 80px -20px rgba(124,58,237,0.32), 0 12px 35px -12px rgba(167,139,250,0.22), inset 0 1px 0 rgba(255,255,255,0.85)",
+        }}
+      >
+        {/* Specular shine that follows cursor */}
+        <div
+          className="absolute inset-0 pointer-events-none"
+          style={{
+            background: "radial-gradient(circle 220px at var(--shine-x, 50%) var(--shine-y, 50%), rgba(255,255,255,0.55), transparent 60%)",
+            mixBlendMode: "soft-light",
+          }}
+        />
+        {/* Subtle grain for premium texture */}
+        <div
+          className="absolute inset-0 pointer-events-none opacity-[0.04]"
+          style={{
+            backgroundImage: "url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.6' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='200' height='200' filter='url(%23n)'/%3E%3C/svg%3E\")",
+          }}
+        />
+        <div className="relative" style={{ transform: "translateZ(40px)" }}>
+          {children}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// =============================================================================
+// 6) Magnetic wrapper
+// =============================================================================
+function Magnetic({ children, strength = 12 }: { children: React.ReactNode; strength?: number }) {
+  const ref = useRef<HTMLDivElement>(null);
+  const onMove = (e: ReactMouseEvent) => {
+    const el = ref.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width - 0.5) * strength;
+    const y = ((e.clientY - r.top) / r.height - 0.5) * strength;
+    el.style.transform = `translate(${x}px, ${y}px)`;
+  };
+  const onLeave = () => { if (ref.current) ref.current.style.transform = "translate(0, 0)"; };
+  return (
+    <div ref={ref} onMouseMove={onMove} onMouseLeave={onLeave} style={{ transition: "transform 0.25s cubic-bezier(0.22, 1, 0.36, 1)" }}>
+      {children}
+    </div>
+  );
+}
+
+// =============================================================================
+// 7) Letter-by-letter staggered reveal
+// =============================================================================
+function StaggeredText({ text, className, style }: { text: string; className?: string; style?: React.CSSProperties }) {
+  return (
+    <span className={className} style={style}>
+      {text.split("").map((ch, i) => (
+        <span
+          key={i}
+          style={{
+            display: "inline-block",
+            opacity: 0,
+            transform: "translateY(14px)",
+            animation: `cc-letter 0.65s cubic-bezier(0.22, 1, 0.36, 1) ${i * 0.04}s forwards`,
+          }}
+        >
+          {ch === " " ? " " : ch}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+// =============================================================================
+// 8) Rotating tagline
+// =============================================================================
+function RotatingTagline() {
+  const lines = ["Connect.", "Discover.", "Build together.", "Shine."];
+  const [idx, setIdx] = useState(0);
+  useEffect(() => {
+    const i = setInterval(() => setIdx((p) => (p + 1) % lines.length), 2400);
+    return () => clearInterval(i);
+  }, []);
+  return (
+    <div className="relative h-8 overflow-hidden">
+      {lines.map((l, i) => (
+        <div
+          key={i}
+          className="absolute inset-0 flex items-center justify-center transition-all duration-500"
+          style={{
+            color: "#5b21b6", fontSize: "1.2rem", fontWeight: 600, letterSpacing: "0.04em",
+            opacity: idx === i ? 1 : 0,
+            transform: `translateY(${idx === i ? 0 : idx > i ? -28 : 28}px)`,
+          }}
+        >
+          {l}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// =============================================================================
+// MAIN
+// =============================================================================
 export function Login() {
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
@@ -111,6 +378,11 @@ export function Login() {
   const [error, setError] = useState<string | null>(null);
   const [remember, setRemember] = useState(false);
   const [showEmailForm, setShowEmailForm] = useState(!GOOGLE_CLIENT_ID);
+  const gsiInitedRef = useRef(false);
+  const rememberRef = useRef(false);
+  useEffect(() => { rememberRef.current = remember; }, [remember]);
+
+  const ripples = useRipples();
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
@@ -128,172 +400,179 @@ export function Login() {
 
   useEffect(() => {
     if (!GOOGLE_CLIENT_ID) return;
-
     const scriptId = "google-identity-services";
     let script = document.getElementById(scriptId) as HTMLScriptElement | null;
-
     const init = () => {
       if (!window.google || !googleBtnRef.current) return;
+      if (gsiInitedRef.current) return;
+      gsiInitedRef.current = true;
       window.google.accounts.id.initialize({
         client_id: GOOGLE_CLIENT_ID,
         callback: async (response: { credential: string }) => {
-          setError(null);
-          setIsLoading(true);
+          setError(null); setIsLoading(true);
           try {
-            // Quick client-side domain hint (final check is on backend)
             const payload = JSON.parse(atob(response.credential.split(".")[1]));
             if (payload.email && !payload.email.endsWith(`@${ALLOWED_EMAIL_DOMAIN}`)) {
               throw new Error(`Only @${ALLOWED_EMAIL_DOMAIN} accounts are allowed.`);
             }
-            await loginWithGoogle(response.credential, remember);
+            await loginWithGoogle(response.credential, rememberRef.current);
             navigate("/", { replace: true });
           } catch (err: unknown) {
             setError(err instanceof Error ? err.message : "Google sign-in failed.");
-          } finally {
-            setIsLoading(false);
-          }
+          } finally { setIsLoading(false); }
         },
         hosted_domain: ALLOWED_EMAIL_DOMAIN,
         ux_mode: "popup",
         auto_select: false,
       });
-
       window.google.accounts.id.renderButton(googleBtnRef.current, {
-        type: "standard",
-        theme: "outline",
-        size: "large",
-        text: "continue_with",
-        shape: "rectangular",
-        logo_alignment: "left",
-        width: 360,
+        type: "standard", theme: "outline", size: "large",
+        text: "continue_with", shape: "rectangular", logo_alignment: "left", width: 360,
       });
     };
-
     if (!script) {
       script = document.createElement("script");
       script.id = scriptId;
       script.src = "https://accounts.google.com/gsi/client";
-      script.async = true;
-      script.defer = true;
-      script.onload = init;
+      script.async = true; script.defer = true; script.onload = init;
       document.body.appendChild(script);
-    } else if (window.google) {
-      init();
-    } else {
-      script.addEventListener("load", init);
-    }
-  }, [loginWithGoogle, navigate, remember]);
+    } else if (window.google) { init(); }
+    else { script.addEventListener("load", init); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const fieldBase: React.CSSProperties = {
-    border: "2px solid #cce0f5",
-    background: "#f0f8ff",
-    color: "#1a3a8f",
+    border: "2px solid #e9d5ff",
+    background: "#faf5ff",
+    color: "#3b0764",
     fontFamily: "'Outfit', sans-serif",
   };
 
   return (
-    <div className="min-h-screen flex overflow-hidden" style={{ fontFamily: "'Outfit', sans-serif" }}>
+    <div
+      className="min-h-screen flex flex-col lg:flex-row overflow-hidden relative"
+      style={{ fontFamily: "'Outfit', sans-serif" }}
+      onClick={ripples.onClick}
+    >
+      <CursorSpotlight />
 
       {/* ── Left panel ── */}
       <div
         className="hidden lg:flex flex-col items-center justify-center w-[52%] relative overflow-hidden"
-        style={{ background: "linear-gradient(160deg, #c2dcf6 0%, #ceeaec 55%, #c2e9dd 100%)" }}
+        style={{ background: "linear-gradient(135deg, #faf5ff 0%, #f3e8ff 50%, #e9d5ff 100%)" }}
       >
-        <NetworkCanvas />
+        {/* Morphing fluid blobs */}
+        <div className="absolute" style={{ width: 700, height: 700, top: "-15%", left: "-15%", animation: "cc-blob-drift1 22s ease-in-out infinite" }}>
+          <MorphBlob className="w-full h-full" color="#a78bfa" dur="9s" />
+        </div>
+        <div className="absolute" style={{ width: 600, height: 600, bottom: "-10%", right: "-10%", animation: "cc-blob-drift2 26s ease-in-out infinite" }}>
+          <MorphBlob className="w-full h-full" color="#7c3aed" dur="11s" />
+        </div>
+        <div className="absolute" style={{ width: 500, height: 500, top: "30%", right: "-5%", animation: "cc-blob-drift3 30s ease-in-out infinite" }}>
+          <MorphBlob className="w-full h-full" color="#c4b5fd" dur="13s" />
+        </div>
 
+        {/* Constellation particles */}
+        <Constellation />
+
+        {/* Logo + content */}
         <div className="relative z-10 flex flex-col items-center text-center px-12">
-          <img
-            src="/logo.png"
-            alt="CampusConnect"
-            fetchPriority="high"
-            decoding="async"
-            style={{
-              width: "620px",
-              maxWidth: "94%",
-              height: "auto",
-              objectFit: "contain",
-              marginBottom: "24px",
-            }}
-          />
+          <div className="cc-logo-wrap">
+            <img
+              src="/logo.png"
+              alt="CampusConnect"
+              decoding="async"
+              style={{
+                width: "620px", maxWidth: "94%", height: "auto", objectFit: "contain",
+                marginBottom: "18px",
+                filter: "drop-shadow(0 18px 40px rgba(124,58,237,0.32))",
+                animation: "cc-logo-float 6s ease-in-out infinite",
+              }}
+            />
+          </div>
+          <RotatingTagline />
+
+          {/* Stat cards */}
+          <div className="mt-10 grid grid-cols-3 gap-3 max-w-md">
+            {[
+              { num: "1.2k+", label: "Students" },
+              { num: "30+", label: "Clubs" },
+              { num: "120+", label: "Events" },
+            ].map((s, i) => (
+              <div
+                key={i}
+                className="px-4 py-3 rounded-2xl text-center transition-transform hover:-translate-y-1"
+                style={{
+                  background: "rgba(255,255,255,0.6)",
+                  backdropFilter: "blur(12px)",
+                  WebkitBackdropFilter: "blur(12px)",
+                  border: "1px solid rgba(196,181,253,0.55)",
+                  animation: `cc-fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) ${0.6 + i * 0.12}s both`,
+                  boxShadow: "0 8px 25px -10px rgba(124,58,237,0.2)",
+                }}
+              >
+                <div className="text-xl font-extrabold" style={{ color: "#7c3aed" }}>{s.num}</div>
+                <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#6d28d9" }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 
       {/* ── Right panel ── */}
       <div
-        className="flex-1 flex items-center justify-center p-10 relative overflow-hidden"
+        className="flex-1 flex items-center justify-center p-6 lg:p-10 relative overflow-hidden min-h-screen lg:min-h-0"
         style={{
-          background: "linear-gradient(160deg, #e6f1ff 0%, #e0f3ec 100%)",
-          borderLeft: "1px solid rgba(26,58,143,0.08)",
+          background: "linear-gradient(160deg, #fefcff 0%, #f5f3ff 100%)",
+          borderLeft: "1px solid rgba(124,58,237,0.06)",
         }}
       >
-        {/* Subtle particles in the right panel — lighter density & intensity */}
-        <NetworkCanvas density={0.45} intensity={0.6} />
+        {/* Decorative blob in right panel — subtle */}
+        <div className="absolute" style={{ width: 500, height: 500, top: "-10%", right: "-15%", opacity: 0.6 }}>
+          <MorphBlob className="w-full h-full" color="#c4b5fd" dur="14s" />
+        </div>
 
-        <div
-          className="absolute -top-16 -right-16 w-56 h-56 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle,rgba(26,173,130,0.22) 0%,transparent 70%)" }}
-        />
-        <div
-          className="absolute -bottom-12 -left-12 w-44 h-44 rounded-full pointer-events-none"
-          style={{ background: "radial-gradient(circle,rgba(26,58,143,0.16) 0%,transparent 70%)" }}
-        />
+        {/* Mobile logo */}
+        <div className="lg:hidden absolute top-8 left-1/2 -translate-x-1/2">
+          <img src="/logo.png" alt="CampusConnect" decoding="async" style={{ height: "44px", objectFit: "contain" }} />
+        </div>
 
-        <div
-          className="w-full max-w-lg relative z-10 rounded-3xl px-11 py-12 cc-fade-in"
-          style={{
-            background: "rgba(255,255,255,0.55)",
-            backdropFilter: "blur(18px) saturate(140%)",
-            WebkitBackdropFilter: "blur(18px) saturate(140%)",
-            border: "1px solid rgba(255,255,255,0.7)",
-            boxShadow: "0 25px 70px -18px rgba(26,58,143,0.22), 0 10px 30px -12px rgba(26,173,130,0.14)",
-          }}
-        >
-
-          <div className="lg:hidden flex justify-center mb-8">
-            <img
-              src="/logo.png"
-              alt="CampusConnect"
-              decoding="async"
-              style={{ height: "40px", objectFit: "contain" }}
-            />
-          </div>
-
+        <TiltCard>
           <h2
             className="text-4xl font-extrabold mb-1 tracking-tight"
             style={{
-              backgroundImage: "linear-gradient(135deg, #1a3a8f 0%, #2176c7 50%, #1aad82 100%)",
+              backgroundImage: "linear-gradient(135deg, #7c3aed 0%, #8b5cf6 50%, #a78bfa 100%)",
               WebkitBackgroundClip: "text",
               WebkitTextFillColor: "transparent",
               backgroundClip: "text",
             }}
           >
-            Welcome
+            <StaggeredText text="Welcome" />
           </h2>
-          <p className="text-sm mb-7" style={{ color: "#6a9abf" }}>
+          <p className="text-sm mb-7 flex items-center gap-1.5" style={{ color: "#6d28d9" }}>
+            <Sparkles className="w-3.5 h-3.5" />
             {showEmailForm ? "Sign in with your university credentials" : "Sign in to continue to CampusConnect"}
           </p>
 
           {error && (
             <div
               className="flex items-center gap-2 rounded-xl px-4 py-3 mb-5 text-sm border cc-pop-in"
-              style={{ background: "#fff5f5", borderColor: "#fca5a5", color: "#c44444" }}
+              style={{ background: "#fef2f2", borderColor: "#fca5a5", color: "#991b1b" }}
             >
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
               {error}
             </div>
           )}
 
-          {/* ── Primary view: Google ── (kept mounted so the GIS button persists) */}
+          {/* Google view */}
           {GOOGLE_CLIENT_ID && (
             <div style={{ display: showEmailForm ? "none" : "block" }} className="cc-pop-in">
-              <div className="flex justify-center">
-                <div ref={googleBtnRef} />
-              </div>
+              <Magnetic>
+                <div className="flex justify-center"><div ref={googleBtnRef} /></div>
+              </Magnetic>
 
-              <div
-                className="flex items-center justify-center gap-1.5 mt-3 px-3 py-1.5 rounded-full mx-auto w-fit"
-                style={{ background: "rgba(26,173,130,0.08)", color: "#1aad82" }}
-              >
+              <div className="flex items-center justify-center gap-1.5 mt-3 px-3 py-1.5 rounded-full mx-auto w-fit"
+                style={{ background: "rgba(124,58,237,0.1)", color: "#6d28d9" }}>
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span className="text-[11px] font-semibold tracking-wide">
                   Secured by Google · @{ALLOWED_EMAIL_DOMAIN} only
@@ -301,18 +580,16 @@ export function Login() {
               </div>
 
               <div className="flex items-center gap-3 my-6">
-                <div className="flex-1 h-px" style={{ background: "#cce0f5" }} />
-                <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "#a0bbd0" }}>
-                  or
-                </span>
-                <div className="flex-1 h-px" style={{ background: "#cce0f5" }} />
+                <div className="flex-1 h-px" style={{ background: "linear-gradient(to right, transparent, #ddd6fe, transparent)" }} />
+                <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "#a78bfa" }}>or</span>
+                <div className="flex-1 h-px" style={{ background: "linear-gradient(to right, transparent, #ddd6fe, transparent)" }} />
               </div>
 
               <button
                 type="button"
                 onClick={() => { setError(null); setShowEmailForm(true); }}
-                className="w-full py-3 rounded-2xl text-sm font-semibold border-2 flex items-center justify-center gap-2 transition-all hover:bg-white hover:-translate-y-0.5"
-                style={{ borderColor: "#cce0f5", background: "rgba(255,255,255,0.6)", color: "#1a3a8f" }}
+                className="w-full py-3 rounded-2xl text-sm font-semibold border-2 flex items-center justify-center gap-2 transition-all hover:bg-white hover:-translate-y-0.5 hover:shadow-md"
+                style={{ borderColor: "#e9d5ff", background: "rgba(255,255,255,0.55)", color: "#6d28d9" }}
               >
                 <Mail className="w-4 h-4" />
                 Sign in with email
@@ -320,123 +597,143 @@ export function Login() {
             </div>
           )}
 
-          {/* ── Email/password view ── */}
+          {/* Email view */}
           {showEmailForm && (
             <div className="cc-pop-in">
               {GOOGLE_CLIENT_ID && (
-                <button
-                  type="button"
-                  onClick={() => { setError(null); setShowEmailForm(false); }}
+                <button type="button" onClick={() => { setError(null); setShowEmailForm(false); }}
                   className="flex items-center gap-1.5 text-xs font-semibold mb-5 transition-colors hover:underline"
-                  style={{ color: "#1aad82" }}
-                >
+                  style={{ color: "#7c3aed" }}>
                   <ArrowLeft className="w-3.5 h-3.5" />
                   Use Google instead
                 </button>
               )}
 
               <form onSubmit={handleSubmit}>
-                <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#a0bbd0" }}>
+                <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#a78bfa" }}>
                   Email Address
                 </label>
                 <input
-                  id="email"
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@university.edu"
-                  required
-                  autoComplete="email"
-                  disabled={isLoading}
-                  autoFocus
+                  type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@final.edu.tr" required autoComplete="email" disabled={isLoading} autoFocus
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all mb-5 disabled:opacity-60"
                   style={fieldBase}
-                  onFocus={(e) => { e.target.style.borderColor = "#1a3a8f"; e.target.style.background = "white"; }}
-                  onBlur={(e) => { e.target.style.borderColor = "#cce0f5"; e.target.style.background = "#f0f8ff"; }}
+                  onFocus={(e) => { e.target.style.borderColor = "#7c3aed"; e.target.style.background = "white"; e.target.style.boxShadow = "0 0 0 4px rgba(124,58,237,0.12)"; }}
+                  onBlur={(e) => { e.target.style.borderColor = "#e9d5ff"; e.target.style.background = "#faf5ff"; e.target.style.boxShadow = "none"; }}
                 />
 
-                <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#a0bbd0" }}>
+                <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#a78bfa" }}>
                   Password
                 </label>
                 <div className="relative mb-2">
                   <input
-                    id="password"
-                    type={showPassword ? "text" : "password"}
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    required
-                    autoComplete="current-password"
-                    disabled={isLoading}
+                    type={showPassword ? "text" : "password"} value={password} onChange={(e) => setPassword(e.target.value)}
+                    placeholder="••••••••" required autoComplete="current-password" disabled={isLoading}
                     className="w-full px-4 py-3 pr-12 rounded-xl text-sm outline-none transition-all disabled:opacity-60"
                     style={fieldBase}
-                    onFocus={(e) => { e.target.style.borderColor = "#1aad82"; e.target.style.background = "white"; }}
-                    onBlur={(e) => { e.target.style.borderColor = "#cce0f5"; e.target.style.background = "#f0f8ff"; }}
+                    onFocus={(e) => { e.target.style.borderColor = "#a78bfa"; e.target.style.background = "white"; e.target.style.boxShadow = "0 0 0 4px rgba(167,139,250,0.18)"; }}
+                    onBlur={(e) => { e.target.style.borderColor = "#e9d5ff"; e.target.style.background = "#faf5ff"; e.target.style.boxShadow = "none"; }}
                   />
-                  <button
-                    type="button"
-                    tabIndex={-1}
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2"
-                    style={{ color: "#a0bbd0" }}
-                  >
+                  <button type="button" tabIndex={-1} onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 transition-colors hover:opacity-70" style={{ color: "#a78bfa" }}>
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
 
                 <div className="flex items-center py-3 mb-3">
-                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#4a7aaa" }}>
-                    <input
-                      type="checkbox"
-                      checked={remember}
-                      onChange={(e) => setRemember(e.target.checked)}
-                      className="w-3.5 h-3.5"
-                      style={{ accentColor: "#1a3a8f" }}
-                    />
+                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#6d28d9" }}>
+                    <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
+                      className="w-3.5 h-3.5" style={{ accentColor: "#7c3aed" }} />
                     Remember me
                   </label>
                 </div>
 
-                <button
-                  type="submit"
-                  disabled={isLoading || !email || !password}
-                  className="w-full py-3.5 rounded-2xl text-sm font-bold text-white relative overflow-hidden transition-transform disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5"
-                  style={{ background: "linear-gradient(135deg, #1a3a8f 0%, #2176c7 50%, #1aad82 100%)", fontFamily: "'Outfit', sans-serif" }}
-                >
-                  {isLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Signing in...
+                <Magnetic strength={5}>
+                  <button
+                    type="submit" disabled={isLoading || !email || !password}
+                    className="w-full py-3.5 rounded-2xl text-sm font-bold text-white relative overflow-hidden transition-all disabled:opacity-50 disabled:cursor-not-allowed hover:-translate-y-0.5 hover:shadow-xl group"
+                    style={{
+                      background: "linear-gradient(135deg, #7c3aed 0%, #8b5cf6 50%, #a78bfa 100%)",
+                      backgroundSize: "200% 100%",
+                      fontFamily: "'Outfit', sans-serif",
+                      boxShadow: "0 12px 30px -10px rgba(124,58,237,0.55)",
+                    }}
+                    onMouseMove={(e) => { (e.currentTarget as HTMLElement).style.backgroundPosition = `${(e.nativeEvent.offsetX / e.currentTarget.offsetWidth) * 100}% 50%`; }}
+                  >
+                    <span className="relative z-10">
+                      {isLoading ? (
+                        <span className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                          Signing in...
+                        </span>
+                      ) : "Sign In"}
                     </span>
-                  ) : "Sign In"}
-                </button>
+                  </button>
+                </Magnetic>
               </form>
             </div>
           )}
 
-          <p className="text-center text-xs mt-6" style={{ color: "#8aadcc" }}>
+          <p className="text-center text-xs mt-6" style={{ color: "#a78bfa" }}>
             No account?{" "}
-            <span className="font-semibold" style={{ color: "#1aad82" }}>
+            <span className="font-semibold" style={{ color: "#7c3aed" }}>
               Contact your university admin.
             </span>
           </p>
-        </div>
+        </TiltCard>
+
+        {ripples.layer}
       </div>
 
       <style>{`
         @keyframes cc-fade-in {
-          from { opacity: 0; transform: translateY(8px); }
+          from { opacity: 0; transform: translateY(10px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .cc-fade-in {
-          animation: cc-fade-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-        }
+        .cc-fade-in { animation: cc-fade-in 0.7s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
         @keyframes cc-pop-in {
-          from { opacity: 0; transform: translateY(-6px); }
+          from { opacity: 0; transform: translateY(-8px); }
           to   { opacity: 1; transform: translateY(0); }
         }
-        .cc-pop-in {
-          animation: cc-pop-in 0.32s cubic-bezier(0.22, 1, 0.36, 1) both;
+        .cc-pop-in { animation: cc-pop-in 0.36s cubic-bezier(0.22, 1, 0.36, 1) both; }
+
+        @keyframes cc-fade-up {
+          from { opacity: 0; transform: translateY(16px); }
+          to   { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes cc-letter {
+          to { opacity: 1; transform: translateY(0); }
+        }
+
+        @keyframes cc-logo-float {
+          0%, 100% { transform: translateY(0); }
+          50%      { transform: translateY(-10px); }
+        }
+
+        @keyframes cc-blob-drift1 {
+          0%, 100% { transform: translate(0, 0) rotate(0deg); }
+          33%      { transform: translate(40px, -25px) rotate(8deg); }
+          66%      { transform: translate(-25px, 35px) rotate(-6deg); }
+        }
+        @keyframes cc-blob-drift2 {
+          0%, 100% { transform: translate(0, 0) rotate(0deg); }
+          33%      { transform: translate(-35px, 30px) rotate(-7deg); }
+          66%      { transform: translate(45px, -20px) rotate(9deg); }
+        }
+        @keyframes cc-blob-drift3 {
+          0%, 100% { transform: translate(0, 0) rotate(0deg); }
+          50%      { transform: translate(-30px, 40px) rotate(5deg); }
+        }
+
+        @keyframes cc-ripple {
+          0%   { width: 0; height: 0; opacity: 0.7; }
+          100% { width: 700px; height: 700px; opacity: 0; }
+        }
+
+        .cc-logo-wrap:hover img {
+          filter: drop-shadow(0 25px 60px rgba(124,58,237,0.5)) brightness(1.05);
         }
       `}</style>
     </div>

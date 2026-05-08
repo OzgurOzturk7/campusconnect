@@ -3,20 +3,23 @@ import { Link, useLocation } from "react-router";
 import { useEffect, useState } from "react";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useLanguage } from "../context/LanguageContext";
+import type { TranslationKey } from "../lib/i18n";
 
-const navItems = [
-  { icon: Home, label: "Dashboard", path: "/" },
-  { icon: User, label: "Profile", path: "/profile" },
-  { icon: Users, label: "Clubs", path: "/clubs" },
-  { icon: Calendar, label: "Events", path: "/events" },
-  { icon: Briefcase, label: "Projects", path: "/projects" },
-  { icon: MessageCircle, label: "Chats", path: "/chats" },
-  { icon: Bell, label: "Notifications", path: "/notifications" },
+const navItems: { icon: any; key: TranslationKey; path: string }[] = [
+  { icon: Home, key: "nav_dashboard", path: "/" },
+  { icon: User, key: "nav_profile", path: "/profile" },
+  { icon: Users, key: "nav_clubs", path: "/clubs" },
+  { icon: Calendar, key: "nav_events", path: "/events" },
+  { icon: Briefcase, key: "nav_projects", path: "/projects" },
+  { icon: MessageCircle, key: "nav_chats", path: "/chats" },
+  { icon: Bell, key: "nav_notifications", path: "/notifications" },
 ];
 
 export function Sidebar() {
   const location = useLocation();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -67,7 +70,7 @@ export function Sidebar() {
               }`}
             >
               <Icon className="w-5 h-5" />
-              <span className="font-medium flex-1">{item.label}</span>
+              <span className="font-medium flex-1">{t(item.key)}</span>
               {isNotifications && unreadCount > 0 && (
                 <span className="w-5 h-5 bg-destructive text-white text-xs rounded-full flex items-center justify-center font-bold">
                   {unreadCount > 9 ? "9+" : unreadCount}

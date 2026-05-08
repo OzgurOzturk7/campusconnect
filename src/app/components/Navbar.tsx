@@ -1,8 +1,9 @@
-import { Bell, LogOut, Briefcase, Calendar, Users, MessageSquare, CheckCheck, Sun, Moon } from "lucide-react";
+import { Bell, LogOut, Briefcase, Calendar, Users, MessageSquare, CheckCheck, Sun, Moon, User as UserIcon, Globe, Check } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { Avatar } from "./Avatar";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
+import { useLanguage } from "../context/LanguageContext";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../lib/api";
 
@@ -53,12 +54,15 @@ function timeAgo(dateStr: string) {
 export function Navbar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
+  const { lang, setLang, t } = useLanguage();
   const navigate = useNavigate();
   const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
+  const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -88,6 +92,24 @@ export function Navbar() {
       document.removeEventListener("keydown", handleEsc);
     };
   }, [open]);
+
+  useEffect(() => {
+    if (!userMenuOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    };
+    const handleEsc = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setUserMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handleClick);
+    document.addEventListener("keydown", handleEsc);
+    return () => {
+      document.removeEventListener("mousedown", handleClick);
+      document.removeEventListener("keydown", handleEsc);
+    };
+  }, [userMenuOpen]);
 
   async function fetchUnreadCount() {
     try {
@@ -157,7 +179,7 @@ export function Navbar() {
         </svg>
         <input
           type="text"
-          placeholder="Search students, clubs, projects..."
+          placeholder={t("search_placeholder")}
           className="w-full pl-9 pr-4 py-2 text-sm bg-muted rounded-lg border border-transparent focus:border-primary focus:outline-none transition-colors"
         />
       </div>
@@ -165,18 +187,9 @@ export function Navbar() {
       <div className="ml-auto flex items-center gap-3">
         {user?.role === "admin" && (
           <span className="px-2.5 py-1 text-xs font-semibold bg-primary/10 text-primary rounded-full border border-primary/20">
-            Admin
+            {t("admin_badge")}
           </span>
         )}
-
-        <button
-          onClick={toggleTheme}
-          aria-label={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          title={theme === "dark" ? "Switch to light mode" : "Switch to dark mode"}
-          className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-        >
-          {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-        </button>
 
         <div ref={wrapperRef} className="relative">
           <button
@@ -196,7 +209,7 @@ export function Navbar() {
             <div className="absolute right-0 top-full mt-2 w-[380px] max-w-[90vw] bg-card border border-border rounded-xl shadow-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                 <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-sm">Notifications</h3>
+                  <h3 className="font-semibold text-sm">{t("notifications")}</h3>
                   {unreadCount > 0 && (
                     <span className="px-2 py-0.5 bg-primary/10 text-primary text-xs font-semibold rounded-full">
                       {unreadCount} new
@@ -209,7 +222,7 @@ export function Navbar() {
                   className="flex items-center gap-1 text-xs font-medium text-primary hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed"
                 >
                   <CheckCheck className="w-3.5 h-3.5" />
-                  Mark all
+                  {t("mark_all")}
                 </button>
               </div>
 
@@ -219,7 +232,7 @@ export function Navbar() {
                 ) : notifications.length === 0 ? (
                   <div className="px-4 py-10 text-center">
                     <Bell className="w-8 h-8 text-muted-foreground mx-auto mb-2 opacity-40" />
-                    <p className="text-sm text-muted-foreground">You are all caught up!</p>
+                    <p className="text-sm text-muted-foreground">{t("you_are_caught_up")}</p>
                   </div>
                 ) : (
                   notifications.map((notif) => {
@@ -257,23 +270,91 @@ export function Navbar() {
                 onClick={() => setOpen(false)}
                 className="block px-4 py-3 text-center text-sm font-medium text-primary border-t border-border hover:bg-muted transition-colors"
               >
-                View all notifications
+                {t("view_all_notifications")}
               </Link>
             </div>
           )}
         </div>
 
-        <Link to="/profile">
-          <Avatar name={user?.name || "User"} size="sm" />
-        </Link>
+        {/* User menu */}
+        <div ref={userMenuRef} className="relative">
+          <button
+            onClick={() => setUserMenuOpen((v) => !v)}
+            aria-label="User menu"
+            className={`rounded-full transition-all ${userMenuOpen ? "ring-2 ring-primary/40" : "hover:opacity-80"}`}
+          >
+            <Avatar name={user?.name || "User"} size="sm" />
+          </button>
 
-        <button
-          onClick={logout}
-          className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
-          title="Sign out"
-        >
-          <LogOut className="w-5 h-5" />
-        </button>
+          {userMenuOpen && (
+            <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+              {/* Header */}
+              <div className="px-4 py-3 border-b border-border flex items-center gap-3">
+                <Avatar name={user?.name || "User"} size="sm" />
+                <div className="min-w-0">
+                  <div className="font-semibold text-sm truncate">{user?.name}</div>
+                  <div className="text-xs text-muted-foreground truncate">{user?.email}</div>
+                </div>
+              </div>
+
+              {/* Profile link */}
+              <Link
+                to="/profile"
+                onClick={() => setUserMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted transition-colors"
+              >
+                <UserIcon className="w-4 h-4 text-muted-foreground" />
+                <span>{t("menu_profile")}</span>
+              </Link>
+
+              {/* Theme toggle */}
+              <button
+                onClick={toggleTheme}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted transition-colors text-left"
+              >
+                {theme === "dark" ? <Sun className="w-4 h-4 text-muted-foreground" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
+                <span className="flex-1">{theme === "dark" ? t("menu_light_mode") : t("menu_dark_mode")}</span>
+              </button>
+
+              {/* Language */}
+              <div className="border-t border-border px-4 py-2">
+                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
+                  <Globe className="w-3.5 h-3.5" />
+                  <span>{t("menu_language")}</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1">
+                  <button
+                    onClick={() => setLang("en")}
+                    className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      lang === "en" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"
+                    }`}
+                  >
+                    {lang === "en" && <Check className="w-3 h-3" />}
+                    {t("lang_english")}
+                  </button>
+                  <button
+                    onClick={() => setLang("tr")}
+                    className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
+                      lang === "tr" ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"
+                    }`}
+                  >
+                    {lang === "tr" && <Check className="w-3 h-3" />}
+                    {t("lang_turkish")}
+                  </button>
+                </div>
+              </div>
+
+              {/* Sign out */}
+              <button
+                onClick={() => { setUserMenuOpen(false); logout(); }}
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-destructive/10 hover:text-destructive transition-colors text-left border-t border-border"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>{t("menu_logout")}</span>
+              </button>
+            </div>
+          )}
+        </div>
       </div>
     </header>
   );

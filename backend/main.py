@@ -1,8 +1,9 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from app.routers import auth, projects, notifications, clubs, events, chats
 from app.core.config import settings
-from app.core.supabase import get_supabase_admin
+from app.core.supabase import get_supabase_admin, reset_supabase_clients
 from app.schemas.notifications import send_notification
 from datetime import datetime, timedelta
 import asyncio
@@ -23,6 +24,22 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def supabase_retry_middleware(request: Request, call_next):
+    """If a transient httpx/Supabase network error fires, drop the cached
+    clients (so the next request rebuilds them) and surface a clean 503 the
+    frontend can retry on."""
+    try:
+        return await call_next(request)
+    except Exception as e:
+        msg = repr(e).lower()
+        if any(x in msg for x in ("remoteprotocolerror", "server disconnected", "broken pipe")):
+            logger.warning(f"Transient supabase network error, resetting clients: {e}")
+            reset_supabase_clients()
+            return JSONResponse(status_code=503, content={"detail": "Network glitch — please retry."})
+        raise
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(projects.router, prefix="/api/projects", tags=["Projects"])

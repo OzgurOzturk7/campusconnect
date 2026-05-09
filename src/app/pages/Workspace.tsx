@@ -7,18 +7,13 @@ import {
   AlertCircle, Calendar, Crown, Shield, UserCircle, ArrowRight,
   Send,
 } from "lucide-react";
-import { createClient } from "@supabase/supabase-js";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Avatar } from "../components/Avatar";
 import { Tag } from "../components/Tag";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import { supabase } from "../lib/supabase";
 
 // ── Types ──────────────────────────────────────────────────────
 

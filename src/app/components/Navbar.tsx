@@ -4,6 +4,7 @@ import { Avatar } from "./Avatar";
 import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useNotifications } from "../context/NotificationContext";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../lib/api";
 
@@ -55,25 +56,14 @@ export function Navbar() {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { lang, setLang, t } = useLanguage();
+  const { unreadCount, refresh: refreshUnread } = useNotifications();
   const navigate = useNavigate();
-  const [unreadCount, setUnreadCount] = useState(0);
   const [open, setOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!user) return;
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
-    window.addEventListener("notifications-updated", fetchUnreadCount);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("notifications-updated", fetchUnreadCount);
-    };
-  }, [user]);
 
   useEffect(() => {
     if (!open) return;
@@ -111,14 +101,6 @@ export function Navbar() {
     };
   }, [userMenuOpen]);
 
-  async function fetchUnreadCount() {
-    try {
-      const data = await apiFetch("/api/notifications/unread-count");
-      setUnreadCount(data.count);
-    } catch {
-      // silent fail
-    }
-  }
 
   async function fetchNotifications() {
     try {
@@ -146,7 +128,7 @@ export function Navbar() {
       setNotifications((prev) =>
         prev.map((n) => (n.id === notif.id ? { ...n, is_read: true } : n))
       );
-      setUnreadCount((c) => Math.max(0, c - 1));
+      refreshUnread();
     }
     setOpen(false);
     if (notif.link) navigate(notif.link);
@@ -156,7 +138,7 @@ export function Navbar() {
     try {
       await apiFetch("/api/notifications/read-all", { method: "PATCH" });
       setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })));
-      setUnreadCount(0);
+      refreshUnread();
       window.dispatchEvent(new Event("notifications-updated"));
     } catch {
       // silent

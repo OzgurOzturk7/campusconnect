@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Request
 from app.schemas.clubs import ClubCreate, ClubUpdate, MembershipStatusUpdate, ClubRequestCreate, ClubRequestReview, AnnouncementCreate
 from app.schemas.notifications import send_notification
 from app.core.supabase import get_supabase_admin
 from app.core.security import get_current_user
+from app.core.ratelimit import limiter
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -33,7 +34,17 @@ def is_club_manager(supabase, club: dict, current_user: dict) -> bool:
     if club["admin_user_id"] == current_user["id"]:
         return True
     role = get_member_role(supabase, club["id"], current_user["id"])
-    return role in ("president", "admin")
+    return role == "president"
+
+
+def notify_platform_admins(supabase, *, type: str, title: str, body: str, link: str | None = None):
+    """Send a notification to every platform admin user."""
+    try:
+        admins = supabase.table("users").select("id").eq("role", "admin").execute()
+        for a in (admins.data or []):
+            send_notification(user_id=a["id"], type=type, title=title, body=body, link=link)
+    except Exception as e:
+        print("notify_platform_admins error:", e)
 
 
 def require_club_manager(supabase, club_id: str, current_user: dict) -> dict:
@@ -113,12 +124,36 @@ def create_club(body: ClubCreate, current_user: dict = Depends(get_current_user)
 
 
 @router.post("/request", status_code=status.HTTP_201_CREATED)
-def request_club(body: ClubRequestCreate, current_user: dict = Depends(get_current_user)):
+@limiter.limit("5/hour")
+def request_club(request: Request, body: ClubRequestCreate, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
+
+    # Reject if user already has a pending request — prevents notification spam
+    existing = (
+        supabase.table("club_requests")
+        .select("id")
+        .eq("requester_id", current_user["id"])
+        .eq("status", "pending")
+        .execute()
+    )
+    if existing.data and len(existing.data) >= 3:
+        raise HTTPException(
+            status_code=429,
+            detail="You already have 3 pending club requests. Please wait for them to be reviewed.",
+        )
+
     result = supabase.table("club_requests").insert({
         "requester_id": current_user["id"], "club_name": body.club_name,
         "category": body.category, "description": body.description, "status": "pending",
     }).execute()
+    # Notify all platform admins
+    notify_platform_admins(
+        supabase,
+        type="club_request",
+        title="New club request",
+        body=f"{current_user['name']} requested a new club: \"{body.club_name}\".",
+        link="/clubs?tab=requests",
+    )
     return result.data[0]
 
 
@@ -248,13 +283,43 @@ def remove_member(club_id: str, user_id: str, current_user: dict = Depends(get_c
 @router.patch("/{club_id}/members/{user_id}/role")
 def update_member_role(club_id: str, user_id: str, body: RoleUpdate,
                        current_user: dict = Depends(get_current_user)):
-    if body.role not in ("member", "admin", "president"):
-        raise HTTPException(status_code=400, detail="Role must be member, admin or president")
+    """Allowed roles: 'member' or 'president'.
+    - Setting someone to 'president' atomically demotes the previous president
+      to 'member' (a club has exactly one president).
+    - Only platform admins (or the club president) can change roles.
+    """
+    if body.role not in ("member", "president"):
+        raise HTTPException(status_code=400, detail="Role must be 'member' or 'president'")
     supabase = get_supabase_admin()
-    require_club_manager(supabase, club_id, current_user)
+    club = require_club_manager(supabase, club_id, current_user)
+
+    # If promoting to president → demote current president to member first
+    if body.role == "president":
+        # Only platform admin can transfer presidency
+        if current_user["role"] != "admin":
+            raise HTTPException(status_code=403, detail="Only platform admin can transfer presidency")
+        existing_president = supabase.table("club_memberships").select("user_id") \
+            .eq("club_id", club_id).eq("role", "president").execute()
+        for p in (existing_president.data or []):
+            if p["user_id"] != user_id:
+                supabase.table("club_memberships").update({"role": "member"}) \
+                    .eq("club_id", club_id).eq("user_id", p["user_id"]).execute()
+                # Notify the demoted president
+                send_notification(user_id=p["user_id"], type="club_application_result",
+                    title=f"You are no longer president of {club['name']}",
+                    body=f"A platform admin has transferred the presidency.",
+                    link=f"/clubs/{club_id}")
+        # Update club admin_user_id to point to new president
+        supabase.table("clubs").update({"admin_user_id": user_id}).eq("id", club_id).execute()
+        # Notify the new president
+        send_notification(user_id=user_id, type="club_application_result",
+            title=f"You are now the president of {club['name']}",
+            body=f"You have been assigned as the president of {club['name']}.",
+            link=f"/clubs/{club_id}")
+
     result = supabase.table("club_memberships").update({"role": body.role}) \
         .eq("club_id", club_id).eq("user_id", user_id).execute()
-    return result.data[0]
+    return result.data[0] if result.data else {"role": body.role}
 
 
 @router.get("/{club_id}/announcements")

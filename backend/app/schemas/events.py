@@ -1,25 +1,25 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
 
 class EventCreate(BaseModel):
-    title: str
-    description: str
+    title: str = Field(..., min_length=2, max_length=200)
+    description: str = Field(..., min_length=1, max_length=5000)
     club_id: Optional[str] = None
     event_date: datetime
-    location: str
-    capacity: Optional[int] = None
+    location: str = Field(..., min_length=1, max_length=300)
+    capacity: Optional[int] = Field(None, ge=1, le=10000)
     is_school_wide: bool = False
     is_members_only: bool = False
 
 
 class EventUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
+    title: Optional[str] = Field(None, min_length=2, max_length=200)
+    description: Optional[str] = Field(None, min_length=1, max_length=5000)
     event_date: Optional[datetime] = None
-    location: Optional[str] = None
-    capacity: Optional[int] = None
+    location: Optional[str] = Field(None, min_length=1, max_length=300)
+    capacity: Optional[int] = Field(None, ge=1, le=10000)
     is_members_only: Optional[bool] = None
 
 

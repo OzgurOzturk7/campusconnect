@@ -28,6 +28,20 @@
 
     <!-- Preconnect to Google Identity Services (login) -->
     <link rel="preconnect" href="https://accounts.google.com" />
+
+    <!-- Inline theme bootstrap to prevent light/dark flicker on first paint.
+         Reads the saved theme synchronously before React mounts, so the
+         <html> element already has the correct .dark class. -->
+    <script>
+      (function () {
+        try {
+          var saved = localStorage.getItem('campusconnect_theme');
+          var prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+          var dark = saved === 'dark' || (!saved && prefersDark);
+          if (dark) document.documentElement.classList.add('dark');
+        } catch (e) { /* ignore */ }
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

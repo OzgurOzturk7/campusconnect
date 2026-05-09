@@ -1,14 +1,14 @@
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, List
 
 
 class LoginRequest(BaseModel):
     email: EmailStr
-    password: str
+    password: str = Field(..., min_length=1, max_length=200)
 
 
 class GoogleLoginRequest(BaseModel):
-    credential: str
+    credential: str = Field(..., min_length=10, max_length=4000)
 
 
 class LoginResponse(BaseModel):
@@ -37,15 +37,15 @@ class UserPublic(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    name: Optional[str] = None
-    university: Optional[str] = None
-    department: Optional[str] = None
-    year: Optional[int] = None
-    github_url: Optional[str] = None
-    linkedin_url: Optional[str] = None
-    bio: Optional[str] = None
-    skills: Optional[list] = None
-    courses: Optional[list] = None
+    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    university: Optional[str] = Field(None, max_length=200)
+    department: Optional[str] = Field(None, max_length=200)
+    year: Optional[int] = Field(None, ge=1, le=10)
+    github_url: Optional[str] = Field(None, max_length=500)
+    linkedin_url: Optional[str] = Field(None, max_length=500)
+    bio: Optional[str] = Field(None, max_length=2000)
+    skills: Optional[List[str]] = Field(None, max_length=50)
+    courses: Optional[List[str]] = Field(None, max_length=50)
 
 
 class AIAnalysisResponse(BaseModel):

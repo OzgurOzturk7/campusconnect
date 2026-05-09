@@ -6,9 +6,10 @@ import {
   Users, Search, Plus, X, Loader2, Filter,
   CheckCircle, Clock, Check, Trash2
 } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useLocation } from "react-router";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { SkeletonPage, SkeletonGrid } from "../components/Skeleton";
 
 interface Club {
   id: string;
@@ -70,7 +71,19 @@ export function Clubs() {
   const [clubRequests, setClubRequests] = useState<ClubRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingRequests, setIsLoadingRequests] = useState(false);
-  const [activeTab, setActiveTab] = useState<"clubs" | "requests">("clubs");
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<"clubs" | "requests">(() => {
+    const params = new URLSearchParams(location.search);
+    return params.get("tab") === "requests" ? "requests" : "clubs";
+  });
+
+  // React to URL changes (notification click etc.)
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("tab") === "requests" && user?.role === "admin") {
+      setActiveTab("requests");
+    }
+  }, [location.search, user?.role]);
 
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState("All");
@@ -257,9 +270,9 @@ export function Clubs() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <SkeletonPage>
+        <SkeletonGrid count={6} columns={3} />
+      </SkeletonPage>
     );
   }
 

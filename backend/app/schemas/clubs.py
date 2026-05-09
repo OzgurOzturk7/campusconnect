@@ -1,19 +1,19 @@
-from pydantic import BaseModel
-from typing import Optional, List
+from pydantic import BaseModel, Field
+from typing import Optional
 from datetime import datetime
 
 
 class ClubCreate(BaseModel):
-    name: str
-    description: str
-    category: str
+    name: str = Field(..., min_length=2, max_length=100)
+    description: str = Field(..., min_length=10, max_length=2000)
+    category: str = Field(..., min_length=1, max_length=50)
     is_open: bool = True
 
 
 class ClubUpdate(BaseModel):
-    name: Optional[str] = None
-    description: Optional[str] = None
-    category: Optional[str] = None
+    name: Optional[str] = Field(None, min_length=2, max_length=100)
+    description: Optional[str] = Field(None, min_length=10, max_length=2000)
+    category: Optional[str] = Field(None, max_length=50)
     is_open: Optional[bool] = None
 
 
@@ -31,20 +31,20 @@ class ClubResponse(BaseModel):
 
 
 class MembershipStatusUpdate(BaseModel):
-    status: str
+    status: str = Field(..., max_length=20)
 
 
 class ClubRequestCreate(BaseModel):
-    club_name: str
-    category: str
-    description: str
+    club_name: str = Field(..., min_length=2, max_length=100)
+    category: str = Field(..., min_length=1, max_length=50)
+    description: str = Field(..., min_length=10, max_length=2000)
 
 
 class ClubRequestReview(BaseModel):
-    status: str  # "approved" | "rejected"
-    review_note: Optional[str] = None
+    status: str = Field(..., max_length=20)
+    review_note: Optional[str] = Field(None, max_length=1000)
 
 
 class AnnouncementCreate(BaseModel):
-    title: str
-    content: str
+    title: str = Field(..., min_length=1, max_length=200)
+    content: str = Field(..., min_length=1, max_length=5000)

@@ -1,16 +1,36 @@
+import { lazy, Suspense } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
+import { Loader2 } from "lucide-react";
 import { Layout } from "./components/Layout";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+
+// Login is needed immediately for unauthenticated users — keep eager.
 import { Login } from "./pages/Login";
-import { Dashboard } from "./pages/Dashboard";
-import { Profile } from "./pages/Profile";
-import { Clubs } from "./pages/Clubs";
-import { ClubDetail } from "./pages/ClubDetail";
-import { Events } from "./pages/Events";
-import { Projects } from "./pages/Projects";
-import { Workspace } from "./pages/Workspace";
-import { Chat } from "./pages/Chat";
-import { Notifications } from "./pages/Notifications";
+
+// All other pages are loaded on demand → much smaller initial bundle.
+const Dashboard = lazy(() => import("./pages/Dashboard").then((m) => ({ default: m.Dashboard })));
+const Profile = lazy(() => import("./pages/Profile").then((m) => ({ default: m.Profile })));
+const Clubs = lazy(() => import("./pages/Clubs").then((m) => ({ default: m.Clubs })));
+const ClubDetail = lazy(() => import("./pages/ClubDetail").then((m) => ({ default: m.ClubDetail })));
+const Events = lazy(() => import("./pages/Events").then((m) => ({ default: m.Events })));
+const Projects = lazy(() => import("./pages/Projects").then((m) => ({ default: m.Projects })));
+const Workspace = lazy(() => import("./pages/Workspace").then((m) => ({ default: m.Workspace })));
+const Chat = lazy(() => import("./pages/Chat").then((m) => ({ default: m.Chat })));
+const Notifications = lazy(() => import("./pages/Notifications").then((m) => ({ default: m.Notifications })));
+
+function PageLoader() {
+  return (
+    <div className="flex items-center justify-center h-[60vh]">
+      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+    </div>
+  );
+}
+
+const lazyEl = (Component: React.LazyExoticComponent<() => JSX.Element>) => (
+  <Suspense fallback={<PageLoader />}>
+    <Component />
+  </Suspense>
+);
 
 export const router = createBrowserRouter([
   {
@@ -24,15 +44,15 @@ export const router = createBrowserRouter([
       {
         element: <Layout />,
         children: [
-          { index: true, element: <Dashboard /> },
-          { path: "profile", element: <Profile /> },
-          { path: "clubs", element: <Clubs /> },
-          { path: "clubs/:id", element: <ClubDetail /> },
-          { path: "events", element: <Events /> },
-          { path: "projects", element: <Projects /> },
-          { path: "projects/:projectId/workspace", element: <Workspace /> },
-          { path: "chats", element: <Chat /> },
-          { path: "notifications", element: <Notifications /> },
+          { index: true, element: lazyEl(Dashboard) },
+          { path: "profile", element: lazyEl(Profile) },
+          { path: "clubs", element: lazyEl(Clubs) },
+          { path: "clubs/:id", element: lazyEl(ClubDetail) },
+          { path: "events", element: lazyEl(Events) },
+          { path: "projects", element: lazyEl(Projects) },
+          { path: "projects/:projectId/workspace", element: lazyEl(Workspace) },
+          { path: "chats", element: lazyEl(Chat) },
+          { path: "notifications", element: lazyEl(Notifications) },
         ],
       },
     ],

@@ -10,12 +10,8 @@ import { Button } from "../components/Button";
 import { apiFetch } from "../lib/api";
 import { useAuth, getStoredToken } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
-import { createClient, RealtimeChannel } from "@supabase/supabase-js";
-
-const supabase = createClient(
-  import.meta.env.VITE_SUPABASE_URL,
-  import.meta.env.VITE_SUPABASE_ANON_KEY
-);
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { supabase } from "../lib/supabase";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -414,8 +410,30 @@ export function Chat() {
 
   // ----------- Reactions -----------
   async function toggleReaction(msg: ChatMessage, emoji: string) {
-    if (!activeChatId) return;
+    if (!activeChatId || !user) return;
     setEmojiPickerFor(null);
+    const myId = user.user_id;
+
+    // Optimistic update — apply locally before the network round-trip so the
+    // user sees instant feedback. Realtime event will be a no-op (handler
+    // checks for duplicates) or correct any drift.
+    setMessages((prev) => prev.map((m) => {
+      if (m.id !== msg.id) return m;
+      const reactions = [...(m.reactions || [])];
+      const idx = reactions.findIndex((r) => r.emoji === emoji);
+      if (idx >= 0 && reactions[idx].user_ids.includes(myId)) {
+        // Remove my reaction
+        const newUserIds = reactions[idx].user_ids.filter((u) => u !== myId);
+        if (newUserIds.length === 0) reactions.splice(idx, 1);
+        else reactions[idx] = { ...reactions[idx], user_ids: newUserIds, count: newUserIds.length };
+      } else if (idx >= 0) {
+        reactions[idx] = { ...reactions[idx], user_ids: [...reactions[idx].user_ids, myId], count: reactions[idx].count + 1 };
+      } else {
+        reactions.push({ emoji, user_ids: [myId], count: 1 });
+      }
+      return { ...m, reactions };
+    }));
+
     try {
       await apiFetch(`/api/chats/${activeChatId}/messages/${msg.id}/reactions`, {
         method: "POST",
@@ -423,6 +441,8 @@ export function Chat() {
       });
     } catch (e: any) {
       toastError(e?.message || "Failed");
+      // Revert on error
+      loadMessages(activeChatId);
     }
   }
 
@@ -944,12 +964,7 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
       if (search.trim().length < 2) { setResults([]); return; }
       setIsSearching(true);
       try {
-        const { data } = await supabase
-          .from("users")
-          .select("id, name, avatar_url, department")
-          .ilike("name", `%${search}%`)
-          .neq("id", user?.user_id || "")
-          .limit(20);
+        const data = await apiFetch(`/api/auth/search-users?q=${encodeURIComponent(search.trim())}`);
         setResults(data || []);
       } catch (e) { console.error(e); }
       finally { setIsSearching(false); }

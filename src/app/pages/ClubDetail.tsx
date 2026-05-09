@@ -428,8 +428,7 @@ export function ClubDetail() {
   const isClubManager =
     user?.role === "admin" ||
     club.admin_user_id === user?.user_id ||
-    myMembership?.role === "president" ||
-    myMembership?.role === "admin";
+    myMembership?.role === "president";
   const isApprovedMember = members.some((m) => m.user_id === user?.user_id && m.status === "approved");
   const isPending = members.some((m) => m.user_id === user?.user_id && m.status === "pending");
   const upcomingEvents = clubEvents.filter((e) => new Date(e.event_date) >= new Date());
@@ -954,13 +953,13 @@ export function ClubDetail() {
                   <div className="flex items-center gap-2">
                     <select value={member.role}
                       onChange={(e) => handleRoleUpdate(member.user_id, e.target.value)}
-                      disabled={updatingMemberId === member.user_id || member.user_id === club.admin_user_id}
-                      className="text-xs px-2 py-1 bg-card border border-border rounded-lg focus:outline-none">
+                      disabled={updatingMemberId === member.user_id || user?.role !== "admin"}
+                      title={user?.role !== "admin" ? "Only platform admin can change roles" : undefined}
+                      className="text-xs px-2 py-1 bg-card border border-border rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed">
                       <option value="member">Member</option>
-                      <option value="admin">Admin</option>
                       <option value="president">President</option>
                     </select>
-                    {member.user_id !== club.admin_user_id && (
+                    {(user?.role === "admin" || member.user_id !== club.admin_user_id) && (
                       <Button size="sm" variant="outline"
                         onClick={() => handleRemoveMember(member.user_id, member.name || "this member")}
                         disabled={updatingMemberId === member.user_id}

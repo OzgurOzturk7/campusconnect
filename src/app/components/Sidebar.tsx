@@ -1,9 +1,8 @@
 import { Home, User, Users, Calendar, Briefcase, MessageCircle, Bell } from "lucide-react";
 import { Link, useLocation } from "react-router";
-import { useEffect, useState } from "react";
-import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { useLanguage } from "../context/LanguageContext";
+import { useNotifications } from "../context/NotificationContext";
 import type { TranslationKey } from "../lib/i18n";
 
 const navItems: { icon: any; key: TranslationKey; path: string }[] = [
@@ -20,34 +19,7 @@ export function Sidebar() {
   const location = useLocation();
   const { user } = useAuth();
   const { t } = useLanguage();
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    if (!user) return;
-    fetchUnreadCount();
-    const interval = setInterval(fetchUnreadCount, 30000);
-    window.addEventListener("notifications-updated", fetchUnreadCount);
-    return () => {
-      clearInterval(interval);
-      window.removeEventListener("notifications-updated", fetchUnreadCount);
-    };
-  }, [user]);
-
-  // Refresh count when navigating away from notifications
-  useEffect(() => {
-    if (location.pathname !== "/notifications") {
-      fetchUnreadCount();
-    }
-  }, [location.pathname]);
-
-  async function fetchUnreadCount() {
-    try {
-      const data = await apiFetch("/api/notifications/unread-count");
-      setUnreadCount(data.count ?? 0);
-    } catch {
-      // silent fail
-    }
-  }
+  const { unreadCount } = useNotifications();
 
   return (
     <aside className="fixed left-0 top-16 w-64 h-[calc(100vh-4rem)] bg-card border-r border-border overflow-y-auto">

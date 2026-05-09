@@ -491,31 +491,6 @@ export function Login() {
             />
           </div>
           <RotatingTagline />
-
-          {/* Stat cards */}
-          <div className="mt-10 grid grid-cols-3 gap-3 max-w-md">
-            {[
-              { num: "1.2k+", label: "Students" },
-              { num: "30+", label: "Clubs" },
-              { num: "120+", label: "Events" },
-            ].map((s, i) => (
-              <div
-                key={i}
-                className="px-4 py-3 rounded-2xl text-center transition-transform hover:-translate-y-1"
-                style={{
-                  background: "rgba(255,255,255,0.6)",
-                  backdropFilter: "blur(12px)",
-                  WebkitBackdropFilter: "blur(12px)",
-                  border: "1px solid rgba(196,181,253,0.55)",
-                  animation: `cc-fade-up 0.8s cubic-bezier(0.22, 1, 0.36, 1) ${0.6 + i * 0.12}s both`,
-                  boxShadow: "0 8px 25px -10px rgba(124,58,237,0.2)",
-                }}
-              >
-                <div className="text-xl font-extrabold" style={{ color: "#7c3aed" }}>{s.num}</div>
-                <div className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: "#6d28d9" }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
         </div>
       </div>
 

@@ -3,17 +3,21 @@ import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import {
   Bell, Briefcase, Calendar, MessageSquare, Users,
-  CheckCheck, Loader2, ChevronLeft, ChevronRight, Inbox,
+  CheckCheck, ChevronLeft, ChevronRight, Inbox,
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useNavigate } from "react-router";
+import { SkeletonPage, SkeletonList } from "../components/Skeleton";
 
 type NotifType =
   | "project_application"
   | "project_application_result"
   | "project_team_join"
   | "club_announcement"
+  | "club_application"
   | "club_application_result"
+  | "club_request"
+  | "club_request_result"
   | "new_event"
   | "event_reminder"
   | "study_file_upload"
@@ -34,7 +38,10 @@ const iconMap: Record<string, React.ElementType> = {
   project_application_result: Briefcase,
   project_team_join: Briefcase,
   club_announcement: Users,
+  club_application: Users,
   club_application_result: Users,
+  club_request: Users,
+  club_request_result: Users,
   new_event: Calendar,
   event_reminder: Calendar,
   study_file_upload: MessageSquare,
@@ -46,7 +53,10 @@ const colorMap: Record<string, string> = {
   project_application_result: "bg-blue-50 text-blue-600 ring-blue-100",
   project_team_join: "bg-blue-50 text-blue-600 ring-blue-100",
   club_announcement: "bg-green-50 text-green-600 ring-green-100",
+  club_application: "bg-green-50 text-green-600 ring-green-100",
   club_application_result: "bg-green-50 text-green-600 ring-green-100",
+  club_request: "bg-green-50 text-green-600 ring-green-100",
+  club_request_result: "bg-green-50 text-green-600 ring-green-100",
   new_event: "bg-orange-50 text-orange-600 ring-orange-100",
   event_reminder: "bg-orange-50 text-orange-600 ring-orange-100",
   study_file_upload: "bg-purple-50 text-purple-600 ring-purple-100",
@@ -58,7 +68,10 @@ const labelMap: Record<string, string> = {
   project_application_result: "Project",
   project_team_join: "Project",
   club_announcement: "Club",
+  club_application: "Club",
   club_application_result: "Club",
+  club_request: "Club",
+  club_request_result: "Club",
   new_event: "Event",
   event_reminder: "Event",
   study_file_upload: "Study",
@@ -131,8 +144,10 @@ export function Notifications() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="max-w-5xl mx-auto">
+        <SkeletonPage>
+          <SkeletonList count={6} />
+        </SkeletonPage>
       </div>
     );
   }

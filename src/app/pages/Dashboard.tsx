@@ -2,10 +2,11 @@ import { useState, useEffect } from "react";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
-import { Calendar, MapPin, Users, Bell, Loader2, Clock, CalendarPlus } from "lucide-react";
+import { Calendar, MapPin, Users, Bell, Clock, CalendarPlus } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { Skeleton, SkeletonGrid } from "../components/Skeleton";
 
 interface Event {
   id: string;
@@ -134,8 +135,13 @@ export function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="space-y-8">
+        <Skeleton className="h-32 rounded-xl" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Skeleton className="h-28 rounded-xl" />
+          <Skeleton className="h-28 rounded-xl" />
+        </div>
+        <SkeletonGrid count={4} columns={2} />
       </div>
     );
   }

@@ -1,9 +1,12 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+from slowapi.errors import RateLimitExceeded
+from slowapi import _rate_limit_exceeded_handler
 from app.routers import auth, projects, notifications, clubs, events, chats, workspaces
 from app.core.config import settings
 from app.core.supabase import get_supabase_admin, reset_supabase_clients
+from app.core.ratelimit import limiter
 from app.schemas.notifications import send_notification
 from datetime import datetime, timedelta
 import asyncio
@@ -17,6 +20,10 @@ app = FastAPI(
     version="1.0.0",
 )
 
+# Rate limiting (slowapi)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.ALLOWED_ORIGINS,
@@ -24,6 +31,18 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _cors_headers(request: Request) -> dict:
+    """Build CORS headers mirroring CORSMiddleware so manual responses don't fail CORS."""
+    origin = request.headers.get("origin", "")
+    if origin in settings.ALLOWED_ORIGINS:
+        return {
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Credentials": "true",
+            "Vary": "Origin",
+        }
+    return {}
 
 
 @app.middleware("http")
@@ -38,7 +57,11 @@ async def supabase_retry_middleware(request: Request, call_next):
         if any(x in msg for x in ("remoteprotocolerror", "server disconnected", "broken pipe")):
             logger.warning(f"Transient supabase network error, resetting clients: {e}")
             reset_supabase_clients()
-            return JSONResponse(status_code=503, content={"detail": "Network glitch — please retry."})
+            return JSONResponse(
+                status_code=503,
+                content={"detail": "Network glitch — please retry."},
+                headers=_cors_headers(request),
+            )
         raise
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])

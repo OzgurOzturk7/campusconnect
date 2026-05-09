@@ -1,25 +1,25 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List
 from datetime import datetime
 
 
 class ProjectPostCreate(BaseModel):
-    title: str
-    description: str
-    tech_stack: List[str] = []
-    roles_needed: List[str] = []
-    github_url: Optional[str] = None
-    duration: Optional[str] = None
+    title: str = Field(..., min_length=2, max_length=200)
+    description: str = Field(..., min_length=10, max_length=5000)
+    tech_stack: List[str] = Field(default_factory=list, max_length=30)
+    roles_needed: List[str] = Field(default_factory=list, max_length=20)
+    github_url: Optional[str] = Field(None, max_length=500)
+    duration: Optional[str] = Field(None, max_length=100)
 
 
 class ProjectPostUpdate(BaseModel):
-    title: Optional[str] = None
-    description: Optional[str] = None
-    tech_stack: Optional[List[str]] = None
-    roles_needed: Optional[List[str]] = None
-    github_url: Optional[str] = None
-    duration: Optional[str] = None
-    status: Optional[str] = None
+    title: Optional[str] = Field(None, min_length=2, max_length=200)
+    description: Optional[str] = Field(None, min_length=10, max_length=5000)
+    tech_stack: Optional[List[str]] = Field(None, max_length=30)
+    roles_needed: Optional[List[str]] = Field(None, max_length=20)
+    github_url: Optional[str] = Field(None, max_length=500)
+    duration: Optional[str] = Field(None, max_length=100)
+    status: Optional[str] = Field(None, max_length=20)
 
 
 class ProjectPostResponse(BaseModel):
@@ -36,8 +36,8 @@ class ProjectPostResponse(BaseModel):
 
 
 class ApplicationCreate(BaseModel):
-    role: str
-    motivation: str
+    role: str = Field(..., min_length=1, max_length=100)
+    motivation: str = Field(..., min_length=10, max_length=2000)
 
 
 class ApplicationResponse(BaseModel):
@@ -51,5 +51,5 @@ class ApplicationResponse(BaseModel):
 
 
 class ApplicationStatusUpdate(BaseModel):
-    status: str
-    reason: Optional[str] = None
+    status: str = Field(..., max_length=20)
+    reason: Optional[str] = Field(None, max_length=1000)

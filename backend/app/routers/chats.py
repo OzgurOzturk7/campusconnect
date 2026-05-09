@@ -15,6 +15,23 @@ router = APIRouter()
 
 CHAT_BUCKET = "chat-media"
 
+ALLOWED_MIME_PREFIXES = ("image/", "video/", "audio/")
+ALLOWED_MIME_EXACT = {
+    "application/pdf",
+    "application/zip",
+    "application/x-zip-compressed",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "text/plain",
+    "text/csv",
+    "text/markdown",
+}
+MAX_UPLOAD_BYTES = 25 * 1024 * 1024  # 25 MB
+
 
 # ============================================================
 # Helpers
@@ -424,17 +441,29 @@ async def upload_attachment(chat_id: str, file: UploadFile = File(...), current_
     supabase = get_supabase_admin()
     _ensure_member(supabase, chat_id, current_user["id"])
 
-    safe_name = (file.filename or "file").replace("/", "_").replace("\\", "_")
+    # MIME type whitelist (rejects executables, scripts, etc.)
+    content_type = (file.content_type or "").lower()
+    if not (
+        any(content_type.startswith(p) for p in ALLOWED_MIME_PREFIXES)
+        or content_type in ALLOWED_MIME_EXACT
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail=f"File type not allowed: {content_type or 'unknown'}",
+        )
+
+    safe_name = (file.filename or "file").replace("/", "_").replace("\\", "_")[:200]
     object_path = f"{chat_id}/{uuid.uuid4().hex}_{safe_name}"
 
     contents = await file.read()
+    if len(contents) > MAX_UPLOAD_BYTES:
+        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_UPLOAD_BYTES // (1024*1024)} MB)")
     try:
         supabase.storage.from_(CHAT_BUCKET).upload(
             object_path, contents,
             {"content-type": file.content_type or "application/octet-stream"},
         )
     except Exception as e:
-        print("UPLOAD ERROR:", e)
         raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
 
     # Generate a long-lived signed URL (7 days)

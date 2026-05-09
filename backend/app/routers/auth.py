@@ -1,8 +1,9 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
 from app.schemas.auth import LoginRequest, LoginResponse, GoogleLoginRequest, UserPublic, UserUpdate, AIAnalysisResponse
 from app.core.supabase import get_supabase, get_supabase_admin
 from app.core.security import create_access_token, get_current_user
 from app.core.config import settings
+from app.core.ratelimit import limiter
 import os
 import json
 from datetime import datetime, timedelta
@@ -13,7 +14,8 @@ ALLOWED_GOOGLE_DOMAIN = "final.edu.tr"
 
 
 @router.post("/login", response_model=LoginResponse)
-def login(body: LoginRequest):
+@limiter.limit("10/minute")
+def login(request: Request, body: LoginRequest):
     supabase = get_supabase()
 
     try:
@@ -57,7 +59,8 @@ def login(body: LoginRequest):
 
 
 @router.post("/google", response_model=LoginResponse)
-def google_login(body: GoogleLoginRequest):
+@limiter.limit("10/minute")
+def google_login(request: Request, body: GoogleLoginRequest):
     """
     Verify a Google ID token (credential) from Google Identity Services.
     Only @final.edu.tr accounts are allowed.
@@ -196,6 +199,28 @@ def update_profile(body: UserUpdate, current_user: dict = Depends(get_current_us
 @router.post("/logout")
 def logout():
     return {"message": "Logged out successfully"}
+
+
+@router.get("/search-users")
+def search_users(q: str, current_user: dict = Depends(get_current_user)):
+    """Search users by name (used by chat new-conversation modal)."""
+    q = (q or "").strip()
+    if len(q) < 2:
+        return []
+    supabase = get_supabase_admin()
+    try:
+        result = (
+            supabase.table("users")
+            .select("id, name, avatar_url, department, email")
+            .ilike("name", f"%{q}%")
+            .neq("id", current_user["id"])
+            .limit(20)
+            .execute()
+        )
+        return result.data or []
+    except Exception as e:
+        print("USER SEARCH ERROR:", e)
+        raise HTTPException(status_code=500, detail="Search failed")
 
 
 def score_club_match(club: dict, user_skills: list, user_courses: list, user_dept: str) -> int:

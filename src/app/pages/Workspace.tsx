@@ -2,9 +2,10 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
 import {
   ArrowLeft, Loader2, LayoutDashboard, MessageCircle, CheckSquare,
-  Users, Link2, Activity, Plus, X, Send, Github, Figma, HardDrive,
+  Users, Link2, Activity, Plus, X, Github, Figma, HardDrive,
   BookOpen, Video, ExternalLink, Trash2, ChevronDown, Circle,
-  AlertCircle, Calendar, Crown, Shield, UserCircle,
+  AlertCircle, Calendar, Crown, Shield, UserCircle, ArrowRight,
+  Send,
 } from "lucide-react";
 import { createClient } from "@supabase/supabase-js";
 import { Card } from "../components/Card";
@@ -86,15 +87,6 @@ interface ActivityLog {
   actor?: { id: string; name: string; avatar_url?: string };
 }
 
-interface ChatMessage {
-  id: string;
-  chat_id: string;
-  sender_id: string;
-  body?: string;
-  created_at: string;
-  sender?: { id: string; name: string; avatar_url?: string };
-}
-
 // ── Constants ─────────────────────────────────────────────────
 
 const STAGES = ["recruiting", "planning", "development", "testing", "launch", "completed"] as const;
@@ -106,13 +98,6 @@ const STAGE_COLORS: Record<string, string> = {
   testing: "bg-orange-100 text-orange-700",
   launch: "bg-green-100 text-green-700",
   completed: "bg-muted text-muted-foreground",
-};
-
-const PRIORITY_COLORS: Record<string, string> = {
-  low: "text-blue-500",
-  medium: "text-amber-500",
-  high: "text-orange-500",
-  urgent: "text-red-500",
 };
 
 const PRIORITY_BG: Record<string, string> = {
@@ -209,6 +194,24 @@ export function Workspace() {
     }
   }
 
+  const handleTaskCountChange = useCallback(
+    (changes: Array<{ status: Task["status"]; delta: number }>) => {
+      setWorkspace((w) => {
+        if (!w) return w;
+        const tc = { ...w.task_counts };
+        for (const { status, delta } of changes) {
+          tc[status] = Math.max(0, (tc[status] || 0) + delta);
+        }
+        return { ...w, task_counts: tc };
+      });
+    },
+    [],
+  );
+
+  const handleMemberCountChange = useCallback((delta: number) => {
+    setWorkspace((w) => w ? { ...w, member_count: Math.max(0, w.member_count + delta) } : w);
+  }, []);
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -292,17 +295,13 @@ export function Workspace() {
       </div>
 
       {/* Tab Panels */}
-      {activeTab === "overview" && (
-        <OverviewTab workspace={workspace} />
-      )}
-      {activeTab === "chat" && workspace.chat_id && (
-        <ChatTab chatId={workspace.chat_id} currentUser={user} showToast={showToast} />
-      )}
-      {activeTab === "chat" && !workspace.chat_id && (
-        <Card className="p-12 text-center">
-          <MessageCircle className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-          <p className="text-muted-foreground">No project chat found.</p>
-        </Card>
+      {activeTab === "overview" && <OverviewTab workspace={workspace} />}
+      {activeTab === "chat" && (
+        <ChatBridgeTab
+          chatId={workspace.chat_id}
+          projectTitle={workspace.project.title}
+          memberCount={workspace.member_count}
+        />
       )}
       {activeTab === "tasks" && (
         <TasksTab
@@ -310,7 +309,7 @@ export function Workspace() {
           myRole={workspace.my_role}
           currentUserId={user?.user_id || ""}
           showToast={showToast}
-          onTaskChange={() => loadWorkspace()}
+          onTaskCountChange={handleTaskCountChange}
         />
       )}
       {activeTab === "members" && (
@@ -319,7 +318,7 @@ export function Workspace() {
           myRole={workspace.my_role}
           currentUserId={user?.user_id || ""}
           showToast={showToast}
-          onMemberChange={() => loadWorkspace()}
+          onMemberCountChange={handleMemberCountChange}
         />
       )}
       {activeTab === "resources" && (
@@ -330,9 +329,7 @@ export function Workspace() {
           showToast={showToast}
         />
       )}
-      {activeTab === "activity" && (
-        <ActivityTab workspaceId={workspace.id} />
-      )}
+      {activeTab === "activity" && <ActivityTab workspaceId={workspace.id} />}
     </div>
   );
 }
@@ -480,10 +477,7 @@ function OverviewTab({ workspace }: { workspace: WorkspaceData }) {
                 <span>{progress}%</span>
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
-                <div
-                  className="h-full bg-primary rounded-full transition-all"
-                  style={{ width: `${progress}%` }}
-                />
+                <div className="h-full bg-primary rounded-full transition-all" style={{ width: `${progress}%` }} />
               </div>
             </>
           )}
@@ -513,7 +507,6 @@ function OverviewTab({ workspace }: { workspace: WorkspaceData }) {
 
       {/* Right column */}
       <div className="space-y-6">
-        {/* Quick stats */}
         <Card className="p-5">
           <h3 className="font-bold mb-3 flex items-center gap-2">
             <Users className="w-4 h-4 text-primary" /> Team
@@ -522,7 +515,6 @@ function OverviewTab({ workspace }: { workspace: WorkspaceData }) {
           <p className="text-sm text-muted-foreground">active members</p>
         </Card>
 
-        {/* Stage info */}
         <Card className="p-5">
           <h3 className="font-bold mb-3 flex items-center gap-2">
             <Circle className="w-4 h-4 text-primary" /> Current Stage
@@ -539,159 +531,105 @@ function OverviewTab({ workspace }: { workspace: WorkspaceData }) {
   );
 }
 
-// ── Chat Tab ───────────────────────────────────────────────────
+// ── Chat Bridge Tab ─────────────────────────────────────────────
 
-function ChatTab({
+function ChatBridgeTab({
   chatId,
-  currentUser,
-  showToast,
+  projectTitle,
+  memberCount,
 }: {
-  chatId: string;
-  currentUser: { user_id: string; name: string } | null;
-  showToast: (msg: string, ok?: boolean) => void;
+  chatId: string | null;
+  projectTitle: string;
+  memberCount: number;
 }) {
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState("");
+  const navigate = useNavigate();
+  const [lastMessage, setLastMessage] = useState<{
+    body?: string;
+    created_at: string;
+    sender?: { name: string };
+  } | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    loadMessages();
-
-    const channel = supabase
-      .channel(`workspace-chat-${chatId}`)
-      .on("postgres_changes", {
-        event: "INSERT",
-        schema: "public",
-        table: "messages",
-        filter: `chat_id=eq.${chatId}`,
-      }, (payload) => {
-        const newMsg = payload.new as ChatMessage;
-        setMessages((prev) => {
-          if (prev.some((m) => m.id === newMsg.id)) return prev;
-          return [...prev, newMsg];
-        });
-        setTimeout(() => bottomRef.current?.scrollIntoView({ behavior: "smooth" }), 50);
+    if (!chatId) { setIsLoading(false); return; }
+    apiFetch(`/api/chats/${chatId}/messages?limit=1`)
+      .then((data) => {
+        const msgs = data || [];
+        setLastMessage(msgs[0] || null);
       })
-      .subscribe();
-
-    return () => { supabase.removeChannel(channel); };
+      .catch(() => {})
+      .finally(() => setIsLoading(false));
   }, [chatId]);
 
-  useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "auto" });
-  }, [messages]);
-
-  async function loadMessages() {
-    setIsLoading(true);
-    try {
-      const data = await apiFetch(`/api/chats/${chatId}/messages?limit=100`);
-      setMessages((data || []).reverse());
-    } catch {
-      showToast("Failed to load messages", false);
-    } finally {
-      setIsLoading(false);
-    }
-  }
-
-  async function sendMessage() {
-    if (!input.trim() || isSending) return;
-    const body = input.trim();
-    setInput("");
-    setIsSending(true);
-    try {
-      await apiFetch(`/api/chats/${chatId}/messages`, {
-        method: "POST",
-        body: JSON.stringify({ body }),
-      });
-    } catch {
-      showToast("Failed to send message", false);
-      setInput(body);
-    } finally {
-      setIsSending(false);
-    }
-  }
-
-  function handleKey(e: React.KeyboardEvent) {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
-    }
+  if (!chatId) {
+    return (
+      <Card className="p-12 text-center">
+        <MessageCircle className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
+        <p className="text-muted-foreground">No project chat found.</p>
+      </Card>
+    );
   }
 
   return (
-    <Card className="flex flex-col" style={{ height: "60vh" }}>
-      {/* Messages area */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        {isLoading ? (
-          <div className="flex justify-center py-8">
-            <Loader2 className="w-6 h-6 animate-spin text-primary" />
-          </div>
-        ) : messages.length === 0 ? (
-          <div className="flex flex-col items-center justify-center h-full text-center">
-            <MessageCircle className="w-10 h-10 text-muted-foreground opacity-40 mb-3" />
-            <p className="text-muted-foreground text-sm">No messages yet. Say hello!</p>
-          </div>
-        ) : (
-          messages.map((msg) => {
-            const isMe = msg.sender_id === currentUser?.user_id;
-            const senderName = msg.sender?.name || "Team Member";
-            return (
-              <div key={msg.id} className={`flex gap-2.5 ${isMe ? "flex-row-reverse" : ""}`}>
-                <Avatar name={senderName} size="sm" src={msg.sender?.avatar_url} />
-                <div className={`max-w-[70%] ${isMe ? "items-end" : "items-start"} flex flex-col gap-0.5`}>
-                  {!isMe && (
-                    <p className="text-xs text-muted-foreground px-1">{senderName}</p>
-                  )}
-                  <div className={`px-3 py-2 rounded-xl text-sm ${
-                    isMe
-                      ? "bg-primary text-primary-foreground rounded-br-sm"
-                      : "bg-muted rounded-bl-sm"
-                  }`}>
-                    {msg.body}
-                  </div>
-                  <p className="text-[10px] text-muted-foreground px-1">{timeAgo(msg.created_at)}</p>
-                </div>
-              </div>
-            );
-          })
-        )}
-        <div ref={bottomRef} />
+    <Card className="p-6 max-w-xl mx-auto">
+      <div className="flex items-center gap-4 mb-5">
+        <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+          <MessageCircle className="w-6 h-6 text-primary" />
+        </div>
+        <div>
+          <h3 className="font-bold text-lg">{projectTitle}</h3>
+          <p className="text-sm text-muted-foreground">{memberCount} member{memberCount !== 1 ? "s" : ""} · Project chat</p>
+        </div>
       </div>
 
-      {/* Input */}
-      <div className="border-t border-border p-3 flex gap-2">
-        <textarea
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onKeyDown={handleKey}
-          placeholder="Type a message… (Enter to send)"
-          rows={1}
-          className="flex-1 resize-none px-3 py-2 text-sm bg-muted rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
-        />
-        <Button onClick={sendMessage} disabled={!input.trim() || isSending} size="sm">
-          {isSending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-        </Button>
+      {/* Latest message preview */}
+      <div className="bg-muted/50 rounded-xl p-4 mb-5 min-h-16 flex items-center">
+        {isLoading ? (
+          <Loader2 className="w-4 h-4 animate-spin text-muted-foreground mx-auto" />
+        ) : lastMessage ? (
+          <div className="w-full">
+            <p className="text-xs font-semibold text-muted-foreground mb-1">
+              {lastMessage.sender?.name || "Team member"} · {timeAgo(lastMessage.created_at)}
+            </p>
+            <p className="text-sm line-clamp-2">{lastMessage.body || "[attachment]"}</p>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground italic w-full text-center">No messages yet. Be the first to say hello!</p>
+        )}
       </div>
+
+      <Button className="w-full" onClick={() => navigate(`/chats?chatId=${chatId}`)}>
+        Open Project Chat <ArrowRight className="w-4 h-4 ml-2" />
+      </Button>
+      <p className="text-xs text-muted-foreground text-center mt-3">
+        The full chat experience lives in the Chats section with reactions, file sharing, and more.
+      </p>
     </Card>
   );
 }
 
 // ── Tasks Tab ──────────────────────────────────────────────────
 
+const DEFAULT_FORM = {
+  title: "",
+  description: "",
+  assignee_id: "",
+  priority: "medium" as Task["priority"],
+  due_date: "",
+};
+
 function TasksTab({
   workspaceId,
   myRole,
   currentUserId,
   showToast,
-  onTaskChange,
+  onTaskCountChange,
 }: {
   workspaceId: string;
   myRole: "owner" | "admin" | "member";
   currentUserId: string;
   showToast: (msg: string, ok?: boolean) => void;
-  onTaskChange: () => void;
+  onTaskCountChange: (changes: Array<{ status: Task["status"]; delta: number }>) => void;
 }) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
@@ -699,33 +637,71 @@ function TasksTab({
   const [showCreate, setShowCreate] = useState<Task["status"] | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<Task["status"] | null>(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const [form, setForm] = useState({ ...DEFAULT_FORM });
 
-  const [form, setForm] = useState({
-    title: "", description: "", assignee_id: "", priority: "medium" as Task["priority"], due_date: "",
-  });
+  const membersRef = useRef<Member[]>([]);
+  useEffect(() => { membersRef.current = members; }, [members]);
 
   useEffect(() => {
-    loadTasks();
-    loadMembers();
+    loadInitial();
 
     const channel = supabase
       .channel(`workspace-tasks-${workspaceId}`)
       .on("postgres_changes", {
-        event: "*",
-        schema: "public",
-        table: "workspace_tasks",
+        event: "INSERT", schema: "public", table: "workspace_tasks",
         filter: `workspace_id=eq.${workspaceId}`,
-      }, () => { loadTasks(); onTaskChange(); })
+      }, (payload) => {
+        const t = payload.new as Task;
+        const m = membersRef.current.find((x) => x.user_id === t.assignee_id);
+        const enriched: Task = {
+          ...t,
+          assignee: m?.user ? { id: m.user_id, name: m.user.name, avatar_url: m.user.avatar_url } : undefined,
+        };
+        setTasks((prev) => {
+          if (prev.some((x) => x.id === t.id)) return prev;
+          return [...prev, enriched];
+        });
+        onTaskCountChange([{ status: t.status, delta: 1 }]);
+      })
+      .on("postgres_changes", {
+        event: "UPDATE", schema: "public", table: "workspace_tasks",
+        filter: `workspace_id=eq.${workspaceId}`,
+      }, (payload) => {
+        const t = payload.new as Task;
+        const old = payload.old as Partial<Task>;
+        setTasks((prev) => prev.map((x) => x.id === t.id ? { ...x, ...t } : x));
+        if (old.status && t.status && old.status !== t.status) {
+          onTaskCountChange([
+            { status: old.status, delta: -1 },
+            { status: t.status, delta: 1 },
+          ]);
+        }
+      })
+      .on("postgres_changes", {
+        event: "DELETE", schema: "public", table: "workspace_tasks",
+        filter: `workspace_id=eq.${workspaceId}`,
+      }, (payload) => {
+        const old = payload.old as Partial<Task>;
+        if (!old.id) return;
+        setTasks((prev) => prev.filter((x) => x.id !== old.id));
+        if (old.status) onTaskCountChange([{ status: old.status, delta: -1 }]);
+      })
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
   }, [workspaceId]);
 
-  async function loadTasks() {
+  async function loadInitial() {
     setIsLoading(true);
     try {
-      const data = await apiFetch(`/api/workspaces/${workspaceId}/tasks`);
-      setTasks(data || []);
+      const [tasksData, membersData] = await Promise.all([
+        apiFetch(`/api/workspaces/${workspaceId}/tasks`),
+        apiFetch(`/api/workspaces/${workspaceId}/members`),
+      ]);
+      setTasks(tasksData || []);
+      setMembers(membersData || []);
     } catch {
       showToast("Failed to load tasks", false);
     } finally {
@@ -733,17 +709,16 @@ function TasksTab({
     }
   }
 
-  async function loadMembers() {
-    try {
-      const data = await apiFetch(`/api/workspaces/${workspaceId}/members`);
-      setMembers(data || []);
-    } catch { /* non-critical */ }
+  function openCreate(status: Task["status"]) {
+    setForm({ ...DEFAULT_FORM });
+    setShowCreate(status);
   }
 
   async function createTask(status: Task["status"]) {
-    if (!form.title.trim()) return;
+    if (!form.title.trim() || isCreating) return;
+    setIsCreating(true);
     try {
-      await apiFetch(`/api/workspaces/${workspaceId}/tasks`, {
+      const created = await apiFetch(`/api/workspaces/${workspaceId}/tasks`, {
         method: "POST",
         body: JSON.stringify({
           title: form.title,
@@ -754,36 +729,51 @@ function TasksTab({
           due_date: form.due_date || null,
         }),
       });
+      const m = members.find((x) => x.user_id === created.assignee_id);
+      const enriched: Task = {
+        ...created,
+        assignee: m?.user ? { id: m.user_id, name: m.user.name, avatar_url: m.user.avatar_url } : undefined,
+      };
+      setTasks((prev) => prev.some((x) => x.id === enriched.id) ? prev : [...prev, enriched]);
+      onTaskCountChange([{ status, delta: 1 }]);
       setShowCreate(null);
-      setForm({ title: "", description: "", assignee_id: "", priority: "medium", due_date: "" });
+      setForm({ ...DEFAULT_FORM });
       showToast("Task created!");
-      onTaskChange();
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Failed to create task", false);
+    } finally {
+      setIsCreating(false);
     }
   }
 
   async function moveTask(taskId: string, newStatus: Task["status"]) {
+    const task = tasks.find((t) => t.id === taskId);
+    if (!task || task.status === newStatus) return;
+    const oldStatus = task.status;
+
     setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: newStatus } : t));
+    onTaskCountChange([{ status: oldStatus, delta: -1 }, { status: newStatus, delta: 1 }]);
+
     try {
       await apiFetch(`/api/workspaces/${workspaceId}/tasks/${taskId}`, {
         method: "PATCH",
         body: JSON.stringify({ status: newStatus }),
       });
-      onTaskChange();
     } catch (e: unknown) {
+      setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: oldStatus } : t));
+      onTaskCountChange([{ status: newStatus, delta: -1 }, { status: oldStatus, delta: 1 }]);
       showToast(e instanceof Error ? e.message : "Failed to move task", false);
-      loadTasks();
     }
   }
 
   async function deleteTask(taskId: string) {
+    const task = tasks.find((t) => t.id === taskId);
     try {
       await apiFetch(`/api/workspaces/${workspaceId}/tasks/${taskId}`, { method: "DELETE" });
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
+      if (task) onTaskCountChange([{ status: task.status, delta: -1 }]);
       setSelectedTask(null);
       showToast("Task deleted.");
-      onTaskChange();
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Failed to delete task", false);
     }
@@ -802,15 +792,24 @@ function TasksTab({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         {COLUMNS.map((col) => {
           const colTasks = tasks.filter((t) => t.status === col.key);
+          const isDragTarget = dragOver === col.key;
           return (
             <div
               key={col.key}
-              className={`rounded-2xl p-3 min-h-64 ${col.color} border border-border/50`}
-              onDragOver={(e) => e.preventDefault()}
+              className={`rounded-2xl p-3 min-h-64 border transition-all ${
+                isDragTarget
+                  ? `${col.color} border-primary ring-2 ring-primary/30`
+                  : `${col.color} border-border/50`
+              }`}
+              onDragOver={(e) => { e.preventDefault(); setDragOver(col.key); }}
+              onDragLeave={(e) => {
+                if (!e.currentTarget.contains(e.relatedTarget as Node)) setDragOver(null);
+              }}
               onDrop={(e) => {
                 e.preventDefault();
                 if (dragging) moveTask(dragging, col.key);
                 setDragging(null);
+                setDragOver(null);
               }}
             >
               <div className="flex items-center justify-between mb-3">
@@ -826,10 +825,10 @@ function TasksTab({
                     key={task.id}
                     draggable
                     onDragStart={() => setDragging(task.id)}
-                    onDragEnd={() => setDragging(null)}
+                    onDragEnd={() => { setDragging(null); setDragOver(null); }}
                     onClick={() => setSelectedTask(task)}
                     className={`bg-card border border-border rounded-xl p-3 cursor-pointer hover:shadow-md transition-all ${
-                      dragging === task.id ? "opacity-50" : ""
+                      dragging === task.id ? "opacity-50 scale-95" : ""
                     }`}
                   >
                     <div className="flex items-start justify-between gap-2 mb-2">
@@ -856,14 +855,16 @@ function TasksTab({
                 ))}
               </div>
 
-              {/* Add task inline */}
               {showCreate === col.key ? (
                 <div className="mt-2 bg-card border border-border rounded-xl p-3 space-y-2">
                   <input
                     autoFocus
                     value={form.title}
                     onChange={(e) => setForm({ ...form, title: e.target.value })}
-                    onKeyDown={(e) => { if (e.key === "Enter") createTask(col.key); if (e.key === "Escape") setShowCreate(null); }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") createTask(col.key);
+                      if (e.key === "Escape") setShowCreate(null);
+                    }}
                     placeholder="Task title…"
                     className="w-full text-sm bg-muted px-2 py-1.5 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   />
@@ -894,8 +895,13 @@ function TasksTab({
                     className="w-full text-xs bg-muted px-2 py-1.5 rounded-lg border border-border focus:outline-none"
                   />
                   <div className="flex gap-2">
-                    <Button size="sm" className="flex-1" onClick={() => createTask(col.key)} disabled={!form.title.trim()}>
-                      Add
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      onClick={() => createTask(col.key)}
+                      disabled={!form.title.trim() || isCreating}
+                    >
+                      {isCreating ? <Loader2 className="w-3 h-3 animate-spin" /> : "Add"}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setShowCreate(null)}>
                       Cancel
@@ -904,7 +910,7 @@ function TasksTab({
                 </div>
               ) : (
                 <button
-                  onClick={() => { setShowCreate(col.key); setForm({ title: "", description: "", assignee_id: "", priority: "medium", due_date: "" }); }}
+                  onClick={() => openCreate(col.key)}
                   className="mt-2 w-full flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1.5 rounded-lg hover:bg-card/60 transition-colors"
                 >
                   <Plus className="w-3.5 h-3.5" /> Add task
@@ -915,7 +921,6 @@ function TasksTab({
         })}
       </div>
 
-      {/* Task Detail Modal */}
       {selectedTask && (
         <TaskDetailModal
           task={selectedTask}
@@ -931,10 +936,16 @@ function TasksTab({
                 method: "PATCH",
                 body: JSON.stringify(updates),
               });
+              const oldStatus = selectedTask.status;
               setTasks((prev) => prev.map((t) => t.id === selectedTask.id ? { ...t, ...updated } : t));
               setSelectedTask((t) => t ? { ...t, ...updated } : t);
+              if (updates.status && updates.status !== oldStatus) {
+                onTaskCountChange([
+                  { status: oldStatus, delta: -1 },
+                  { status: updates.status as Task["status"], delta: 1 },
+                ]);
+              }
               showToast("Task updated");
-              onTaskChange();
             } catch (e: unknown) {
               showToast(e instanceof Error ? e.message : "Failed to update task", false);
             }
@@ -966,7 +977,7 @@ function TaskDetailModal({
   myRole: "owner" | "admin" | "member";
   onClose: () => void;
   onDelete: () => void;
-  onUpdate: (updates: Partial<Task>) => Promise<void>;
+  onUpdate: (updates: Record<string, unknown>) => Promise<void>;
   showToast: (msg: string, ok?: boolean) => void;
 }) {
   const [comments, setComments] = useState<Array<{
@@ -976,6 +987,16 @@ function TaskDetailModal({
   const [commentInput, setCommentInput] = useState("");
   const [isLoadingComments, setIsLoadingComments] = useState(true);
   const [isSendingComment, setIsSendingComment] = useState(false);
+
+  // Controlled fields — synced when task changes
+  const [assigneeId, setAssigneeId] = useState(task.assignee_id || "");
+  const [dueDate, setDueDate] = useState(task.due_date || "");
+
+  useEffect(() => {
+    setAssigneeId(task.assignee_id || "");
+    setDueDate(task.due_date || "");
+  }, [task.id]);
+
   const canDelete = task.created_by === currentUserId || myRole === "owner" || myRole === "admin";
 
   useEffect(() => {
@@ -1057,8 +1078,12 @@ function TaskDetailModal({
           <div>
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Assignee</p>
             <select
-              defaultValue={task.assignee_id || ""}
-              onChange={(e) => onUpdate({ assignee_id: e.target.value || undefined })}
+              value={assigneeId}
+              onChange={(e) => {
+                const val = e.target.value;
+                setAssigneeId(val);
+                onUpdate({ assignee_id: val || null });
+              }}
               className="text-sm bg-muted px-3 py-2 rounded-lg border border-border focus:outline-none w-full"
             >
               <option value="">Unassigned</option>
@@ -1073,8 +1098,12 @@ function TaskDetailModal({
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Due Date</p>
             <input
               type="date"
-              defaultValue={task.due_date || ""}
-              onChange={(e) => onUpdate({ due_date: e.target.value || undefined })}
+              value={dueDate}
+              onChange={(e) => {
+                const val = e.target.value;
+                setDueDate(val);
+                onUpdate({ due_date: val || null });
+              }}
               className="text-sm bg-muted px-3 py-2 rounded-lg border border-border focus:outline-none"
             />
           </div>
@@ -1092,7 +1121,9 @@ function TaskDetailModal({
                   <div key={c.id} className="flex gap-2.5">
                     <Avatar name={c.user?.name || "?"} size="sm" src={c.user?.avatar_url} />
                     <div>
-                      <p className="text-xs font-medium">{c.user?.name} <span className="text-muted-foreground font-normal">{timeAgo(c.created_at)}</span></p>
+                      <p className="text-xs font-medium">
+                        {c.user?.name} <span className="text-muted-foreground font-normal">{timeAgo(c.created_at)}</span>
+                      </p>
                       <p className="text-sm mt-0.5">{c.body}</p>
                     </div>
                   </div>
@@ -1125,13 +1156,13 @@ function MembersTab({
   myRole,
   currentUserId,
   showToast,
-  onMemberChange,
+  onMemberCountChange,
 }: {
   workspaceId: string;
   myRole: "owner" | "admin" | "member";
   currentUserId: string;
   showToast: (msg: string, ok?: boolean) => void;
-  onMemberChange: () => void;
+  onMemberCountChange: (delta: number) => void;
 }) {
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -1148,8 +1179,8 @@ function MembersTab({
     try {
       await apiFetch(`/api/workspaces/${workspaceId}/members/${userId}`, { method: "DELETE" });
       setMembers((prev) => prev.filter((m) => m.user_id !== userId));
+      onMemberCountChange(-1);
       showToast(`${name} removed from workspace`);
-      onMemberChange();
     } catch (e: unknown) {
       showToast(e instanceof Error ? e.message : "Failed to remove member", false);
     }
@@ -1170,7 +1201,9 @@ function MembersTab({
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-1.5">
                 <p className="font-semibold text-sm truncate">{m.user?.name}</p>
-                <RoleIcon className={`w-3.5 h-3.5 flex-shrink-0 ${m.role === "owner" ? "text-amber-500" : m.role === "admin" ? "text-blue-500" : "text-muted-foreground"}`} />
+                <RoleIcon className={`w-3.5 h-3.5 flex-shrink-0 ${
+                  m.role === "owner" ? "text-amber-500" : m.role === "admin" ? "text-blue-500" : "text-muted-foreground"
+                }`} />
               </div>
               {m.user?.department && (
                 <p className="text-xs text-muted-foreground truncate">{m.user.department}</p>

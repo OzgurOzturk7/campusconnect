@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo, KeyboardEvent } from "react";
+import { useLocation } from "react-router";
 import {
   Search, Send, Paperclip, Smile, Reply as ReplyIcon, X, Plus, Loader2,
   Bell, BellOff, Pin, Trash2, Check, CheckCheck, Users as UsersIcon,
@@ -111,6 +112,7 @@ function chatDisplayAvatar(chat: ChatSummary, currentUserId: string): { name: st
 export function Chat() {
   const { user } = useAuth();
   const { error: toastError } = useToast();
+  const location = useLocation();
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
   const [activeChat, setActiveChat] = useState<ChatSummary | null>(null);
@@ -140,6 +142,14 @@ export function Chat() {
 
   // Initial load
   useEffect(() => { fetchChats(); }, []);
+
+  // Deep-link: ?chatId=<id> navigates directly into a chat once list is loaded
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    const deepChatId = params.get("chatId");
+    if (!deepChatId || !chats.length) return;
+    if (chats.find((c) => c.id === deepChatId)) setActiveChatId(deepChatId);
+  }, [location.search, chats.length]);
 
   // When active chat changes, load messages + subscribe to realtime
   useEffect(() => {

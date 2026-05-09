@@ -284,8 +284,8 @@ def update_task(
     if not existing.data:
         raise HTTPException(status_code=404, detail="Task not found")
 
-    update_data = {k: v for k, v in body.model_dump().items() if v is not None}
-    if "due_date" in update_data and hasattr(update_data["due_date"], "isoformat"):
+    update_data = body.model_dump(exclude_unset=True)
+    if "due_date" in update_data and update_data["due_date"] is not None and hasattr(update_data["due_date"], "isoformat"):
         update_data["due_date"] = update_data["due_date"].isoformat()
 
     result = (

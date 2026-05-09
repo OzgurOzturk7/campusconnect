@@ -6,11 +6,11 @@ import { Avatar } from "../components/Avatar";
 import {
   Search, Plus, X, Loader2, Github, Users,
   Clock, Briefcase, ChevronRight, Check,
-  Sparkles, Edit, Trash2, AlertCircle
+  Sparkles, Edit, Trash2, AlertCircle, LayoutDashboard
 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { apiFetch } from "../lib/api";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 
 interface Owner {
   name: string;
@@ -64,6 +64,7 @@ const APP_STATUS_COLORS: Record<string, string> = {
 export function Projects() {
   const { user } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<"browse" | "my-posts" | "my-applications">("browse");
   const [projects, setProjects] = useState<Project[]>([]);
   const [myPosts, setMyPosts] = useState<Project[]>([]);
@@ -537,6 +538,9 @@ export function Projects() {
               {/* Owner actions */}
               {selectedProject.owner_id === user?.user_id && (
                 <div className="flex flex-col gap-2 ml-4 flex-shrink-0">
+                  <Button size="sm" onClick={() => navigate(`/projects/${selectedProject.id}/workspace`)}>
+                    <LayoutDashboard className="w-4 h-4" /> Workspace
+                  </Button>
                   <Button variant="outline" size="sm" onClick={() => { openEdit(selectedProject); }}>
                     <Edit className="w-4 h-4" /> Edit
                   </Button>
@@ -560,17 +564,24 @@ export function Projects() {
             {selectedProject.owner_id !== user?.user_id && (
               <div className="border-t border-border pt-4">
                 {myApplicationForProject ? (
-                  <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${APP_STATUS_COLORS[myApplicationForProject.status]}`}>
-                    <AlertCircle className="w-5 h-5 flex-shrink-0" />
-                    <div>
-                      <p className="text-sm font-semibold capitalize">Application {myApplicationForProject.status}</p>
-                      <p className="text-xs opacity-80">
-                        {myApplicationForProject.status === "pending" && "The project owner will review your application and notify you."}
-                        {myApplicationForProject.status === "accepted" && "Congratulations! You've been accepted to the team."}
-                        {myApplicationForProject.status === "rejected" && "Your application was not accepted this time."}
-                        {myApplicationForProject.role && ` · Role: ${myApplicationForProject.role}`}
-                      </p>
+                  <div className="space-y-3">
+                    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${APP_STATUS_COLORS[myApplicationForProject.status]}`}>
+                      <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold capitalize">Application {myApplicationForProject.status}</p>
+                        <p className="text-xs opacity-80">
+                          {myApplicationForProject.status === "pending" && "The project owner will review your application and notify you."}
+                          {myApplicationForProject.status === "accepted" && "Congratulations! You've been accepted to the team."}
+                          {myApplicationForProject.status === "rejected" && "Your application was not accepted this time."}
+                          {myApplicationForProject.role && ` · Role: ${myApplicationForProject.role}`}
+                        </p>
+                      </div>
                     </div>
+                    {myApplicationForProject.status === "accepted" && (
+                      <Button onClick={() => navigate(`/projects/${selectedProject.id}/workspace`)}>
+                        <LayoutDashboard className="w-4 h-4" /> Open Workspace
+                      </Button>
+                    )}
                   </div>
                 ) : selectedProject.status === "open" ? (
                   <div className="flex items-center gap-4">
@@ -686,6 +697,12 @@ export function Projects() {
                     </div>
                   </div>
                   <div className="flex flex-col gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => navigate(`/projects/${p.id}/workspace`)}
+                      className="flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors"
+                    >
+                      <LayoutDashboard className="w-3.5 h-3.5" /> Workspace
+                    </button>
                     <div className="flex gap-1">
                       {["open", "closed", "completed"].filter((s) => s !== p.status).map((s) => (
                         <button key={s} onClick={() => handleStatusChange(p, s)}
@@ -752,6 +769,16 @@ export function Projects() {
                       Applied for: <span className="font-medium text-foreground">{app.role}</span>
                     </p>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{app.motivation}</p>
+
+                    {/* Workspace entry — accepted applications */}
+                    {app.status === "accepted" && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); navigate(`/projects/${app.project_id}/workspace`); }}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors mb-2"
+                      >
+                        <LayoutDashboard className="w-3.5 h-3.5" /> Open Workspace
+                      </button>
+                    )}
 
                     {/* Rejection reason */}
                     {app.status === "rejected" && app.rejection_reason && (

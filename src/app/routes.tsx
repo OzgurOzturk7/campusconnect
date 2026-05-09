@@ -8,6 +8,7 @@ import { Clubs } from "./pages/Clubs";
 import { ClubDetail } from "./pages/ClubDetail";
 import { Events } from "./pages/Events";
 import { Projects } from "./pages/Projects";
+import { Workspace } from "./pages/Workspace";
 import { Chat } from "./pages/Chat";
 import { Notifications } from "./pages/Notifications";
 
@@ -29,6 +30,7 @@ export const router = createBrowserRouter([
           { path: "clubs/:id", element: <ClubDetail /> },
           { path: "events", element: <Events /> },
           { path: "projects", element: <Projects /> },
+          { path: "projects/:projectId/workspace", element: <Workspace /> },
           { path: "chats", element: <Chat /> },
           { path: "notifications", element: <Notifications /> },
         ],

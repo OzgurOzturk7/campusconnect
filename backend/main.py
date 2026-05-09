@@ -1,7 +1,7 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, projects, notifications, clubs, events, chats
+from app.routers import auth, projects, notifications, clubs, events, chats, workspaces
 from app.core.config import settings
 from app.core.supabase import get_supabase_admin, reset_supabase_clients
 from app.schemas.notifications import send_notification
@@ -47,6 +47,7 @@ app.include_router(notifications.router, prefix="/api/notifications", tags=["Not
 app.include_router(clubs.router, prefix="/api/clubs", tags=["Clubs"])
 app.include_router(events.router, prefix="/api/events", tags=["Events"])
 app.include_router(chats.router, prefix="/api/chats", tags=["Chats"])
+app.include_router(workspaces.router, prefix="/api/workspaces", tags=["Workspaces"])
 
 
 async def send_event_reminders():

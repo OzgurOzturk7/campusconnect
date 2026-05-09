@@ -44,6 +44,55 @@ def _add_to_project_chat(supabase, project_id: str, user_id: str):
     }).execute()
 
 
+# ============================================================
+# Workspace helpers (auto-managed per project)
+# ============================================================
+def _get_or_create_workspace(supabase, project_id: str, owner_id: str) -> dict:
+    """Return workspace for a project; create it (with owner) if missing."""
+    existing = supabase.table("workspaces").select("*").eq("project_id", project_id).maybe_single().execute()
+    if existing and existing.data:
+        return existing.data
+    ws = supabase.table("workspaces").insert({
+        "project_id": project_id,
+        "stage": "recruiting",
+    }).execute().data[0]
+    supabase.table("workspace_members").insert({
+        "workspace_id": ws["id"], "user_id": owner_id, "role": "owner",
+    }).execute()
+    _log_workspace_activity(supabase, ws["id"], owner_id, "workspace_created")
+    return ws
+
+
+def _add_to_workspace(supabase, workspace_id: str, user_id: str, role: str = "member"):
+    exists = (
+        supabase.table("workspace_members")
+        .select("user_id")
+        .eq("workspace_id", workspace_id)
+        .eq("user_id", user_id)
+        .maybe_single()
+        .execute()
+    )
+    if exists and exists.data:
+        return
+    supabase.table("workspace_members").insert({
+        "workspace_id": workspace_id, "user_id": user_id, "role": role,
+    }).execute()
+
+
+def _log_workspace_activity(
+    supabase, workspace_id: str, actor_id: str, action: str,
+    entity_type: str = None, entity_id: str = None, metadata: dict = None,
+):
+    supabase.table("workspace_activity_logs").insert({
+        "workspace_id": workspace_id,
+        "actor_id": actor_id,
+        "action": action,
+        "entity_type": entity_type,
+        "entity_id": entity_id,
+        "metadata": metadata or {},
+    }).execute()
+
+
 def _remove_from_project_chat(supabase, project_id: str, user_id: str):
     chat = supabase.table("chats").select("id").eq("project_id", project_id).maybe_single().execute()
     if not chat or not chat.data:
@@ -213,6 +262,12 @@ def create_project(body: ProjectPostCreate, current_user: dict = Depends(get_cur
     except Exception as e:
         print("PROJECT CHAT CREATE ERROR:", e)
 
+    # Auto-create the workspace with the owner as owner
+    try:
+        _get_or_create_workspace(supabase, project["id"], current_user["id"])
+    except Exception as e:
+        print("WORKSPACE CREATE ERROR:", e)
+
     return project
 
 
@@ -349,7 +404,7 @@ def update_application_status(
             type="project_team_join",
             title="Welcome to the team!",
             body=f"You've been accepted to '{project.data['title']}' as {application.data['role']}. Welcome aboard!",
-            link="/projects",
+            link=f"/projects/{project_id}/workspace",
         )
         # Auto-add to project chat (creating it if it doesn't exist for legacy projects)
         try:
@@ -357,5 +412,15 @@ def update_application_status(
             _add_to_project_chat(supabase, project_id, application.data["applicant_id"])
         except Exception as e:
             print("PROJECT CHAT MEMBER ADD ERROR:", e)
+        # Auto-add to workspace
+        try:
+            ws = _get_or_create_workspace(supabase, project_id, project.data["owner_id"])
+            _add_to_workspace(supabase, ws["id"], application.data["applicant_id"], "member")
+            _log_workspace_activity(
+                supabase, ws["id"], application.data["applicant_id"], "member_joined",
+                metadata={"role": application.data.get("role", "member")},
+            )
+        except Exception as e:
+            print("WORKSPACE MEMBER ADD ERROR:", e)
 
     return result.data[0]

@@ -264,7 +264,7 @@ def leave_or_delete_chat(chat_id: str, current_user: dict = Depends(get_current_
 def full_delete_chat(chat_id: str, current_user: dict = Depends(get_current_user)):
     """Permanently delete a group chat for everyone. Only:
     - The platform admin (current_user.role == 'admin'), OR
-    - The chat's admin (creator / Yönetici) — chat_members.role == 'admin'
+    - The chat's owner (creator) — chat_members.role == 'admin'
     can do this. Direct chats: each user uses /hide instead.
     """
     supabase = get_supabase_admin()
@@ -283,7 +283,7 @@ def full_delete_chat(chat_id: str, current_user: dict = Depends(get_current_user
         if m and m.data and m.data.get("role") == "admin":
             is_group_admin = True
     if not (is_platform_admin or is_group_admin):
-        raise HTTPException(status_code=403, detail="Only the group admin (Yönetici) or a platform admin can fully delete this chat.")
+        raise HTTPException(status_code=403, detail="Only the group owner or a platform admin can fully delete this chat.")
 
     supabase.table("chats").delete().eq("id", chat_id).execute()
 

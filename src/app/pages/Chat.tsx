@@ -3,7 +3,7 @@ import { useLocation } from "react-router";
 import {
   Search, Send, Paperclip, Smile, Reply as ReplyIcon, X, Plus, Loader2,
   Bell, BellOff, Pin, Trash2, Check, CheckCheck, Users as UsersIcon,
-  FileText, MessageCircle, ArrowLeft, Hash, Folder, MoreVertical, LogOut, Trash2,
+  FileText, MessageCircle, ArrowLeft, Hash, Folder, MoreVertical, LogOut,
 } from "lucide-react";
 import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
@@ -497,7 +497,7 @@ export function Chat() {
     }
   }
 
-  // Permanent group delete (only group admin / Yönetici + platform admin)
+  // Permanent group delete (only group owner + platform admin)
   async function fullDeleteChat() {
     if (!activeChatId) return;
     try {
@@ -1276,7 +1276,7 @@ function MembersModal({ chat, currentUserId, onClose }: { chat: ChatSummary; cur
                 <div className="text-xs text-muted-foreground truncate">{m.department || ""}</div>
               </div>
               {m.role === "admin" && (
-                <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">Yönetici</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">Owner</span>
               )}
             </div>
           ))}

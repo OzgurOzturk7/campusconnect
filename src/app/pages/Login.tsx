@@ -376,7 +376,8 @@ export function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [remember, setRemember] = useState(false);
+  // Always persist session (Remember me removed — sessions persist across reloads)
+  const remember = true;
   const [showEmailForm, setShowEmailForm] = useState(!GOOGLE_CLIENT_ID);
   const gsiInitedRef = useRef(false);
   const rememberRef = useRef(false);
@@ -615,13 +616,7 @@ export function Login() {
                   </button>
                 </div>
 
-                <div className="flex items-center py-3 mb-3">
-                  <label className="flex items-center gap-2 text-xs cursor-pointer" style={{ color: "#6d28d9" }}>
-                    <input type="checkbox" checked={remember} onChange={(e) => setRemember(e.target.checked)}
-                      className="w-3.5 h-3.5" style={{ accentColor: "#7c3aed" }} />
-                    Remember me
-                  </label>
-                </div>
+                <div className="py-2" />
 
                 <Magnetic strength={5}>
                   <button

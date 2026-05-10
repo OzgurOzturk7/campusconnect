@@ -11,6 +11,9 @@ import {
 import { useAuth } from "../context/AuthContext";
 import { apiFetch } from "../lib/api";
 import { useLocation, useNavigate } from "react-router";
+import { Pagination } from "../components/Pagination";
+import { ProjectTimeline } from "../components/ProjectTimeline";
+import { getStoredToken } from "../context/AuthContext";
 
 interface Owner {
   name: string;
@@ -31,9 +34,12 @@ interface Project {
   status: string;
   github_url?: string;
   duration?: string;
+  start_date?: string;   // ISO date
+  deadline?: string;     // ISO date
   created_at: string;
   owner?: Owner;
   application_count?: number;
+  my_role?: "owner" | "member";
 }
 
 interface Application {
@@ -65,10 +71,17 @@ export function Projects() {
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"browse" | "my-posts" | "my-applications">("browse");
+  const [activeTab, setActiveTab] = useState<"browse" | "my-posts" | "my-projects" | "my-applications">("browse");
   const [projects, setProjects] = useState<Project[]>([]);
   const [myPosts, setMyPosts] = useState<Project[]>([]);
+  const [myProjects, setMyProjects] = useState<Project[]>([]);
   const [myApplications, setMyApplications] = useState<Application[]>([]);
+
+  // Pagination state per tab
+  const [browsePage, setBrowsePage] = useState(1);
+  const [myProjectsPage, setMyProjectsPage] = useState(1);
+  const BROWSE_PAGE_SIZE = 8;
+  const MY_PROJECTS_PAGE_SIZE = 6;
   const [suggested, setSuggested] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
@@ -99,8 +112,14 @@ export function Projects() {
   const [createForm, setCreateForm] = useState({
     title: "", description: "", tech_stack: "",
     roles_needed: "", github_url: "", duration: "",
+    start_date: "", deadline: "",
   });
-  const [applyForm, setApplyForm] = useState({ role: "", motivation: "" });
+  const [applyForm, setApplyForm] = useState<{
+    role: string; motivation: string;
+    cv_url: string | null; cv_name: string | null;
+    links: { label: string; url: string }[];
+  }>({ role: "", motivation: "", cv_url: null, cv_name: null, links: [] });
+  const [isUploadingCv, setIsUploadingCv] = useState(false);
 
   useEffect(() => {
     fetchAll();
@@ -133,14 +152,16 @@ export function Projects() {
   async function fetchAll() {
     setIsLoading(true);
     try {
-      const [all, mine, apps, sugg] = await Promise.all([
+      const [all, mine, mineProj, apps, sugg] = await Promise.all([
         apiFetch("/api/projects/"),
         apiFetch("/api/projects/mine/posts"),
+        apiFetch("/api/projects/mine/projects"),
         apiFetch("/api/projects/mine/applications"),
         apiFetch("/api/projects/suggested").catch(() => []),
       ]);
       setProjects(all);
       setMyPosts(mine);
+      setMyProjects(mineProj);
       setMyApplications(apps);
       setSuggested(sugg);
     } catch (err: unknown) {
@@ -181,10 +202,12 @@ export function Projects() {
           roles_needed: createForm.roles_needed.split(",").map((s) => s.trim()).filter(Boolean),
           github_url: createForm.github_url || null,
           duration: createForm.duration || null,
+          start_date: createForm.start_date || null,
+          deadline: createForm.deadline || null,
         }),
       });
       setShowCreateModal(false);
-      setCreateForm({ title: "", description: "", tech_stack: "", roles_needed: "", github_url: "", duration: "" });
+      setCreateForm({ title: "", description: "", tech_stack: "", roles_needed: "", github_url: "", duration: "", start_date: "", deadline: "" });
       fetchAll();
       showToast("Project created!");
     } catch (err: unknown) {
@@ -207,6 +230,8 @@ export function Projects() {
           roles_needed: createForm.roles_needed.split(",").map((s) => s.trim()).filter(Boolean),
           github_url: createForm.github_url || null,
           duration: createForm.duration || null,
+          start_date: createForm.start_date || null,
+          deadline: createForm.deadline || null,
         }),
       });
       setEditingProject(null);
@@ -228,6 +253,8 @@ export function Projects() {
       roles_needed: (project.roles_needed || []).join(", "),
       github_url: project.github_url || "",
       duration: project.duration || "",
+      start_date: project.start_date ? project.start_date.slice(0, 10) : "",
+      deadline: project.deadline ? project.deadline.slice(0, 10) : "",
     });
   }
 
@@ -265,17 +292,46 @@ export function Projects() {
       setIsSubmitting(true);
       const result = await apiFetch(`/api/projects/${selectedProject.id}/apply`, {
         method: "POST",
-        body: JSON.stringify(applyForm),
+        body: JSON.stringify({
+          role: applyForm.role,
+          motivation: applyForm.motivation,
+          cv_url: applyForm.cv_url,
+          links: applyForm.links.filter((l) => l.label.trim() && l.url.trim()),
+        }),
       });
       setShowApplyModal(false);
       setMyApplicationForProject(result);
-      setApplyForm({ role: "", motivation: "" });
+      setApplyForm({ role: "", motivation: "", cv_url: null, cv_name: null, links: [] });
       fetchAll();
       showToast("Application submitted!");
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : "Failed to apply", false);
     } finally {
       setIsSubmitting(false);
+    }
+  }
+
+  async function handleCvUpload(file: File) {
+    try {
+      setIsUploadingCv(true);
+      const fd = new FormData();
+      fd.append("file", file);
+      const res = await fetch(`${import.meta.env.VITE_API_URL || "http://localhost:8000"}/api/projects/upload-cv`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${getStoredToken()}` },
+        body: fd,
+      });
+      if (!res.ok) {
+        const e = await res.json().catch(() => ({}));
+        throw new Error(e.detail || "Upload failed");
+      }
+      const data = await res.json();
+      setApplyForm((p) => ({ ...p, cv_url: data.url, cv_name: data.name }));
+      showToast("CV uploaded");
+    } catch (err: unknown) {
+      showToast(err instanceof Error ? err.message : "CV upload failed", false);
+    } finally {
+      setIsUploadingCv(false);
     }
   }
 
@@ -406,10 +462,11 @@ export function Projects() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-0 border-b border-border">
+      <div className="flex gap-0 border-b border-border overflow-x-auto">
         {[
           { key: "browse", label: "Browse Projects" },
           { key: "my-posts", label: `My Posts (${myPosts.length})` },
+          { key: "my-projects", label: `My Projects (${myProjects.length})` },
           { key: "my-applications", label: `My Applications (${myApplications.length})` },
         ].map((tab) => (
           <button key={tab.key} onClick={() => { setActiveTab(tab.key as typeof activeTab); setSelectedProject(null); }}
@@ -464,13 +521,47 @@ export function Projects() {
 
           {filtered.length === 0 ? (
             <Card className="p-12 text-center"><p className="text-muted-foreground">No projects found.</p></Card>
-          ) : (
-            <div className="space-y-4">
-              {filtered.map((p) => (
-                <ProjectCard key={p.id} project={p} onClick={() => openProjectDetail(p)} />
-              ))}
-            </div>
-          )}
+          ) : (() => {
+            const totalPages = Math.max(1, Math.ceil(filtered.length / BROWSE_PAGE_SIZE));
+            const page = Math.min(browsePage, totalPages);
+            const paginated = filtered.slice((page - 1) * BROWSE_PAGE_SIZE, page * BROWSE_PAGE_SIZE);
+            return (
+              <>
+                <div className="space-y-4">
+                  {paginated.map((p) => (
+                    <ProjectCard key={p.id} project={p} onClick={() => openProjectDetail(p)} />
+                  ))}
+                </div>
+                <Pagination page={page} totalPages={totalPages} totalItems={filtered.length} pageSize={BROWSE_PAGE_SIZE} onPageChange={setBrowsePage} />
+              </>
+            );
+          })()}
+        </div>
+      )}
+
+      {/* ── MY PROJECTS TAB ── */}
+      {activeTab === "my-projects" && !selectedProject && (
+        <div className="space-y-6">
+          {myProjects.length === 0 ? (
+            <Card className="p-12 text-center">
+              <p className="text-muted-foreground">You're not in any projects yet.</p>
+              <p className="text-xs text-muted-foreground mt-1">Apply to a project from Browse, or create your own.</p>
+            </Card>
+          ) : (() => {
+            const totalPages = Math.max(1, Math.ceil(myProjects.length / MY_PROJECTS_PAGE_SIZE));
+            const page = Math.min(myProjectsPage, totalPages);
+            const paginated = myProjects.slice((page - 1) * MY_PROJECTS_PAGE_SIZE, page * MY_PROJECTS_PAGE_SIZE);
+            return (
+              <>
+                <div className="space-y-4">
+                  {paginated.map((p) => (
+                    <ProjectCard key={p.id} project={p} onClick={() => openProjectDetail(p)} />
+                  ))}
+                </div>
+                <Pagination page={page} totalPages={totalPages} totalItems={myProjects.length} pageSize={MY_PROJECTS_PAGE_SIZE} onPageChange={setMyProjectsPage} />
+              </>
+            );
+          })()}
         </div>
       )}
 
@@ -481,6 +572,34 @@ export function Projects() {
             className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
             ← Back to projects
           </button>
+
+          {/* Big centered Open Workspace CTA — for owner + accepted members */}
+          {(selectedProject.owner_id === user?.user_id ||
+            myApplicationForProject?.status === "accepted") && (
+            <div className="rounded-2xl p-6 border border-primary/30"
+              style={{
+                background: "linear-gradient(135deg, rgba(124,58,237,0.08), rgba(167,139,250,0.04))",
+              }}>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+                    <LayoutDashboard className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <h3 className="font-bold text-base">Project Workspace</h3>
+                    <p className="text-xs text-muted-foreground">Tasks, members, resources, and team chat in one place.</p>
+                  </div>
+                </div>
+                <Button
+                  size="lg"
+                  className="px-8 py-3 text-base"
+                  onClick={() => navigate(`/projects/${selectedProject.id}/workspace`)}
+                >
+                  Open Workspace <LayoutDashboard className="w-5 h-5" />
+                </Button>
+              </div>
+            </div>
+          )}
 
           <Card className="p-6">
             <div className="flex items-start justify-between mb-4">
@@ -501,6 +620,8 @@ export function Projects() {
                   </div>
                 )}
                 <p className="text-muted-foreground leading-relaxed mb-4">{selectedProject.description}</p>
+
+                <ProjectTimeline project={selectedProject} />
 
                 <div className="flex flex-wrap gap-4 text-sm text-muted-foreground mb-4">
                   {selectedProject.duration && (
@@ -538,9 +659,6 @@ export function Projects() {
               {/* Owner actions */}
               {selectedProject.owner_id === user?.user_id && (
                 <div className="flex flex-col gap-2 ml-4 flex-shrink-0">
-                  <Button size="sm" onClick={() => navigate(`/projects/${selectedProject.id}/workspace`)}>
-                    <LayoutDashboard className="w-4 h-4" /> Workspace
-                  </Button>
                   <Button variant="outline" size="sm" onClick={() => { openEdit(selectedProject); }}>
                     <Edit className="w-4 h-4" /> Edit
                   </Button>
@@ -577,11 +695,6 @@ export function Projects() {
                         </p>
                       </div>
                     </div>
-                    {myApplicationForProject.status === "accepted" && (
-                      <Button onClick={() => navigate(`/projects/${selectedProject.id}/workspace`)}>
-                        <LayoutDashboard className="w-4 h-4" /> Open Workspace
-                      </Button>
-                    )}
                   </div>
                 ) : selectedProject.status === "open" ? (
                   <div className="flex items-center gap-4">
@@ -826,6 +939,20 @@ export function Projects() {
                     className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
               ))}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Start date</label>
+                  <input type="date" value={createForm.start_date}
+                    onChange={(e) => setCreateForm({ ...createForm, start_date: e.target.value })}
+                    className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium mb-1.5">Deadline</label>
+                  <input type="date" value={createForm.deadline}
+                    onChange={(e) => setCreateForm({ ...createForm, deadline: e.target.value })}
+                    className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                </div>
+              </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">Description</label>
                 <textarea value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
@@ -888,9 +1015,63 @@ export function Projects() {
                   placeholder="Why do you want to join this project? What can you contribute?"
                   rows={4} className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
               </div>
+
+              {/* CV upload */}
+              <div>
+                <label className="block text-sm font-medium mb-1.5">CV / Resume <span className="text-muted-foreground font-normal">(optional, PDF/DOC)</span></label>
+                {applyForm.cv_url ? (
+                  <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-muted border border-border rounded-lg">
+                    <div className="flex items-center gap-2 min-w-0 text-sm">
+                      <span className="text-primary">📄</span>
+                      <a href={applyForm.cv_url} target="_blank" rel="noopener noreferrer" className="truncate hover:underline">{applyForm.cv_name}</a>
+                    </div>
+                    <button type="button" onClick={() => setApplyForm((p) => ({ ...p, cv_url: null, cv_name: null }))} className="text-xs text-destructive hover:underline flex-shrink-0">Remove</button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-muted border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/70 transition-colors">
+                    {isUploadingCv ? (
+                      <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
+                    ) : (
+                      <><span>📎</span> Choose file (max 10 MB)</>
+                    )}
+                    <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      hidden disabled={isUploadingCv}
+                      onChange={(e) => { const f = e.target.files?.[0]; if (f) handleCvUpload(f); e.target.value = ""; }} />
+                  </label>
+                )}
+              </div>
+
+              {/* Links */}
+              <div>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-sm font-medium">Links <span className="text-muted-foreground font-normal">(GitHub, LinkedIn, portfolio…)</span></label>
+                  <button type="button"
+                    onClick={() => setApplyForm((p) => ({ ...p, links: [...p.links, { label: "", url: "" }] }))}
+                    className="text-xs text-primary hover:underline">+ Add link</button>
+                </div>
+                {applyForm.links.length === 0 ? (
+                  <p className="text-xs text-muted-foreground">No links added.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {applyForm.links.map((link, i) => (
+                      <div key={i} className="flex gap-2">
+                        <input type="text" placeholder="Label (e.g. GitHub)" value={link.label}
+                          onChange={(e) => setApplyForm((p) => ({ ...p, links: p.links.map((l, j) => j === i ? { ...l, label: e.target.value } : l) }))}
+                          className="w-32 px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                        <input type="url" placeholder="https://…" value={link.url}
+                          onChange={(e) => setApplyForm((p) => ({ ...p, links: p.links.map((l, j) => j === i ? { ...l, url: e.target.value } : l) }))}
+                          className="flex-1 px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                        <button type="button"
+                          onClick={() => setApplyForm((p) => ({ ...p, links: p.links.filter((_, j) => j !== i) }))}
+                          className="px-2 text-destructive hover:bg-destructive/10 rounded-lg"><X className="w-4 h-4" /></button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex gap-3 mt-6">
-              <Button onClick={handleApply} disabled={isSubmitting || !applyForm.role || !applyForm.motivation}>
+              <Button onClick={handleApply} disabled={isSubmitting || isUploadingCv || !applyForm.role || !applyForm.motivation}>
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Request"}
               </Button>
               <Button variant="outline" onClick={() => setShowApplyModal(false)}>Cancel</Button>

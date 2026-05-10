@@ -347,15 +347,7 @@ export function Events() {
 
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-3xl font-bold mb-2">Campus Events</h1>
-          <p className="text-muted-foreground">Discover events happening around campus</p>
-        </div>
-        {canCreate && (
-          <Button onClick={() => setShowCreateModal(true)}>
-            <Plus className="w-4 h-4" /> Create Event
-          </Button>
-        )}
+        <h1 className="text-3xl font-bold mb-2">Campus Events</h1>
       </div>
 
       {/* Search + filters + view toggle */}
@@ -410,17 +402,13 @@ export function Events() {
                   <div className={`text-sm font-medium mb-1 w-7 h-7 flex items-center justify-center rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>{day}</div>
                   <div className="space-y-0.5">
                     {dayEvents.slice(0, 2).map((e) => (
-                      <div key={e.id} className={`text-xs px-1.5 py-0.5 rounded truncate font-medium ${e.is_school_wide ? "bg-primary/15 text-primary" : "bg-secondary/15 text-secondary"}`} title={e.title}>{e.title}</div>
+                      <div key={e.id} className="text-xs px-1.5 py-0.5 rounded truncate font-medium bg-primary/15 text-primary" title={e.title}>{e.title}</div>
                     ))}
                     {dayEvents.length > 2 && <div className="text-xs text-muted-foreground px-1">+{dayEvents.length - 2} more</div>}
                   </div>
                 </div>
               );
             })}
-          </div>
-          <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-primary/15" /><span>School-wide</span></div>
-            <div className="flex items-center gap-1.5"><div className="w-3 h-3 rounded bg-secondary/15" /><span>Club event</span></div>
           </div>
         </Card>
       )}
@@ -461,10 +449,6 @@ export function Events() {
                     </div>
                     {/* Right badges */}
                     <div className="absolute top-3 right-3 flex flex-col gap-1 items-end">
-                      {event.is_school_wide && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary text-white">School-Wide</span>}
-                      {event.club_id && !event.is_school_wide && (
-                        <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-secondary text-white">Club Event</span>
-                      )}
                       {event.is_members_only && (
                         <span className="flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500 text-white">
                           <Lock className="w-3 h-3" /> Members

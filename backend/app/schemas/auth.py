@@ -37,7 +37,7 @@ class UserPublic(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=1, max_length=100)
+    name: Optional[str] = Field(None, max_length=100)
     university: Optional[str] = Field(None, max_length=200)
     department: Optional[str] = Field(None, max_length=200)
     year: Optional[int] = Field(None, ge=1, le=10)

@@ -94,7 +94,7 @@ export function Dashboard() {
       const upcoming = eventsData
         .filter((e: Event) => new Date(e.event_date) > now)
         .sort((a: Event, b: Event) => new Date(a.event_date).getTime() - new Date(b.event_date).getTime())
-        .slice(0, 4);
+        .slice(0, 6);
       setEvents(upcoming);
 
       const openProjects = projectsData
@@ -223,12 +223,6 @@ export function Dashboard() {
                         </div>
                         <div className="text-foreground text-lg font-bold leading-tight py-0.5">{eventDate.getDate()}</div>
                       </div>
-                      <div className="absolute top-3 right-3">
-                        {event.is_school_wide && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-primary text-white">School-Wide</span>}
-                        {event.club_id && !event.is_school_wide && (
-                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-secondary text-white">Club Event</span>
-                        )}
-                      </div>
                     </div>
 
                     <div className="p-4 flex flex-col flex-1">
@@ -263,6 +257,14 @@ export function Dashboard() {
                   </Card>
                 );
               })}
+            </div>
+          )}
+
+          {events.length >= 6 && (
+            <div className="flex justify-center mt-4">
+              <Link to="/events">
+                <Button variant="outline">View more events</Button>
+              </Link>
             </div>
           )}
         </div>

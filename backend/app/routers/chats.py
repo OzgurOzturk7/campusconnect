@@ -85,14 +85,34 @@ def _hydrate_message(supabase, msg, users_map=None):
 # ============================================================
 # CHATS
 # ============================================================
+@router.get("/unread-total")
+def get_total_unread(current_user: dict = Depends(get_current_user)):
+    """Single number: total unread messages across all of the user's chats.
+    Used by Sidebar to show a badge next to "Chats"."""
+    supabase = get_supabase_admin()
+    memberships = supabase.table("chat_members").select("chat_id, last_read_at") \
+        .eq("user_id", current_user["id"]).execute()
+    total = 0
+    for m in (memberships.data or []):
+        last_read = m.get("last_read_at")
+        if not last_read:
+            continue
+        cnt = supabase.table("messages").select("id", count="exact") \
+            .eq("chat_id", m["chat_id"]).gt("created_at", last_read) \
+            .neq("sender_id", current_user["id"]).is_("deleted_at", "null").execute()
+        total += cnt.count or 0
+    return {"count": total}
+
+
 @router.get("/")
 def list_my_chats(current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
 
     memberships = supabase.table("chat_members").select(
-        "chat_id, last_read_at, is_muted, role"
+        "chat_id, last_read_at, is_muted, role, hidden_at"
     ).eq("user_id", current_user["id"]).execute()
-    membership_rows = memberships.data or []
+    # Filter out chats the user has hidden (per-user delete on direct chats)
+    membership_rows = [m for m in (memberships.data or []) if not m.get("hidden_at")]
     if not membership_rows:
         return []
 
@@ -211,23 +231,80 @@ def update_chat(chat_id: str, body: ChatUpdate, current_user: dict = Depends(get
 
 @router.delete("/{chat_id}", status_code=status.HTTP_204_NO_CONTENT)
 def leave_or_delete_chat(chat_id: str, current_user: dict = Depends(get_current_user)):
+    """Per-user remove:
+    - Direct chat: hides for me only (other side keeps it)
+    - Group chat: leaves the group (other members keep it)
+    - Project chat: not allowed (tied to project membership)
+    """
     supabase = get_supabase_admin()
-    membership = _ensure_member(supabase, chat_id, current_user["id"])
+    _ensure_member(supabase, chat_id, current_user["id"])
     chat = supabase.table("chats").select("type").eq("id", chat_id).single().execute().data
     if chat["type"] == "project":
         raise HTTPException(status_code=400, detail="Cannot leave a project chat manually.")
 
     if chat["type"] == "direct":
-        supabase.table("chats").delete().eq("id", chat_id).execute()
+        # Soft-hide for this user only
+        from datetime import datetime
+        supabase.table("chat_members").update({"hidden_at": datetime.utcnow().isoformat()}) \
+            .eq("chat_id", chat_id).eq("user_id", current_user["id"]).execute()
         return
 
+    # Group: leave (delete membership row)
+    membership = supabase.table("chat_members").select("role").eq("chat_id", chat_id).eq("user_id", current_user["id"]).single().execute().data
     supabase.table("chat_members").delete().eq("chat_id", chat_id).eq("user_id", current_user["id"]).execute()
     remaining = supabase.table("chat_members").select("user_id, role").eq("chat_id", chat_id).execute()
     if not remaining.data:
         supabase.table("chats").delete().eq("id", chat_id).execute()
-    elif membership["role"] == "admin" and not any(r["role"] == "admin" for r in remaining.data):
+    elif membership and membership.get("role") == "admin" and not any(r["role"] == "admin" for r in remaining.data):
         supabase.table("chat_members").update({"role": "admin"}) \
             .eq("chat_id", chat_id).eq("user_id", remaining.data[0]["user_id"]).execute()
+
+
+@router.delete("/{chat_id}/full", status_code=status.HTTP_204_NO_CONTENT)
+def full_delete_chat(chat_id: str, current_user: dict = Depends(get_current_user)):
+    """Permanently delete a group chat for everyone. Only:
+    - The platform admin (current_user.role == 'admin'), OR
+    - The chat's admin (creator / Yönetici) — chat_members.role == 'admin'
+    can do this. Direct chats: each user uses /hide instead.
+    """
+    supabase = get_supabase_admin()
+    chat = supabase.table("chats").select("type").eq("id", chat_id).single().execute().data
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat not found")
+    if chat["type"] == "direct":
+        raise HTTPException(status_code=400, detail="For direct chats, use the per-user delete instead.")
+    if chat["type"] == "project":
+        raise HTTPException(status_code=400, detail="Project chats are deleted with the project.")
+
+    is_platform_admin = current_user.get("role") == "admin"
+    is_group_admin = False
+    if not is_platform_admin:
+        m = supabase.table("chat_members").select("role").eq("chat_id", chat_id).eq("user_id", current_user["id"]).maybe_single().execute()
+        if m and m.data and m.data.get("role") == "admin":
+            is_group_admin = True
+    if not (is_platform_admin or is_group_admin):
+        raise HTTPException(status_code=403, detail="Only the group admin (Yönetici) or a platform admin can fully delete this chat.")
+
+    supabase.table("chats").delete().eq("id", chat_id).execute()
+
+
+@router.get("/{chat_id}/files")
+def list_chat_files(chat_id: str, current_user: dict = Depends(get_current_user)):
+    """All messages in this chat that have an attachment, newest first.
+    Powers the in-chat 'Files' panel (sent + received media archive)."""
+    supabase = get_supabase_admin()
+    _ensure_member(supabase, chat_id, current_user["id"])
+    res = supabase.table("messages").select(
+        "id, sender_id, body, attachment_url, attachment_type, attachment_name, created_at"
+    ).eq("chat_id", chat_id).is_("deleted_at", "null") \
+     .not_.is_("attachment_url", "null") \
+     .order("created_at", desc=True).limit(200).execute()
+    msgs = res.data or []
+    user_ids = list({m["sender_id"] for m in msgs})
+    users_map = _hydrate_users(supabase, user_ids)
+    for m in msgs:
+        m["sender"] = users_map.get(m["sender_id"])
+    return msgs
 
 
 # ============================================================
@@ -338,6 +415,12 @@ def send_message(chat_id: str, body: MessageCreate, current_user: dict = Depends
         "reply_to_id": body.reply_to_id,
     }
     msg = supabase.table("messages").insert(payload).execute().data[0]
+    # If anyone hid this chat, unhide it for them — a new message brings it back
+    try:
+        supabase.table("chat_members").update({"hidden_at": None}) \
+            .eq("chat_id", chat_id).neq("user_id", current_user["id"]).not_.is_("hidden_at", "null").execute()
+    except Exception:
+        pass
     return _hydrate_message(supabase, msg)
 
 

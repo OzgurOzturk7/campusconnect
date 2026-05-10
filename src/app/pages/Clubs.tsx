@@ -326,7 +326,6 @@ export function Clubs() {
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-3xl font-bold mb-2">Student Clubs</h1>
-          <p className="text-muted-foreground">Discover and join clubs that match your interests</p>
         </div>
         <div className="flex gap-2">
           {user?.role === "admin" ? (
@@ -618,7 +617,7 @@ export function Clubs() {
                           </Link>
                           {isAdmin && (
                             <>
-                              <Link to={`/clubs/${club.id}`} className="flex-1">
+                              <Link to={`/clubs/${club.id}#manage`} className="flex-1">
                                 <Button className="w-full h-10 text-sm">Manage</Button>
                               </Link>
                               <button
@@ -636,13 +635,13 @@ export function Clubs() {
 
                           {/* Club admin (not platform admin) — show manage */}
                           {!isAdmin && isClubAdmin && (
-                            <Link to={`/clubs/${club.id}`} className="flex-1">
+                            <Link to={`/clubs/${club.id}#manage`} className="flex-1">
                               <Button className="w-full text-sm">Manage</Button>
                             </Link>
                           )}
                           {/* Club president/admin member — also show manage */}
                           {!isAdmin && !isClubAdmin && mem?.role === "president" || !isAdmin && !isClubAdmin && mem?.role === "admin" ? (
-                            <Link to={`/clubs/${club.id}`} className="flex-1">
+                            <Link to={`/clubs/${club.id}#manage`} className="flex-1">
                               <Button className="w-full text-sm">Manage</Button>
                             </Link>
                           ) : null}

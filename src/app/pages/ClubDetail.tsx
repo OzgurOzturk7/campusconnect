@@ -9,7 +9,7 @@ import {
   Megaphone, Plus, MapPin, Clock, Image, Calendar,
   Lock, Globe
 } from "lucide-react";
-import { Link, useParams } from "react-router";
+import { Link, useParams, useLocation } from "react-router";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { getStoredToken } from "../context/AuthContext";
@@ -65,8 +65,16 @@ const CATEGORIES = ["Technical", "Social", "Sports", "Arts", "Research", "Busine
 
 export function ClubDetail() {
   const { id } = useParams<{ id: string }>();
+  const location = useLocation();
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<"overview" | "announcements" | "manage">("overview");
+  const [activeTab, setActiveTab] = useState<"overview" | "announcements" | "manage">(
+    location.hash === "#manage" ? "manage" : "overview"
+  );
+
+  // React to hash changes (e.g. user clicks Manage on the Clubs list)
+  useEffect(() => {
+    if (location.hash === "#manage") setActiveTab("manage");
+  }, [location.hash]);
   const [club, setClub] = useState<Club | null>(null);
   const [members, setMembers] = useState<Member[]>([]);
   const [clubEvents, setClubEvents] = useState<ClubEvent[]>([]);
@@ -937,8 +945,8 @@ export function ClubDetail() {
             </Card>
           )}
 
-          {/* Members */}
-          <Card className="p-6">
+          {/* Members — anchor for "Manage" button from Clubs list */}
+          <Card id="manage" className="p-6 scroll-mt-24">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
               <Shield className="w-5 h-5" /> Members ({approvedMembers.length})
             </h2>

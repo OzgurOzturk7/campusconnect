@@ -15,10 +15,10 @@ class EventCreate(BaseModel):
 
 
 class EventUpdate(BaseModel):
-    title: Optional[str] = Field(None, min_length=2, max_length=200)
-    description: Optional[str] = Field(None, min_length=1, max_length=5000)
+    title: Optional[str] = Field(None, max_length=200)
+    description: Optional[str] = Field(None, max_length=5000)
     event_date: Optional[datetime] = None
-    location: Optional[str] = Field(None, min_length=1, max_length=300)
+    location: Optional[str] = Field(None, max_length=300)
     capacity: Optional[int] = Field(None, ge=1, le=10000)
     is_members_only: Optional[bool] = None
 

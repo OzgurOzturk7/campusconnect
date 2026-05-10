@@ -11,8 +11,8 @@ class ClubCreate(BaseModel):
 
 
 class ClubUpdate(BaseModel):
-    name: Optional[str] = Field(None, min_length=2, max_length=100)
-    description: Optional[str] = Field(None, min_length=10, max_length=2000)
+    name: Optional[str] = Field(None, max_length=100)
+    description: Optional[str] = Field(None, max_length=2000)
     category: Optional[str] = Field(None, max_length=50)
     is_open: Optional[bool] = None
 

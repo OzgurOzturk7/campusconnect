@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
 from app.schemas.projects import (
     ProjectPostCreate, ProjectPostUpdate,
     ApplicationCreate, ApplicationStatusUpdate
@@ -6,8 +6,17 @@ from app.schemas.projects import (
 from app.schemas.notifications import send_notification
 from app.core.supabase import get_supabase_admin
 from app.core.security import get_current_user
+import uuid
 
 router = APIRouter()
+
+CV_BUCKET = "applications-cv"
+ALLOWED_CV_MIMES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
+MAX_CV_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 # ============================================================
@@ -149,6 +158,69 @@ def my_applications(current_user: dict = Depends(get_current_user)):
     return apps
 
 
+@router.get("/mine/projects")
+def my_projects(current_user: dict = Depends(get_current_user)):
+    """Projects the user is actively part of (accepted applications + own projects)."""
+    supabase = get_supabase_admin()
+
+    accepted = supabase.table("project_applications").select("project_id") \
+        .eq("applicant_id", current_user["id"]).eq("status", "accepted").execute()
+    accepted_ids = {a["project_id"] for a in (accepted.data or [])}
+
+    own = supabase.table("project_posts").select("id").eq("owner_id", current_user["id"]).execute()
+    own_ids = {p["id"] for p in (own.data or [])}
+
+    all_ids = list(accepted_ids | own_ids)
+    if not all_ids:
+        return []
+
+    result = supabase.table("project_posts").select(
+        "*, users!owner_id(name, avatar_url, department, year), project_applications(count)"
+    ).in_("id", all_ids).order("created_at", desc=True).execute()
+
+    posts = result.data or []
+    for post in posts:
+        owner = post.pop("users", None)
+        post["owner"] = owner
+        apps = post.pop("project_applications", [])
+        post["application_count"] = apps[0]["count"] if apps else 0
+        post["my_role"] = "owner" if post["owner_id"] == current_user["id"] else "member"
+    return posts
+
+
+@router.post("/upload-cv")
+async def upload_cv(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+    """Upload a CV file (PDF or Word) for use with a project application."""
+    supabase = get_supabase_admin()
+
+    content_type = (file.content_type or "").lower()
+    if content_type not in ALLOWED_CV_MIMES:
+        raise HTTPException(status_code=400, detail="Only PDF or Word documents allowed")
+
+    contents = await file.read()
+    if len(contents) > MAX_CV_BYTES:
+        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_CV_BYTES // (1024*1024)} MB)")
+
+    safe_name = (file.filename or "cv").replace("/", "_").replace("\\", "_")[:200]
+    object_path = f"{current_user['id']}/{uuid.uuid4().hex}_{safe_name}"
+
+    try:
+        supabase.storage.from_(CV_BUCKET).upload(
+            object_path, contents,
+            {"content-type": content_type},
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
+
+    try:
+        signed = supabase.storage.from_(CV_BUCKET).create_signed_url(object_path, 60 * 60 * 24 * 30)
+        url = signed.get("signedURL") or signed.get("signed_url") or signed.get("signedUrl")
+    except Exception:
+        raise HTTPException(status_code=500, detail="Could not generate signed URL")
+
+    return {"url": url, "name": safe_name}
+
+
 @router.get("/suggested")
 def suggested_projects(current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
@@ -252,6 +324,8 @@ def create_project(body: ProjectPostCreate, current_user: dict = Depends(get_cur
         "roles_needed": body.roles_needed,
         "github_url": body.github_url,
         "duration": body.duration,
+        "start_date": body.start_date.isoformat() if body.start_date else None,
+        "deadline": body.deadline.isoformat() if body.deadline else None,
         "status": "open",
     }).execute()
     project = result.data[0]
@@ -280,6 +354,10 @@ def update_project(project_id: str, body: ProjectPostUpdate, current_user: dict 
     if existing.data["owner_id"] != current_user["id"] and current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
     update_data = {k: v for k, v in body.model_dump().items() if v is not None}
+    # Serialize dates → ISO strings
+    for k in ("start_date", "deadline"):
+        if k in update_data and hasattr(update_data[k], "isoformat"):
+            update_data[k] = update_data[k].isoformat()
     result = supabase.table("project_posts").update(update_data).eq("id", project_id).execute()
 
     # Sync project chat title if title changed
@@ -324,6 +402,8 @@ def apply_to_project(project_id: str, body: ApplicationCreate, current_user: dic
         "applicant_id": current_user["id"],
         "role": body.role,
         "motivation": body.motivation,
+        "cv_url": body.cv_url,
+        "links": [l.model_dump() for l in (body.links or [])],
         "status": "pending",
     }).execute()
 

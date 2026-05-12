@@ -1,4 +1,5 @@
 import i18n from "./i18n";
+import { ApiError } from "./api";
 
 /**
  * UserError - a user-facing error model.
@@ -36,9 +37,9 @@ function hasStatus(value: unknown): value is { status: number } {
 }
 
 function getStatus(err: unknown): number | undefined {
+  if (err instanceof ApiError) return err.status;
   if (hasStatus(err)) return err.status;
   if (err instanceof Error) {
-    // Some endpoints prefix the message with status codes — best-effort extraction.
     const match = err.message.match(/\b(4\d{2}|5\d{2})\b/);
     if (match) return Number(match[1]);
   }
@@ -46,6 +47,8 @@ function getStatus(err: unknown): number | undefined {
 }
 
 function isNetworkError(err: unknown): boolean {
+  // ApiError(status=0) is our explicit "network unreachable" marker.
+  if (err instanceof ApiError && err.status === 0) return true;
   if (!(err instanceof Error)) return false;
   return /Failed to fetch|NetworkError|fetch failed/i.test(err.message);
 }

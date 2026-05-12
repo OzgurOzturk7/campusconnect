@@ -5,7 +5,7 @@ from datetime import datetime
 
 class ClubCreate(BaseModel):
     name: str = Field(..., min_length=2, max_length=100)
-    description: str = Field(..., min_length=10, max_length=2000)
+    description: str = Field(..., min_length=1, max_length=2000)
     category: str = Field(..., min_length=1, max_length=50)
     is_open: bool = True
 
@@ -37,7 +37,7 @@ class MembershipStatusUpdate(BaseModel):
 class ClubRequestCreate(BaseModel):
     club_name: str = Field(..., min_length=2, max_length=100)
     category: str = Field(..., min_length=1, max_length=50)
-    description: str = Field(..., min_length=10, max_length=2000)
+    description: str = Field(..., min_length=1, max_length=2000)
 
 
 class ClubRequestReview(BaseModel):

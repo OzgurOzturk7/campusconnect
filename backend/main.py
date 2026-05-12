@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
@@ -47,11 +47,25 @@ def _cors_headers(request: Request) -> dict:
 
 @app.middleware("http")
 async def supabase_retry_middleware(request: Request, call_next):
-    """If a transient httpx/Supabase network error fires, drop the cached
-    clients (so the next request rebuilds them) and surface a clean 503 the
-    frontend can retry on."""
+    """Catches everything the route layer raises and makes sure the client
+    gets a response with CORS headers attached.
+
+    Starlette's BaseHTTPMiddleware (which this decorator uses) skips the
+    CORSMiddleware flow when the inner app raises — without the header the
+    browser hides the real status behind a generic "CORS policy" error.
+
+    Three buckets:
+      * Transient httpx/Supabase glitch  → 503 + reset cached clients
+      * FastAPI HTTPException             → let it propagate (the framework
+                                            handler already attaches CORS)
+      * Anything else                     → 500 with the real detail
+    """
     try:
         return await call_next(request)
+    except HTTPException:
+        # FastAPI's exception handler chain produces a proper response with
+        # CORS headers; we mustn't swallow it here.
+        raise
     except Exception as e:
         msg = repr(e).lower()
         if any(x in msg for x in ("remoteprotocolerror", "server disconnected", "broken pipe")):
@@ -62,7 +76,15 @@ async def supabase_retry_middleware(request: Request, call_next):
                 content={"detail": "Network glitch — please retry."},
                 headers=_cors_headers(request),
             )
-        raise
+        # Unhandled error in a route. Log with traceback for the operator,
+        # return a short detail to the client + CORS headers so the browser
+        # surfaces the real status code instead of a misleading CORS error.
+        logger.exception(f"Unhandled error in {request.method} {request.url.path}")
+        return JSONResponse(
+            status_code=500,
+            content={"detail": f"Internal server error: {type(e).__name__}"},
+            headers=_cors_headers(request),
+        )
 
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(projects.router, prefix="/api/projects", tags=["Projects"])

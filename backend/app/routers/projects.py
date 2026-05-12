@@ -126,19 +126,50 @@ def _remove_from_project_chat(supabase, project_id: str, user_id: str):
         .eq("chat_id", chat.data["id"]).eq("user_id", user_id).execute()
 
 
+def _hydrate_owners_and_counts(supabase, posts: list[dict]) -> list[dict]:
+    """Attach `owner` (user row) and `application_count` to each post.
+
+    Uses two batch queries instead of PostgREST's `users!owner_id(...)`
+    embedded-select syntax. That syntax requires a registered foreign key
+    between project_posts.owner_id → users.id, which is fragile (a single
+    `DROP CONSTRAINT` operationally takes the API down). The batch approach
+    works even when FKs are missing.
+    """
+    if not posts:
+        return posts
+    owner_ids = list({p["owner_id"] for p in posts if p.get("owner_id")})
+    owners_by_id: dict[str, dict] = {}
+    if owner_ids:
+        try:
+            res = supabase.table("users").select(
+                "id, name, avatar_url, department, year"
+            ).in_("id", owner_ids).execute()
+            owners_by_id = {u["id"]: u for u in (res.data or [])}
+        except Exception:
+            owners_by_id = {}
+
+    counts_by_post: dict[str, int] = {}
+    for post in posts:
+        try:
+            c = supabase.table("project_applications").select(
+                "id", count="exact"
+            ).eq("project_id", post["id"]).execute()
+            counts_by_post[post["id"]] = c.count or 0
+        except Exception:
+            counts_by_post[post["id"]] = 0
+
+    for post in posts:
+        post["owner"] = owners_by_id.get(post.get("owner_id"))
+        post["application_count"] = counts_by_post.get(post["id"], 0)
+    return posts
+
+
 @router.get("/")
 def list_projects(current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
-    result = supabase.table("project_posts").select(
-        "*, users!owner_id(name, avatar_url, department, year), project_applications(count)"
-    ).order("created_at", desc=True).execute()
-    posts = result.data or []
-    for post in posts:
-        owner = post.pop("users", None)
-        post["owner"] = owner
-        apps = post.pop("project_applications", [])
-        post["application_count"] = apps[0]["count"] if apps else 0
-    return posts
+    result = supabase.table("project_posts").select("*") \
+        .order("created_at", desc=True).execute()
+    return _hydrate_owners_and_counts(supabase, result.data or [])
 
 
 @router.get("/mine/posts")
@@ -190,16 +221,11 @@ def my_projects(current_user: dict = Depends(get_current_user)):
     if not all_ids:
         return []
 
-    result = supabase.table("project_posts").select(
-        "*, users!owner_id(name, avatar_url, department, year), project_applications(count)"
-    ).in_("id", all_ids).order("created_at", desc=True).execute()
+    result = supabase.table("project_posts").select("*") \
+        .in_("id", all_ids).order("created_at", desc=True).execute()
 
-    posts = result.data or []
+    posts = _hydrate_owners_and_counts(supabase, result.data or [])
     for post in posts:
-        owner = post.pop("users", None)
-        post["owner"] = owner
-        apps = post.pop("project_applications", [])
-        post["application_count"] = apps[0]["count"] if apps else 0
         post["my_role"] = "owner" if post["owner_id"] == current_user["id"] else "member"
     return posts
 

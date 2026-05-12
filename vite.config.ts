@@ -19,19 +19,12 @@ export default defineConfig({
     drop: ['console', 'debugger'],
   },
   build: {
-    // Smarter chunking: split vendor libs from app code
     rollupOptions: {
       output: {
         manualChunks: {
           'react-vendor': ['react', 'react-dom', 'react-router'],
           'supabase': ['@supabase/supabase-js'],
-          'radix': [
-            '@radix-ui/react-dialog',
-            '@radix-ui/react-dropdown-menu',
-            '@radix-ui/react-popover',
-            '@radix-ui/react-select',
-            '@radix-ui/react-tabs',
-          ],
+          'i18n': ['i18next', 'react-i18next', 'i18next-browser-languagedetector'],
         },
       },
     },

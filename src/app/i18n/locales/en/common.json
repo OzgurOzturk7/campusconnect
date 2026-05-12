@@ -1,0 +1,63 @@
+{
+  "appName": "CampusConnect",
+  "nav": {
+    "dashboard": "Dashboard",
+    "profile": "Profile",
+    "clubs": "Clubs",
+    "events": "Events",
+    "projects": "Projects",
+    "chats": "Chats",
+    "notifications": "Notifications"
+  },
+  "actions": {
+    "cancel": "Cancel",
+    "save": "Save",
+    "delete": "Delete",
+    "confirm": "Confirm",
+    "close": "Close",
+    "edit": "Edit",
+    "create": "Create",
+    "submit": "Submit",
+    "signOut": "Sign out",
+    "markAllRead": "Mark all",
+    "viewAll": "View all",
+    "retry": "Try again",
+    "loadMore": "Load more"
+  },
+  "search": {
+    "placeholder": "Search students, clubs, projects..."
+  },
+  "badges": {
+    "admin": "Admin",
+    "owner": "Owner",
+    "member": "Member"
+  },
+  "state": {
+    "loading": "Loading...",
+    "empty": "Nothing here yet",
+    "saving": "Saving..."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "newCount": "{{count}} new",
+    "allCaught": "You are all caught up!",
+    "viewAll": "View all notifications",
+    "justNow": "just now",
+    "minutesAgo": "{{count}}m ago",
+    "hoursAgo": "{{count}}h ago",
+    "daysAgo": "{{count}}d ago"
+  },
+  "userMenu": {
+    "profile": "Profile",
+    "darkMode": "Dark mode",
+    "lightMode": "Light mode",
+    "language": "Language",
+    "logout": "Sign out"
+  },
+  "languages": {
+    "en": "English",
+    "tr": "Türkçe",
+    "ru": "Русский",
+    "ar": "العربية"
+  }
+}

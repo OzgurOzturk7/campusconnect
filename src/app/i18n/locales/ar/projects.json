@@ -1,0 +1,30 @@
+{
+  "title": "المشاريع",
+  "myProjects": "مشاريعي",
+  "browse": "تصفّح",
+  "create": "مشروع جديد",
+  "limit": {
+    "monthly": "يمكنك نشر حتى {{max}} مشاريع شهريًا.",
+    "remaining": "تبقّى {{remaining}} من {{max}} هذا الشهر.",
+    "reached": "تم بلوغ الحد الشهري. يمكنك النشر مجددًا في {{date}}."
+  },
+  "dates": {
+    "startLabel": "تاريخ البدء",
+    "deadlineLabel": "الموعد النهائي",
+    "durationLabel": "المدة",
+    "durationDays": "{{count}} يوم",
+    "errors": {
+      "startInPast": "لا يمكن أن يكون تاريخ البدء في الماضي.",
+      "startAfterDeadline": "يجب أن يسبق تاريخ البدء الموعدَ النهائي.",
+      "startEqualsDeadline": "لا يمكن أن يتطابق تاريخ البدء مع الموعد النهائي.",
+      "deadlineBeforeStart": "يجب أن يكون الموعد النهائي بعد تاريخ البدء.",
+      "deadlineInPast": "لا يمكن أن يكون الموعد النهائي في الماضي."
+    }
+  },
+  "applications": {
+    "title": "الطلبات",
+    "cvPreview": "معاينة السيرة الذاتية",
+    "cvDownload": "تنزيل السيرة الذاتية",
+    "noApplications": "لا توجد طلبات بعد."
+  }
+}

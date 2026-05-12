@@ -6,7 +6,13 @@ from app.schemas.projects import (
 from app.schemas.notifications import send_notification
 from app.core.supabase import get_supabase_admin
 from app.core.security import get_current_user
+from datetime import date, datetime, timezone
+import logging
+import os
+import time
 import uuid
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -16,7 +22,17 @@ ALLOWED_CV_MIMES = {
     "application/msword",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 }
+# Some clients (curl, certain browsers, mobile uploaders) submit PDFs as
+# application/octet-stream. Fall back to extension when content_type is generic.
+EXT_TO_MIME = {
+    ".pdf": "application/pdf",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+}
 MAX_CV_BYTES = 10 * 1024 * 1024  # 10 MB
+
+# Non-admin users may publish at most this many projects per calendar month.
+PROJECT_MONTHLY_LIMIT = 3
 
 
 # ============================================================
@@ -188,36 +204,118 @@ def my_projects(current_user: dict = Depends(get_current_user)):
     return posts
 
 
+def _resolve_cv_mime(file: UploadFile) -> str | None:
+    """Pick a usable mime type for a CV upload.
+    Returns None if the file is not a permitted CV type.
+    Falls back to extension when the client sends `application/octet-stream`
+    or no Content-Type at all.
+    """
+    declared = (file.content_type or "").lower().strip()
+    if declared in ALLOWED_CV_MIMES:
+        return declared
+    name = (file.filename or "").lower()
+    _, ext = os.path.splitext(name)
+    fallback = EXT_TO_MIME.get(ext)
+    if fallback:
+        return fallback
+    return None
+
+
+def _upload_with_retry(bucket, path: str, body: bytes, content_type: str, *, attempts: int = 3) -> None:
+    """Upload to Supabase Storage with retry on transient failures.
+    Re-raises the last exception if all attempts fail.
+    """
+    last_exc: Exception | None = None
+    for i in range(attempts):
+        try:
+            bucket.upload(path, body, {"content-type": content_type})
+            return
+        except Exception as e:
+            last_exc = e
+            # Storage SDK raises a generic exception; treat permanent errors
+            # (auth, RLS, missing bucket) as non-retryable so we fail fast.
+            msg = str(e).lower()
+            if any(s in msg for s in ("bucket not found", "row-level security", "unauthorized", "forbidden")):
+                raise
+            if i + 1 < attempts:
+                time.sleep(0.4 * (2 ** i))  # 0.4s, 0.8s
+    if last_exc:
+        raise last_exc
+
+
 @router.post("/upload-cv")
 async def upload_cv(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
-    """Upload a CV file (PDF or Word) for use with a project application."""
+    """Upload a CV file (PDF or Word) for use with a project application.
+
+    Failure modes:
+      * 415 — unsupported file type (mime + extension both unrecognized)
+      * 413 — file exceeds MAX_CV_BYTES
+      * 400 — empty file
+      * 500 — Supabase Storage rejected the write (logged with full traceback)
+    """
     supabase = get_supabase_admin()
 
-    content_type = (file.content_type or "").lower()
-    if content_type not in ALLOWED_CV_MIMES:
-        raise HTTPException(status_code=400, detail="Only PDF or Word documents allowed")
+    content_type = _resolve_cv_mime(file)
+    if not content_type:
+        raise HTTPException(
+            status_code=415,
+            detail="Only PDF or Word (.pdf/.doc/.docx) documents are allowed.",
+        )
 
-    contents = await file.read()
+    try:
+        contents = await file.read()
+    except Exception as e:
+        logger.exception("upload_cv: failed reading upload stream user=%s", current_user.get("id"))
+        raise HTTPException(status_code=400, detail="Couldn't read the uploaded file.") from e
+
+    if not contents:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
     if len(contents) > MAX_CV_BYTES:
-        raise HTTPException(status_code=413, detail=f"File too large (max {MAX_CV_BYTES // (1024*1024)} MB)")
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {MAX_CV_BYTES // (1024*1024)} MB.",
+        )
 
-    safe_name = (file.filename or "cv").replace("/", "_").replace("\\", "_")[:200]
+    safe_name = (file.filename or "cv").replace("/", "_").replace("\\", "_").strip()[:200] or "cv"
     object_path = f"{current_user['id']}/{uuid.uuid4().hex}_{safe_name}"
 
+    bucket = supabase.storage.from_(CV_BUCKET)
     try:
-        supabase.storage.from_(CV_BUCKET).upload(
-            object_path, contents,
-            {"content-type": content_type},
-        )
+        _upload_with_retry(bucket, object_path, contents, content_type)
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Upload failed: {e}")
+        # Log the real error server-side; return a generic but actionable message to the client.
+        logger.exception(
+            "upload_cv: storage upload failed user=%s bucket=%s path=%s size=%d",
+            current_user.get("id"), CV_BUCKET, object_path, len(contents),
+        )
+        msg = str(e).lower()
+        if "bucket not found" in msg:
+            raise HTTPException(status_code=500, detail="Storage bucket is missing. Contact support.") from e
+        if "row-level security" in msg or "unauthorized" in msg:
+            raise HTTPException(status_code=500, detail="Storage policy rejected the upload. Contact support.") from e
+        raise HTTPException(status_code=500, detail="Upload failed. Please try again in a moment.") from e
 
     try:
-        signed = supabase.storage.from_(CV_BUCKET).create_signed_url(object_path, 60 * 60 * 24 * 30)
-        url = signed.get("signedURL") or signed.get("signed_url") or signed.get("signedUrl")
-    except Exception:
-        raise HTTPException(status_code=500, detail="Could not generate signed URL")
+        signed = bucket.create_signed_url(object_path, 60 * 60 * 24 * 30)
+        url = (
+            signed.get("signedURL")
+            or signed.get("signed_url")
+            or signed.get("signedUrl")
+            if isinstance(signed, dict) else None
+        )
+        if not url:
+            raise RuntimeError(f"signed URL response missing url field: {signed!r}")
+    except Exception as e:
+        logger.exception("upload_cv: signed URL failed user=%s path=%s", current_user.get("id"), object_path)
+        raise HTTPException(
+            status_code=500,
+            detail="File uploaded but couldn't generate a preview link. Try again.",
+        ) from e
 
+    logger.info(
+        "upload_cv: ok user=%s bucket=%s path=%s size=%d type=%s",
+        current_user.get("id"), CV_BUCKET, object_path, len(contents), content_type,
+    )
     return {"url": url, "name": safe_name}
 
 
@@ -313,9 +411,80 @@ def get_project(project_id: str, current_user: dict = Depends(get_current_user))
     return post
 
 
+def _month_window_iso() -> tuple[str, str]:
+    """First-of-this-month and first-of-next-month as ISO strings (UTC).
+    Used to count projects published within the current calendar month.
+    """
+    now = datetime.now(timezone.utc)
+    start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+    # First day of next month
+    if start.month == 12:
+        end = start.replace(year=start.year + 1, month=1)
+    else:
+        end = start.replace(month=start.month + 1)
+    return start.isoformat(), end.isoformat()
+
+
+def _published_this_month(supabase, user_id: str) -> int:
+    start_iso, end_iso = _month_window_iso()
+    res = (
+        supabase.table("project_posts")
+        .select("id", count="exact")
+        .eq("owner_id", user_id)
+        .gte("created_at", start_iso)
+        .lt("created_at", end_iso)
+        .execute()
+    )
+    return res.count or 0
+
+
+def _publish_resets_at_iso() -> str:
+    _, end_iso = _month_window_iso()
+    return end_iso
+
+
+@router.get("/limit-info")
+def project_limit_info(current_user: dict = Depends(get_current_user)):
+    """How many more projects the current user can publish this month.
+
+    Admins are unrestricted. Non-admins are capped at PROJECT_MONTHLY_LIMIT.
+    Frontend renders this to warn users before they hit the wall.
+    """
+    if current_user.get("role") == "admin":
+        return {
+            "limit": None,
+            "used": 0,
+            "remaining": None,
+            "resets_at": None,
+            "is_admin": True,
+        }
+    supabase = get_supabase_admin()
+    used = _published_this_month(supabase, current_user["id"])
+    return {
+        "limit": PROJECT_MONTHLY_LIMIT,
+        "used": used,
+        "remaining": max(0, PROJECT_MONTHLY_LIMIT - used),
+        "resets_at": _publish_resets_at_iso(),
+        "is_admin": False,
+    }
+
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
 def create_project(body: ProjectPostCreate, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
+
+    # Server-authoritative monthly publish cap. Admins are exempt.
+    if current_user.get("role") != "admin":
+        used = _published_this_month(supabase, current_user["id"])
+        if used >= PROJECT_MONTHLY_LIMIT:
+            raise HTTPException(
+                status_code=429,
+                detail=(
+                    f"Monthly publish limit reached ({PROJECT_MONTHLY_LIMIT} per month). "
+                    "Try again next month."
+                ),
+            )
+
     result = supabase.table("project_posts").insert({
         "title": body.title,
         "description": body.description,

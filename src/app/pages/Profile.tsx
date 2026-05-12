@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { Link } from "react-router";
 import { apiFetch } from "../lib/api";
+import { useToast } from "../context/ToastContext";
+import { toUserError } from "../lib/errors";
 
 interface UserProfile {
   id: string;
@@ -47,6 +49,7 @@ interface MyClub {
 }
 
 export function Profile() {
+  const { error: toastError } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
@@ -114,7 +117,7 @@ export function Profile() {
       await apiFetch(`/api/clubs/${clubId}/leave`, { method: "DELETE" });
       setMyClubs((prev) => prev.filter((c) => c.id !== clubId));
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to leave club");
+      toastError(toUserError(err, { action: "delete", what: "club membership" }));
     } finally {
       setLeavingClubId(null);
     }
@@ -166,7 +169,7 @@ export function Profile() {
       setAiAnalysis(null);
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (err: unknown) {
-      alert(err instanceof Error ? err.message : "Failed to save profile");
+      toastError(toUserError(err, { action: "save", what: "profile" }));
     } finally {
       setIsSaving(false);
     }

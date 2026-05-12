@@ -166,7 +166,7 @@ export function Clubs() {
       const isOpen = result.is_open;
       setJoinFeedback({
         id: club.id,
-        msg: isOpen ? "Successfully joined!" : "Application sent! Waiting for admin approval.",
+        msg: isOpen ? "Successfully joined!" : "Request sent",
         ok: true,
       });
       fetchMemberships();

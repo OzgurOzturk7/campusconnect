@@ -1,6 +1,27 @@
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from typing import Optional, List
 from datetime import datetime, date
+
+
+def _validate_project_dates(start: Optional[date], deadline: Optional[date]) -> None:
+    """Enforce the project date rules shared by create + update.
+
+    Rules:
+    - start_date and deadline are both optional, but if either is set with the other
+      the relation rules below apply.
+    - start_date cannot be in the past (relative to the server's "today").
+    - start_date must be strictly before deadline (same day is rejected).
+    """
+    today = date.today()
+    if start is not None and start < today:
+        raise ValueError("start_date cannot be in the past")
+    if deadline is not None and deadline < today:
+        raise ValueError("deadline cannot be in the past")
+    if start is not None and deadline is not None:
+        if start == deadline:
+            raise ValueError("start_date and deadline cannot be the same day")
+        if start > deadline:
+            raise ValueError("start_date must be before deadline")
 
 
 class ProjectLink(BaseModel):
@@ -10,13 +31,18 @@ class ProjectLink(BaseModel):
 
 class ProjectPostCreate(BaseModel):
     title: str = Field(..., min_length=2, max_length=200)
-    description: str = Field(..., min_length=10, max_length=5000)
+    description: str = Field(..., min_length=1, max_length=5000)
     tech_stack: List[str] = Field(default_factory=list, max_length=30)
     roles_needed: List[str] = Field(default_factory=list, max_length=20)
     github_url: Optional[str] = Field(None, max_length=500)
     duration: Optional[str] = Field(None, max_length=100)
     start_date: Optional[date] = None
     deadline: Optional[date] = None
+
+    @model_validator(mode="after")
+    def _check_dates(self) -> "ProjectPostCreate":
+        _validate_project_dates(self.start_date, self.deadline)
+        return self
 
 
 class ProjectPostUpdate(BaseModel):
@@ -29,6 +55,14 @@ class ProjectPostUpdate(BaseModel):
     status: Optional[str] = Field(None, max_length=20)
     start_date: Optional[date] = None
     deadline: Optional[date] = None
+
+    @model_validator(mode="after")
+    def _check_dates(self) -> "ProjectPostUpdate":
+        # On update we may receive a single date; the other comes from the DB row.
+        # Caller (router) is responsible for merging; here we still reject obvious
+        # invalid pairs when both are present in the payload.
+        _validate_project_dates(self.start_date, self.deadline)
+        return self
 
 
 class ProjectPostResponse(BaseModel):

@@ -1,6 +1,7 @@
 import { createContext, useContext, useEffect, useState, useCallback, ReactNode } from "react";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "./AuthContext";
+import { useRealtimeChannel } from "../hooks/useRealtimeChannel";
 
 interface NotificationContextType {
   /** Unread count for the bell icon (system notifications: project, club, etc.). */
@@ -12,15 +13,19 @@ interface NotificationContextType {
 
 const NotificationContext = createContext<NotificationContextType | null>(null);
 
-const POLL_INTERVAL_MS = 30_000;
+// Fallback poll cadence. Realtime is the primary signal; this catches the rare
+// case where a Realtime subscription drops without us noticing.
+const POLL_INTERVAL_MS = 60_000;
 
 /**
- * Centralised polling for both notification types. Keeps a single 30s
- * timer for the whole app instead of having Sidebar/Navbar each set up
- * their own.
+ * Centralised state for the two unread badges shown in the chrome.
  *
  * - `unreadCount`  → bell icon (notifications table)
- * - `chatUnread`   → next to "Chats" in Sidebar (messages table, summed)
+ * - `chatUnread`   → "Chats" badge (messages, summed; muted chats excluded by the API)
+ *
+ * Realtime: subscribes to `notifications` rows filtered by user_id and to
+ * `messages` (any chat — we re-query the server for the correct, mute-aware
+ * count). The 60s poll is a safety net.
  */
 export function NotificationProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
@@ -62,6 +67,27 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
       window.removeEventListener("chat-unread-updated", onUpdated);
     };
   }, [user, refresh]);
+
+  // Realtime: bell badge updates the moment a notification row appears for
+  // the current user, instead of waiting up to 60s for the poll.
+  useRealtimeChannel({
+    table: "notifications",
+    event: "INSERT",
+    filter: user ? `user_id=eq.${user.user_id}` : undefined,
+    enabled: !!user,
+    onChange: () => refresh(),
+  });
+
+  // Realtime: chat badge. We can't pre-filter messages by membership at the
+  // subscription level (Supabase Realtime doesn't join), so we listen to all
+  // inserts and let the backend's mute-aware /unread-total compute the truth.
+  // For active users this is one extra REST call per incoming message — cheap.
+  useRealtimeChannel({
+    table: "messages",
+    event: "INSERT",
+    enabled: !!user,
+    onChange: () => refresh(),
+  });
 
   return (
     <NotificationContext.Provider value={{ unreadCount, chatUnread, refresh }}>

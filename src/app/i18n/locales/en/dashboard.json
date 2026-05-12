@@ -1,0 +1,17 @@
+{
+  "welcome": "Welcome back, {{name}}",
+  "welcomeAnon": "Welcome back",
+  "subtitle": "Here's what's happening on campus today.",
+  "sections": {
+    "myProjects": "My Projects",
+    "upcomingEvents": "Upcoming Events",
+    "recentActivity": "Recent Activity",
+    "deadlines": "Upcoming Deadlines"
+  },
+  "empty": {
+    "noProjects": "You haven't joined any projects yet.",
+    "noEvents": "No upcoming events.",
+    "noActivity": "No recent activity.",
+    "noDeadlines": "No deadlines coming up."
+  }
+}

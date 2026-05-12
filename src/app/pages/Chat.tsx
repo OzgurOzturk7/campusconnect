@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, KeyboardEvent } from "react";
+import { useState, useEffect, useRef, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useLocation } from "react-router";
 import {
   Search, Send, Paperclip, Smile, Reply as ReplyIcon, X, Plus, Loader2,
@@ -10,6 +10,7 @@ import { Button } from "../components/Button";
 import { apiFetch } from "../lib/api";
 import { useAuth, getStoredToken } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useConfirm } from "../context/ConfirmContext";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 
@@ -108,6 +109,7 @@ function chatDisplayAvatar(chat: ChatSummary, currentUserId: string): { name: st
 export function Chat() {
   const { user } = useAuth();
   const { error: toastError } = useToast();
+  const { confirm: confirmDialog } = useConfirm();
   const location = useLocation();
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -360,7 +362,7 @@ export function Chat() {
     }, 2500);
   }
 
-  function handleInputKey(e: KeyboardEvent<HTMLTextAreaElement>) {
+  function handleInputKey(e: ReactKeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -478,9 +480,19 @@ export function Chat() {
 
   async function deleteMessage(msg: ChatMessage) {
     if (!activeChatId) return;
-    if (!confirm("Delete this message?")) return;
-    await apiFetch(`/api/chats/${activeChatId}/messages/${msg.id}`, { method: "DELETE" });
-    setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, deleted_at: new Date().toISOString() } : m));
+    const ok = await confirmDialog({
+      title: "Delete this message?",
+      description: "This action can't be undone.",
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    if (!ok) return;
+    try {
+      await apiFetch(`/api/chats/${activeChatId}/messages/${msg.id}`, { method: "DELETE" });
+      setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, deleted_at: new Date().toISOString() } : m));
+    } catch (e: any) {
+      toastError(e?.message || "Couldn't delete the message");
+    }
   }
 
   // Per-user remove (direct: hide; group: leave)
@@ -1080,6 +1092,7 @@ export function Chat() {
           chat={activeChat}
           currentUserId={user?.user_id || ""}
           onClose={() => setShowMembers(false)}
+          onUpdated={fetchChats}
         />
       )}
 
@@ -1126,6 +1139,7 @@ export function Chat() {
 // =================================================================
 function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: (chatId: string) => void }) {
   const { user } = useAuth();
+  const { error: toastError } = useToast();
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<{ id: string; name: string; avatar_url?: string; department?: string }[]>([]);
   const [selected, setSelected] = useState<{ id: string; name: string }[]>([]);
@@ -1167,7 +1181,11 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
       });
       onCreated(chat.id);
     } catch (e: any) {
-      alert(e?.message || "Failed to create chat");
+      toastError({
+        title: "Couldn't start chat",
+        body: e?.message || "Something went wrong while creating the chat.",
+        hint: "Please try again in a moment.",
+      });
     } finally {
       setIsCreating(false);
     }
@@ -1252,9 +1270,48 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
 }
 
 // =================================================================
-// Members modal
+// Members modal — read-only for members; owner sees Add / Remove
 // =================================================================
-function MembersModal({ chat, currentUserId, onClose }: { chat: ChatSummary; currentUserId: string; onClose: () => void }) {
+function MembersModal({
+  chat,
+  currentUserId,
+  onClose,
+  onUpdated,
+}: {
+  chat: ChatSummary;
+  currentUserId: string;
+  onClose: () => void;
+  onUpdated: () => void;
+}) {
+  const { error: toastError, success: toastOk } = useToast();
+  const { confirm: confirmDialog } = useConfirm();
+  const [showAdd, setShowAdd] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  const isOwner = chat.my_role === "admin";
+  const canManage = chat.type === "group" && isOwner;
+
+  async function removeMember(memberId: string, name: string) {
+    const ok = await confirmDialog({
+      title: `Remove ${name}?`,
+      description: `${name} will lose access to this group.`,
+      confirmLabel: "Remove",
+      tone: "danger",
+    });
+    if (!ok) return;
+    try {
+      setBusyId(memberId);
+      await apiFetch(`/api/chats/${chat.id}/members/${memberId}`, { method: "DELETE" });
+      toastOk(`${name} removed`);
+      onUpdated();
+      onClose();
+    } catch (e: any) {
+      toastError(e?.message || "Couldn't remove member");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-card rounded-2xl border border-border w-full max-w-md shadow-xl flex flex-col" style={{ maxHeight: "80vh" }}>
@@ -1265,6 +1322,27 @@ function MembersModal({ chat, currentUserId, onClose }: { chat: ChatSummary; cur
           </div>
           <button onClick={onClose} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4" /></button>
         </div>
+
+        {canManage && !showAdd && (
+          <div className="px-5 py-2 border-b border-border">
+            <button
+              onClick={() => setShowAdd(true)}
+              className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+            >
+              <Plus className="w-4 h-4" /> Add member
+            </button>
+          </div>
+        )}
+
+        {canManage && showAdd && (
+          <AddMemberPanel
+            chatId={chat.id}
+            existingMemberIds={chat.members.map((m) => m.id)}
+            onCancel={() => setShowAdd(false)}
+            onAdded={() => { setShowAdd(false); onUpdated(); onClose(); }}
+          />
+        )}
+
         <div className="flex-1 overflow-y-auto py-2">
           {chat.members.map((m) => (
             <div key={m.id} className="px-5 py-2 flex items-center gap-3">
@@ -1278,9 +1356,109 @@ function MembersModal({ chat, currentUserId, onClose }: { chat: ChatSummary; cur
               {m.role === "admin" && (
                 <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">Owner</span>
               )}
+              {canManage && m.id !== currentUserId && m.role !== "admin" && (
+                <button
+                  onClick={() => removeMember(m.id, m.name)}
+                  disabled={busyId === m.id}
+                  aria-label={`Remove ${m.name}`}
+                  className="p-1.5 text-muted-foreground hover:text-destructive disabled:opacity-50 transition-colors"
+                >
+                  {busyId === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
+                </button>
+              )}
             </div>
           ))}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function AddMemberPanel({
+  chatId,
+  existingMemberIds,
+  onCancel,
+  onAdded,
+}: {
+  chatId: string;
+  existingMemberIds: string[];
+  onCancel: () => void;
+  onAdded: () => void;
+}) {
+  const { error: toastError } = useToast();
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<{ id: string; name: string; avatar_url?: string; department?: string }[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [adding, setAdding] = useState<string | null>(null);
+
+  useEffect(() => {
+    const t = setTimeout(async () => {
+      if (query.trim().length < 2) { setResults([]); return; }
+      setIsSearching(true);
+      try {
+        const data = await apiFetch(`/api/auth/search-users?q=${encodeURIComponent(query.trim())}`);
+        setResults((data || []).filter((u: any) => !existingMemberIds.includes(u.id)));
+      } catch {
+        // silent — user can retry
+      } finally {
+        setIsSearching(false);
+      }
+    }, 250);
+    return () => clearTimeout(t);
+  }, [query, existingMemberIds]);
+
+  async function add(userId: string) {
+    try {
+      setAdding(userId);
+      await apiFetch(`/api/chats/${chatId}/members`, {
+        method: "POST",
+        body: JSON.stringify({ user_id: userId }),
+      });
+      onAdded();
+    } catch (e: any) {
+      toastError(e?.message || "Couldn't add member");
+    } finally {
+      setAdding(null);
+    }
+  }
+
+  return (
+    <div className="px-5 py-3 border-b border-border space-y-2 bg-muted/30">
+      <div className="flex items-center gap-2">
+        <Search className="w-4 h-4 text-muted-foreground" />
+        <input
+          autoFocus
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search users to add..."
+          className="flex-1 bg-transparent text-sm outline-none"
+        />
+        <button onClick={onCancel} className="text-xs text-muted-foreground hover:underline">Cancel</button>
+      </div>
+      <div className="max-h-48 overflow-y-auto">
+        {isSearching && <div className="flex justify-center py-2"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>}
+        {!isSearching && query.trim().length >= 2 && results.length === 0 && (
+          <p className="text-xs text-muted-foreground py-2 text-center">No matches.</p>
+        )}
+        {results.map((u) => (
+          <button
+            key={u.id}
+            onClick={() => add(u.id)}
+            disabled={adding === u.id}
+            className="w-full flex items-center gap-2 px-2 py-2 rounded-md hover:bg-card disabled:opacity-50 transition-colors text-left"
+          >
+            <Avatar name={u.name} src={u.avatar_url} size="sm" />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-medium truncate">{u.name}</p>
+              {u.department && <p className="text-xs text-muted-foreground truncate">{u.department}</p>}
+            </div>
+            {adding === u.id ? (
+              <Loader2 className="w-4 h-4 animate-spin text-primary" />
+            ) : (
+              <Plus className="w-4 h-4 text-primary" />
+            )}
+          </button>
+        ))}
       </div>
     </div>
   );

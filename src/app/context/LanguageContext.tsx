@@ -1,50 +1,50 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from "react";
-import { translations, Lang, TranslationKey } from "../lib/i18n";
+import { ReactNode, useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import i18n, { Lang, SUPPORTED_LANGS, isRTL } from "../lib/i18n";
 
-interface LanguageContextType {
-  lang: Lang;
-  setLang: (l: Lang) => void;
-  t: (key: TranslationKey, vars?: Record<string, string | number>) => string;
+function normalize(lng: string): Lang {
+  const base = (lng || "en").toLowerCase().split("-")[0];
+  return (SUPPORTED_LANGS as readonly string[]).includes(base)
+    ? (base as Lang)
+    : "en";
 }
 
-const LanguageContext = createContext<LanguageContextType | null>(null);
-const STORAGE_KEY = "campusconnect_lang";
-
-function getInitial(): Lang {
-  if (typeof window === "undefined") return "en";
-  const stored = localStorage.getItem(STORAGE_KEY);
-  if (stored === "en" || stored === "tr") return stored;
-  return "en"; // English default per user's instruction
+function applyHtmlAttrs(lng: string) {
+  if (typeof document === "undefined") return;
+  document.documentElement.lang = lng;
+  document.documentElement.dir = isRTL(lng) ? "rtl" : "ltr";
 }
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>(getInitial);
-
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, lang);
-    document.documentElement.lang = lang;
-  }, [lang]);
+    applyHtmlAttrs(i18n.language);
+    const onChange = (lng: string) => applyHtmlAttrs(lng);
+    i18n.on("languageChanged", onChange);
+    return () => {
+      i18n.off("languageChanged", onChange);
+    };
+  }, []);
 
-  function t(key: TranslationKey, vars?: Record<string, string | number>): string {
-    const dict = translations[lang] as Record<string, string>;
-    let str = dict[key] || (translations.en as Record<string, string>)[key] || key;
-    if (vars) {
-      for (const [k, v] of Object.entries(vars)) {
-        str = str.replace(new RegExp(`\\{${k}\\}`, "g"), String(v));
-      }
-    }
-    return str;
-  }
-
-  return (
-    <LanguageContext.Provider value={{ lang, setLang: setLangState, t }}>
-      {children}
-    </LanguageContext.Provider>
-  );
+  return <>{children}</>;
 }
 
 export function useLanguage() {
-  const ctx = useContext(LanguageContext);
-  if (!ctx) throw new Error("useLanguage must be used inside LanguageProvider");
-  return ctx;
+  const { t, i18n: instance } = useTranslation();
+  const [lang, setLangState] = useState<Lang>(normalize(instance.language));
+
+  useEffect(() => {
+    const onChange = (lng: string) => setLangState(normalize(lng));
+    instance.on("languageChanged", onChange);
+    return () => {
+      instance.off("languageChanged", onChange);
+    };
+  }, [instance]);
+
+  return {
+    lang,
+    setLang: (l: Lang) => instance.changeLanguage(l),
+    t,
+    dir: (isRTL(lang) ? "rtl" : "ltr") as "ltr" | "rtl",
+    isRTL: isRTL(lang),
+  };
 }

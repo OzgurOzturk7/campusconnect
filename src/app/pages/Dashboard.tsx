@@ -151,12 +151,12 @@ export function Dashboard() {
   return (
     <div className="space-y-8">
       {/* Welcome */}
-      <div className="bg-gradient-to-r from-primary to-secondary rounded-xl p-8 text-white">
-        <h1 className="text-3xl font-bold mb-2">
-          Welcome back, {user?.name?.split(" ")[0]}! 👋
+      <div className="border-b border-border pb-6">
+        <h1 className="text-3xl font-bold tracking-tight">
+          Welcome back{user?.name ? `, ${user.name.split(" ")[0]}` : ""}
         </h1>
-        <p className="text-white/90">
-          Here's what's happening in your campus community today
+        <p className="text-muted-foreground mt-1.5">
+          Here's what's happening in your campus community today.
         </p>
       </div>
 
@@ -210,11 +210,11 @@ export function Dashboard() {
                         <img src={event.cover_url} alt={event.title} className="w-full h-full object-cover" />
                       ) : (
                         <div className={`w-full h-full flex items-center justify-center ${
-                          event.is_school_wide ? "bg-gradient-to-br from-primary to-blue-700"
-                          : event.club_id ? "bg-gradient-to-br from-secondary to-teal-600"
-                          : "bg-gradient-to-br from-slate-400 to-slate-600"
+                          event.is_school_wide ? "bg-primary/10"
+                          : event.club_id ? "bg-secondary/10"
+                          : "bg-muted"
                         }`}>
-                          <Calendar className="w-12 h-12 text-white opacity-30" />
+                          <Calendar className="w-12 h-12 text-muted-foreground opacity-50" />
                         </div>
                       )}
                       <div className="absolute top-3 left-3 bg-card rounded-xl overflow-hidden shadow-md text-center w-12">

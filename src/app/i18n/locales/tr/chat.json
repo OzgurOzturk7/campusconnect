@@ -1,0 +1,26 @@
+{
+  "title": "Sohbetler",
+  "newChat": "Yeni sohbet",
+  "search": "Sohbetlerde ara",
+  "empty": {
+    "list": "Henüz sohbet yok",
+    "messages": "Henüz mesaj yok. Merhaba de!"
+  },
+  "input": {
+    "placeholder": "Mesaj yaz...",
+    "send": "Gönder",
+    "attach": "Dosya ekle"
+  },
+  "owner": {
+    "label": "Owner",
+    "addMember": "Üye ekle",
+    "removeMember": "Üyeyi çıkar",
+    "confirmRemove": "{{name}} bu gruptan çıkarılsın mı?"
+  },
+  "mute": {
+    "mute": "Sessize al",
+    "unmute": "Sesi aç",
+    "muted": "Sessizde"
+  },
+  "deleted": "Mesaj silindi"
+}

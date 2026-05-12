@@ -1,0 +1,16 @@
+{
+  "title": "Kulüpler",
+  "join": "Katıl",
+  "leave": "Ayrıl",
+  "apply": "Katılım için başvur",
+  "application": {
+    "sent": "İstek gönderildi",
+    "pending": "İstek beklemede",
+    "rejected": "İstek reddedildi",
+    "approved": "Kulübe hoş geldin!"
+  },
+  "visibility": {
+    "open": "Açık",
+    "closed": "Kapalı"
+  }
+}

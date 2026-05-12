@@ -2,6 +2,24 @@ import { getStoredToken } from "../context/AuthContext";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
+/**
+ * HTTP transport errors thrown by `apiFetch`.
+ *
+ * Carries the original status code so consumers (including `toUserError`)
+ * can branch on it without parsing the message string.
+ */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly detail: unknown;
+
+  constructor(status: number, message: string, detail: unknown = null) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.detail = detail;
+  }
+}
+
 // Status codes worth retrying — 503 (our transient supabase glitch),
 // 502/504 (proxy/gateway), and `0` (network unreachable / CORS).
 const RETRYABLE = new Set([0, 502, 503, 504]);
@@ -27,9 +45,8 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     try {
       response = await fetchOnce(path, options);
       if (!RETRYABLE.has(response.status)) break;
-      lastError = new Error(`HTTP ${response.status}`);
+      lastError = new ApiError(response.status, `HTTP ${response.status}`);
     } catch (e) {
-      // Network / CORS error
       lastError = e;
     }
     if (attempt < RETRY_DELAYS_MS.length) {
@@ -38,12 +55,18 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
   }
 
   if (!response) {
-    throw lastError instanceof Error ? lastError : new Error("Network error");
+    // Network reached its limit; surface as an ApiError with status 0 so
+    // toUserError() can show the "no connection" copy.
+    const message = lastError instanceof Error ? lastError.message : "Network error";
+    throw new ApiError(0, message, lastError);
   }
 
   if (!response.ok) {
-    const error = await response.json().catch(() => ({ detail: "Request failed" }));
-    throw new Error(error.detail || `Request failed (${response.status})`);
+    const body = await response.json().catch(() => null);
+    const detail =
+      (body && typeof body === "object" && "detail" in body && body.detail) ||
+      `Request failed (${response.status})`;
+    throw new ApiError(response.status, String(detail), body);
   }
 
   if (response.status === 204) return null;

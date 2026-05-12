@@ -1,0 +1,63 @@
+{
+  "appName": "CampusConnect",
+  "nav": {
+    "dashboard": "Anasayfa",
+    "profile": "Profil",
+    "clubs": "Kulüpler",
+    "events": "Etkinlikler",
+    "projects": "Projeler",
+    "chats": "Sohbetler",
+    "notifications": "Bildirimler"
+  },
+  "actions": {
+    "cancel": "İptal",
+    "save": "Kaydet",
+    "delete": "Sil",
+    "confirm": "Onayla",
+    "close": "Kapat",
+    "edit": "Düzenle",
+    "create": "Oluştur",
+    "submit": "Gönder",
+    "signOut": "Çıkış yap",
+    "markAllRead": "Tümünü oku",
+    "viewAll": "Tümünü gör",
+    "retry": "Tekrar dene",
+    "loadMore": "Daha fazla"
+  },
+  "search": {
+    "placeholder": "Öğrenci, kulüp, proje ara..."
+  },
+  "badges": {
+    "admin": "Yönetici",
+    "owner": "Sahip",
+    "member": "Üye"
+  },
+  "state": {
+    "loading": "Yükleniyor...",
+    "empty": "Henüz bir şey yok",
+    "saving": "Kaydediliyor..."
+  },
+  "notifications": {
+    "title": "Bildirimler",
+    "newCount": "{{count}} yeni",
+    "allCaught": "Hepsini gördün!",
+    "viewAll": "Tüm bildirimleri gör",
+    "justNow": "az önce",
+    "minutesAgo": "{{count}}dk önce",
+    "hoursAgo": "{{count}}sa önce",
+    "daysAgo": "{{count}}g önce"
+  },
+  "userMenu": {
+    "profile": "Profil",
+    "darkMode": "Karanlık mod",
+    "lightMode": "Aydınlık mod",
+    "language": "Dil",
+    "logout": "Çıkış yap"
+  },
+  "languages": {
+    "en": "English",
+    "tr": "Türkçe",
+    "ru": "Русский",
+    "ar": "العربية"
+  }
+}

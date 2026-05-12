@@ -55,6 +55,47 @@ interface Application {
   project?: { title: string; status: string; owner_id: string };
 }
 
+// ISO date helpers — work in calendar days, not millisecond-clock time.
+// `new Date("YYYY-MM-DD")` parses as UTC midnight, so we compare via the ISO string itself
+// to avoid timezone drift around the "is today" boundary.
+function todayISO(): string {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    .toISOString()
+    .slice(0, 10);
+}
+
+function daysBetween(startISO: string, endISO: string): number {
+  const start = new Date(startISO);
+  const end = new Date(endISO);
+  return Math.round((end.getTime() - start.getTime()) / 86_400_000);
+}
+
+/**
+ * Validate project start/deadline per product rules:
+ *   - start cannot be before today
+ *   - deadline cannot be before today
+ *   - if both set, start must be strictly before deadline
+ * Returns a translated error message, or null if valid.
+ */
+function validateProjectDates(startISO: string, deadlineISO: string): string | null {
+  const today = todayISO();
+  if (startISO && startISO < today) return "Start date can't be in the past.";
+  if (deadlineISO && deadlineISO < today) return "Deadline can't be in the past.";
+  if (startISO && deadlineISO) {
+    if (startISO === deadlineISO) return "Start date and deadline can't be the same day.";
+    if (startISO > deadlineISO) return "Start date must be before the deadline.";
+  }
+  return null;
+}
+
+function computeDurationLabel(startISO: string, deadlineISO: string): string {
+  if (!startISO || !deadlineISO) return "";
+  const days = daysBetween(startISO, deadlineISO);
+  if (days <= 0) return "";
+  return `${days} day${days === 1 ? "" : "s"}`;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   open: "bg-green-100 text-green-700",
   closed: "bg-muted text-muted-foreground",
@@ -191,8 +232,11 @@ export function Projects() {
   }
 
   async function handleCreate() {
+    const dateError = validateProjectDates(createForm.start_date, createForm.deadline);
+    if (dateError) { showToast(dateError, false); return; }
     try {
       setIsSubmitting(true);
+      const computedDuration = computeDurationLabel(createForm.start_date, createForm.deadline);
       await apiFetch("/api/projects/", {
         method: "POST",
         body: JSON.stringify({
@@ -201,7 +245,7 @@ export function Projects() {
           tech_stack: createForm.tech_stack.split(",").map((s) => s.trim()).filter(Boolean),
           roles_needed: createForm.roles_needed.split(",").map((s) => s.trim()).filter(Boolean),
           github_url: createForm.github_url || null,
-          duration: createForm.duration || null,
+          duration: computedDuration || createForm.duration || null,
           start_date: createForm.start_date || null,
           deadline: createForm.deadline || null,
         }),
@@ -219,8 +263,11 @@ export function Projects() {
 
   async function handleEdit() {
     if (!editingProject) return;
+    const dateError = validateProjectDates(createForm.start_date, createForm.deadline);
+    if (dateError) { showToast(dateError, false); return; }
     try {
       setIsSubmitting(true);
+      const computedDuration = computeDurationLabel(createForm.start_date, createForm.deadline);
       await apiFetch(`/api/projects/${editingProject.id}`, {
         method: "PUT",
         body: JSON.stringify({
@@ -229,7 +276,7 @@ export function Projects() {
           tech_stack: createForm.tech_stack.split(",").map((s) => s.trim()).filter(Boolean),
           roles_needed: createForm.roles_needed.split(",").map((s) => s.trim()).filter(Boolean),
           github_url: createForm.github_url || null,
-          duration: createForm.duration || null,
+          duration: computedDuration || createForm.duration || null,
           start_date: createForm.start_date || null,
           deadline: createForm.deadline || null,
         }),
@@ -555,7 +602,11 @@ export function Projects() {
               <>
                 <div className="space-y-4">
                   {paginated.map((p) => (
-                    <ProjectCard key={p.id} project={p} onClick={() => openProjectDetail(p)} />
+                    <ProjectCard
+                      key={p.id}
+                      project={p}
+                      onClick={() => { setActiveTab("browse"); openProjectDetail(p); }}
+                    />
                   ))}
                 </div>
                 <Pagination page={page} totalPages={totalPages} totalItems={myProjects.length} pageSize={MY_PROJECTS_PAGE_SIZE} onPageChange={setMyProjectsPage} />
@@ -929,7 +980,6 @@ export function Projects() {
               {[
                 { label: "Title", key: "title", placeholder: "Project title" },
                 { label: "GitHub URL (optional)", key: "github_url", placeholder: "https://github.com/..." },
-                { label: "Duration (optional)", key: "duration", placeholder: "e.g. 2 months, 6 weeks" },
               ].map(({ label, key, placeholder }) => (
                 <div key={key}>
                   <label className="block text-sm font-medium mb-1.5">{label}</label>
@@ -939,20 +989,55 @@ export function Projects() {
                     className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
               ))}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">Start date</label>
-                  <input type="date" value={createForm.start_date}
-                    onChange={(e) => setCreateForm({ ...createForm, start_date: e.target.value })}
-                    className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1.5">Deadline</label>
-                  <input type="date" value={createForm.deadline}
-                    onChange={(e) => setCreateForm({ ...createForm, deadline: e.target.value })}
-                    className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
-                </div>
-              </div>
+              {(() => {
+                const today = todayISO();
+                // Deadline must be strictly *after* start, so its `min` is one day later.
+                const deadlineMin = createForm.start_date
+                  ? new Date(new Date(createForm.start_date).getTime() + 86_400_000).toISOString().slice(0, 10)
+                  : today;
+                const startMax = createForm.deadline
+                  ? new Date(new Date(createForm.deadline).getTime() - 86_400_000).toISOString().slice(0, 10)
+                  : undefined;
+                const dateError = validateProjectDates(createForm.start_date, createForm.deadline);
+                const duration = computeDurationLabel(createForm.start_date, createForm.deadline);
+                return (
+                  <>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="block text-sm font-medium mb-1.5">Start date</label>
+                        <input
+                          type="date"
+                          value={createForm.start_date}
+                          min={today}
+                          max={startMax}
+                          onChange={(e) => setCreateForm({ ...createForm, start_date: e.target.value })}
+                          className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium mb-1.5">Deadline</label>
+                        <input
+                          type="date"
+                          value={createForm.deadline}
+                          min={deadlineMin}
+                          onChange={(e) => setCreateForm({ ...createForm, deadline: e.target.value })}
+                          className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+                        />
+                      </div>
+                    </div>
+                    {dateError ? (
+                      <p className="text-xs text-red-500 flex items-center gap-1.5 -mt-2">
+                        <AlertCircle className="w-3.5 h-3.5" /> {dateError}
+                      </p>
+                    ) : duration ? (
+                      <p className="text-xs text-muted-foreground -mt-2">
+                        <Clock className="w-3.5 h-3.5 inline mr-1" />
+                        Duration: <span className="font-medium text-foreground">{duration}</span> (auto-calculated)
+                      </p>
+                    ) : null}
+                  </>
+                );
+              })()}
               <div>
                 <label className="block text-sm font-medium mb-1.5">Description</label>
                 <textarea value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
@@ -974,7 +1059,12 @@ export function Projects() {
             </div>
             <div className="flex gap-3 mt-6">
               <Button onClick={editingProject ? handleEdit : handleCreate}
-                disabled={isSubmitting || !createForm.title || !createForm.description}>
+                disabled={
+                  isSubmitting ||
+                  !createForm.title ||
+                  !createForm.description ||
+                  validateProjectDates(createForm.start_date, createForm.deadline) !== null
+                }>
                 {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : editingProject ? "Save Changes" : "Post Project"}
               </Button>
               <Button variant="outline" onClick={() => { setShowCreateModal(false); setEditingProject(null); }}>Cancel</Button>

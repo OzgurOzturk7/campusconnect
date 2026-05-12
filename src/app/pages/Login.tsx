@@ -8,6 +8,16 @@ const ALLOWED_EMAIL_DOMAIN = "final.edu.tr";
 
 declare global { interface Window { google?: any; } }
 
+// Module-level guard. `google.accounts.id.initialize()` is process-global —
+// calling it twice triggers the `[GSI_LOGGER]: ...called multiple times` warning.
+// A per-component ref doesn't survive Login unmount/remount (sign-out → sign-in,
+// or React StrictMode's double-invoke in dev), so we track init state here.
+// We still re-render the button on every mount because the DOM node is fresh.
+let gsiInitialized = false;
+// The callback closes over component state (setError/setIsLoading/navigate),
+// so we keep a mutable reference that the one-time `initialize` callback hits.
+let gsiCallback: ((response: { credential: string }) => void) | null = null;
+
 // =============================================================================
 // 1) Constellation — particles that connect to nearby cursor with smooth lines
 // =============================================================================
@@ -379,7 +389,6 @@ export function Login() {
   // Always persist session (Remember me removed — sessions persist across reloads)
   const remember = true;
   const [showEmailForm, setShowEmailForm] = useState(!GOOGLE_CLIENT_ID);
-  const gsiInitedRef = useRef(false);
   const rememberRef = useRef(false);
   useEffect(() => { rememberRef.current = remember; }, [remember]);
 
@@ -403,29 +412,37 @@ export function Login() {
     if (!GOOGLE_CLIENT_ID) return;
     const scriptId = "google-identity-services";
     let script = document.getElementById(scriptId) as HTMLScriptElement | null;
+
+    // Bind the current closure to the module-level callback slot.
+    // GSI calls our single registered callback; we forward to whatever Login
+    // instance is currently mounted.
+    gsiCallback = async (response) => {
+      setError(null); setIsLoading(true);
+      try {
+        const payload = JSON.parse(atob(response.credential.split(".")[1]));
+        if (payload.email && !payload.email.endsWith(`@${ALLOWED_EMAIL_DOMAIN}`)) {
+          throw new Error(`Only @${ALLOWED_EMAIL_DOMAIN} accounts are allowed.`);
+        }
+        await loginWithGoogle(response.credential, rememberRef.current);
+        navigate("/", { replace: true });
+      } catch (err: unknown) {
+        setError(err instanceof Error ? err.message : "Google sign-in failed.");
+      } finally { setIsLoading(false); }
+    };
+
     const init = () => {
       if (!window.google || !googleBtnRef.current) return;
-      if (gsiInitedRef.current) return;
-      gsiInitedRef.current = true;
-      window.google.accounts.id.initialize({
-        client_id: GOOGLE_CLIENT_ID,
-        callback: async (response: { credential: string }) => {
-          setError(null); setIsLoading(true);
-          try {
-            const payload = JSON.parse(atob(response.credential.split(".")[1]));
-            if (payload.email && !payload.email.endsWith(`@${ALLOWED_EMAIL_DOMAIN}`)) {
-              throw new Error(`Only @${ALLOWED_EMAIL_DOMAIN} accounts are allowed.`);
-            }
-            await loginWithGoogle(response.credential, rememberRef.current);
-            navigate("/", { replace: true });
-          } catch (err: unknown) {
-            setError(err instanceof Error ? err.message : "Google sign-in failed.");
-          } finally { setIsLoading(false); }
-        },
-        hosted_domain: ALLOWED_EMAIL_DOMAIN,
-        ux_mode: "popup",
-        auto_select: false,
-      });
+      if (!gsiInitialized) {
+        window.google.accounts.id.initialize({
+          client_id: GOOGLE_CLIENT_ID,
+          callback: (response: { credential: string }) => gsiCallback?.(response),
+          hosted_domain: ALLOWED_EMAIL_DOMAIN,
+          ux_mode: "popup",
+          auto_select: false,
+        });
+        gsiInitialized = true;
+      }
+      // Always re-render the button: the DOM node is fresh on each mount.
       window.google.accounts.id.renderButton(googleBtnRef.current, {
         type: "standard", theme: "outline", size: "large",
         text: "continue_with", shape: "rectangular", logo_alignment: "left", width: 360,
@@ -439,6 +456,11 @@ export function Login() {
       document.body.appendChild(script);
     } else if (window.google) { init(); }
     else { script.addEventListener("load", init); }
+
+    return () => {
+      // Unbind so a stale callback can't fire into an unmounted component.
+      gsiCallback = null;
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

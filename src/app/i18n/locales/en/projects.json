@@ -1,0 +1,30 @@
+{
+  "title": "Projects",
+  "myProjects": "My Projects",
+  "browse": "Browse",
+  "create": "New project",
+  "limit": {
+    "monthly": "You can publish up to {{max}} projects per month.",
+    "remaining": "{{remaining}} of {{max}} left this month.",
+    "reached": "Monthly limit reached. You can publish again on {{date}}."
+  },
+  "dates": {
+    "startLabel": "Start date",
+    "deadlineLabel": "Deadline",
+    "durationLabel": "Duration",
+    "durationDays": "{{count}} days",
+    "errors": {
+      "startInPast": "Start date can't be in the past.",
+      "startAfterDeadline": "Start date must be before the deadline.",
+      "startEqualsDeadline": "Start date can't be the same as the deadline.",
+      "deadlineBeforeStart": "Deadline must be after the start date.",
+      "deadlineInPast": "Deadline can't be in the past."
+    }
+  },
+  "applications": {
+    "title": "Applications",
+    "cvPreview": "Preview CV",
+    "cvDownload": "Download CV",
+    "noApplications": "No applications yet."
+  }
+}

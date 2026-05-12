@@ -1,0 +1,30 @@
+{
+  "title": "Projeler",
+  "myProjects": "Projelerim",
+  "browse": "Keşfet",
+  "create": "Yeni proje",
+  "limit": {
+    "monthly": "Ayda en fazla {{max}} proje yayınlayabilirsin.",
+    "remaining": "Bu ay {{remaining}}/{{max}} hakkın kaldı.",
+    "reached": "Aylık limit doldu. {{date}} tarihinde tekrar yayınlayabilirsin."
+  },
+  "dates": {
+    "startLabel": "Başlangıç tarihi",
+    "deadlineLabel": "Son tarih",
+    "durationLabel": "Süre",
+    "durationDays": "{{count}} gün",
+    "errors": {
+      "startInPast": "Başlangıç tarihi geçmişte olamaz.",
+      "startAfterDeadline": "Başlangıç tarihi son tarihten önce olmalı.",
+      "startEqualsDeadline": "Başlangıç ve son tarih aynı gün olamaz.",
+      "deadlineBeforeStart": "Son tarih başlangıç tarihinden sonra olmalı.",
+      "deadlineInPast": "Son tarih geçmişte olamaz."
+    }
+  },
+  "applications": {
+    "title": "Başvurular",
+    "cvPreview": "CV'yi görüntüle",
+    "cvDownload": "CV'yi indir",
+    "noApplications": "Henüz başvuru yok."
+  }
+}

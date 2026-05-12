@@ -13,6 +13,7 @@ import { Avatar } from "../components/Avatar";
 import { Tag } from "../components/Tag";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useConfirm } from "../context/ConfirmContext";
 import { supabase } from "../lib/supabase";
 
 // ── Types ──────────────────────────────────────────────────────
@@ -121,6 +122,26 @@ const COLUMNS: { key: Task["status"]; label: string; color: string }[] = [
 const ROLE_ICONS = { owner: Crown, admin: Shield, member: UserCircle };
 
 // ── Utility ────────────────────────────────────────────────────
+
+function DeleteTaskButton({ onDelete }: { onDelete: () => void }) {
+  const { confirm } = useConfirm();
+  return (
+    <button
+      onClick={async () => {
+        const ok = await confirm({
+          title: "Delete this task?",
+          description: "This can't be undone.",
+          confirmLabel: "Delete",
+          tone: "danger",
+        });
+        if (ok) onDelete();
+      }}
+      className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors"
+    >
+      <Trash2 className="w-4 h-4" />
+    </button>
+  );
+}
 
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -1035,12 +1056,7 @@ function TaskDetailModal({
           </div>
           <div className="flex gap-2">
             {canDelete && (
-              <button
-                onClick={() => { if (confirm("Delete this task?")) onDelete(); }}
-                className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <DeleteTaskButton onDelete={onDelete} />
             )}
             <button onClick={onClose} className="p-1.5 text-muted-foreground hover:text-foreground">
               <X className="w-4 h-4" />
@@ -1169,8 +1185,15 @@ function MembersTab({
       .finally(() => setIsLoading(false));
   }, [workspaceId]);
 
+  const { confirm: confirmDialog } = useConfirm();
   async function removeMember(userId: string, name: string) {
-    if (!confirm(`Remove ${name} from the workspace?`)) return;
+    const ok = await confirmDialog({
+      title: `Remove ${name}?`,
+      description: `${name} will lose access to this workspace.`,
+      confirmLabel: "Remove",
+      tone: "danger",
+    });
+    if (!ok) return;
     try {
       await apiFetch(`/api/workspaces/${workspaceId}/members/${userId}`, { method: "DELETE" });
       setMembers((prev) => prev.filter((m) => m.user_id !== userId));

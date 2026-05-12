@@ -1,0 +1,17 @@
+{
+  "welcome": "Tekrar hoş geldin, {{name}}",
+  "welcomeAnon": "Tekrar hoş geldin",
+  "subtitle": "Bugün kampüste neler olduğunu görelim.",
+  "sections": {
+    "myProjects": "Projelerim",
+    "upcomingEvents": "Yaklaşan Etkinlikler",
+    "recentActivity": "Son Etkinlikler",
+    "deadlines": "Yaklaşan Son Tarihler"
+  },
+  "empty": {
+    "noProjects": "Henüz bir projeye katılmadın.",
+    "noEvents": "Yaklaşan etkinlik yok.",
+    "noActivity": "Son etkinlik yok.",
+    "noDeadlines": "Yaklaşan son tarih yok."
+  }
+}

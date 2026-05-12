@@ -1,28 +1,27 @@
 import { Home, User, Users, Calendar, Briefcase, MessageCircle, Bell } from "lucide-react";
 import { Link, useLocation } from "react-router";
+import { useTranslation } from "react-i18next";
 import { useAuth } from "../context/AuthContext";
-import { useLanguage } from "../context/LanguageContext";
 import { useNotifications } from "../context/NotificationContext";
-import type { TranslationKey } from "../lib/i18n";
 
-const navItems: { icon: any; key: TranslationKey; path: string }[] = [
-  { icon: Home, key: "nav_dashboard", path: "/" },
-  { icon: User, key: "nav_profile", path: "/profile" },
-  { icon: Users, key: "nav_clubs", path: "/clubs" },
-  { icon: Calendar, key: "nav_events", path: "/events" },
-  { icon: Briefcase, key: "nav_projects", path: "/projects" },
-  { icon: MessageCircle, key: "nav_chats", path: "/chats" },
-  { icon: Bell, key: "nav_notifications", path: "/notifications" },
+const navItems: { icon: any; key: string; path: string }[] = [
+  { icon: Home, key: "nav.dashboard", path: "/" },
+  { icon: User, key: "nav.profile", path: "/profile" },
+  { icon: Users, key: "nav.clubs", path: "/clubs" },
+  { icon: Calendar, key: "nav.events", path: "/events" },
+  { icon: Briefcase, key: "nav.projects", path: "/projects" },
+  { icon: MessageCircle, key: "nav.chats", path: "/chats" },
+  { icon: Bell, key: "nav.notifications", path: "/notifications" },
 ];
 
 export function Sidebar() {
   const location = useLocation();
-  const { user } = useAuth();
-  const { t } = useLanguage();
+  const { user: _user } = useAuth();
+  const { t } = useTranslation("common");
   const { unreadCount, chatUnread } = useNotifications();
 
   return (
-    <aside className="fixed left-0 top-16 w-64 h-[calc(100vh-4rem)] bg-card border-r border-border overflow-y-auto">
+    <aside className="hidden md:block fixed left-0 top-16 w-64 h-[calc(100vh-4rem)] bg-card border-r border-border overflow-y-auto">
       <nav className="p-4 space-y-1">
         {navItems.map((item) => {
           const Icon = item.icon;

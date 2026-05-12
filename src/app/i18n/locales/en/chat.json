@@ -1,0 +1,26 @@
+{
+  "title": "Chats",
+  "newChat": "New chat",
+  "search": "Search conversations",
+  "empty": {
+    "list": "No conversations yet",
+    "messages": "No messages yet. Say hi!"
+  },
+  "input": {
+    "placeholder": "Write a message...",
+    "send": "Send",
+    "attach": "Attach file"
+  },
+  "owner": {
+    "label": "Owner",
+    "addMember": "Add member",
+    "removeMember": "Remove member",
+    "confirmRemove": "Remove {{name}} from this group?"
+  },
+  "mute": {
+    "mute": "Mute",
+    "unmute": "Unmute",
+    "muted": "Muted"
+  },
+  "deleted": "Message deleted"
+}

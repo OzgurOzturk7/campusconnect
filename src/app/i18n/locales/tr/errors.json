@@ -1,0 +1,56 @@
+{
+  "generic": {
+    "title": "Bir şeyler ters gitti",
+    "body": "Beklenmedik bir hata oluştu. Lütfen birazdan tekrar dene.",
+    "hint": "Hata devam ederse sayfayı yenile veya destekle iletişime geç."
+  },
+  "network": {
+    "title": "Bağlantı sorunu",
+    "body": "Sunucuya ulaşılamadı.",
+    "hint": "İnternet bağlantını kontrol edip tekrar dene."
+  },
+  "unauthorized": {
+    "title": "Lütfen giriş yap",
+    "body": "Oturumun sona ermiş.",
+    "hint": "Devam etmek için tekrar giriş yap."
+  },
+  "forbidden": {
+    "title": "Erişim engellendi",
+    "body": "Bu işlemi yapma yetkin yok.",
+    "hint": "Hatalı olduğunu düşünüyorsan proje sahibi veya yöneticiyle iletişime geç."
+  },
+  "notFound": {
+    "title": "Bulunamadı",
+    "body": "Aradığın şeyi bulamadık.",
+    "hint": "Silinmiş olabilir veya bağlantı hatalı olabilir."
+  },
+  "rateLimit": {
+    "title": "Biraz yavaşla",
+    "body": "Bu işlemi çok hızlı yapıyorsun.",
+    "hint": "Birkaç saniye bekleyip tekrar dene."
+  },
+  "validation": {
+    "title": "Girişlerini kontrol et",
+    "body": "Bazı alanların düzeltilmesi gerek.",
+    "hint": "İşaretli alanları düzeltip tekrar gönder."
+  },
+  "upload": {
+    "title": "Yükleme başarısız",
+    "tooLarge": "Bu dosya çok büyük. En fazla {{max}} olmalı.",
+    "wrongType": "Bu dosya türü desteklenmiyor. İzin verilen: {{types}}.",
+    "serverError": "Sunucu yüklemeyi reddetti.",
+    "hint": "Daha küçük bir dosya veya farklı bir format dene."
+  },
+  "server": {
+    "title": "Sunucu hatası",
+    "body": "Sunucularımız bu isteği işlerken bir sorun yaşadı.",
+    "hint": "Lütfen birazdan tekrar dene."
+  },
+  "action": {
+    "loginFailed": "Giriş başarısız",
+    "loadFailed": "{{what}} yüklenemedi",
+    "saveFailed": "{{what}} kaydedilemedi",
+    "deleteFailed": "{{what}} silinemedi",
+    "createFailed": "{{what}} oluşturulamadı"
+  }
+}

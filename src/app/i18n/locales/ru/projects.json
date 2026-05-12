@@ -1,0 +1,30 @@
+{
+  "title": "Проекты",
+  "myProjects": "Мои проекты",
+  "browse": "Обзор",
+  "create": "Новый проект",
+  "limit": {
+    "monthly": "Вы можете публиковать до {{max}} проектов в месяц.",
+    "remaining": "Осталось {{remaining}} из {{max}} в этом месяце.",
+    "reached": "Месячный лимит достигнут. Следующая публикация доступна с {{date}}."
+  },
+  "dates": {
+    "startLabel": "Дата начала",
+    "deadlineLabel": "Срок",
+    "durationLabel": "Длительность",
+    "durationDays": "{{count}} дн.",
+    "errors": {
+      "startInPast": "Дата начала не может быть в прошлом.",
+      "startAfterDeadline": "Дата начала должна быть раньше срока.",
+      "startEqualsDeadline": "Дата начала не может совпадать со сроком.",
+      "deadlineBeforeStart": "Срок должен быть позже даты начала.",
+      "deadlineInPast": "Срок не может быть в прошлом."
+    }
+  },
+  "applications": {
+    "title": "Заявки",
+    "cvPreview": "Просмотр резюме",
+    "cvDownload": "Скачать резюме",
+    "noApplications": "Пока нет заявок."
+  }
+}

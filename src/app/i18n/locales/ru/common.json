@@ -1,0 +1,63 @@
+{
+  "appName": "CampusConnect",
+  "nav": {
+    "dashboard": "Главная",
+    "profile": "Профиль",
+    "clubs": "Клубы",
+    "events": "События",
+    "projects": "Проекты",
+    "chats": "Чаты",
+    "notifications": "Уведомления"
+  },
+  "actions": {
+    "cancel": "Отмена",
+    "save": "Сохранить",
+    "delete": "Удалить",
+    "confirm": "Подтвердить",
+    "close": "Закрыть",
+    "edit": "Изменить",
+    "create": "Создать",
+    "submit": "Отправить",
+    "signOut": "Выйти",
+    "markAllRead": "Прочитать все",
+    "viewAll": "Показать все",
+    "retry": "Повторить",
+    "loadMore": "Загрузить ещё"
+  },
+  "search": {
+    "placeholder": "Поиск студентов, клубов, проектов..."
+  },
+  "badges": {
+    "admin": "Администратор",
+    "owner": "Владелец",
+    "member": "Участник"
+  },
+  "state": {
+    "loading": "Загрузка...",
+    "empty": "Здесь пока ничего нет",
+    "saving": "Сохранение..."
+  },
+  "notifications": {
+    "title": "Уведомления",
+    "newCount": "{{count}} новых",
+    "allCaught": "Вы прочитали все уведомления!",
+    "viewAll": "Показать все уведомления",
+    "justNow": "только что",
+    "minutesAgo": "{{count}} мин назад",
+    "hoursAgo": "{{count}} ч назад",
+    "daysAgo": "{{count}} дн назад"
+  },
+  "userMenu": {
+    "profile": "Профиль",
+    "darkMode": "Тёмная тема",
+    "lightMode": "Светлая тема",
+    "language": "Язык",
+    "logout": "Выйти"
+  },
+  "languages": {
+    "en": "English",
+    "tr": "Türkçe",
+    "ru": "Русский",
+    "ar": "العربية"
+  }
+}

@@ -10,6 +10,7 @@ import { Button } from "../components/Button";
 import { apiFetch } from "../lib/api";
 import { useAuth, getStoredToken } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
+import { useConfirm } from "../context/ConfirmContext";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 
@@ -108,6 +109,7 @@ function chatDisplayAvatar(chat: ChatSummary, currentUserId: string): { name: st
 export function Chat() {
   const { user } = useAuth();
   const { error: toastError } = useToast();
+  const { confirm: confirmDialog } = useConfirm();
   const location = useLocation();
   const [chats, setChats] = useState<ChatSummary[]>([]);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -478,9 +480,19 @@ export function Chat() {
 
   async function deleteMessage(msg: ChatMessage) {
     if (!activeChatId) return;
-    if (!confirm("Delete this message?")) return;
-    await apiFetch(`/api/chats/${activeChatId}/messages/${msg.id}`, { method: "DELETE" });
-    setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, deleted_at: new Date().toISOString() } : m));
+    const ok = await confirmDialog({
+      title: "Delete this message?",
+      description: "This action can't be undone.",
+      confirmLabel: "Delete",
+      tone: "danger",
+    });
+    if (!ok) return;
+    try {
+      await apiFetch(`/api/chats/${activeChatId}/messages/${msg.id}`, { method: "DELETE" });
+      setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, deleted_at: new Date().toISOString() } : m));
+    } catch (e: any) {
+      toastError(e?.message || "Couldn't delete the message");
+    }
   }
 
   // Per-user remove (direct: hide; group: leave)
@@ -1126,6 +1138,7 @@ export function Chat() {
 // =================================================================
 function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: (chatId: string) => void }) {
   const { user } = useAuth();
+  const { error: toastError } = useToast();
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<{ id: string; name: string; avatar_url?: string; department?: string }[]>([]);
   const [selected, setSelected] = useState<{ id: string; name: string }[]>([]);
@@ -1167,7 +1180,11 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
       });
       onCreated(chat.id);
     } catch (e: any) {
-      alert(e?.message || "Failed to create chat");
+      toastError({
+        title: "Couldn't start chat",
+        body: e?.message || "Something went wrong while creating the chat.",
+        hint: "Please try again in a moment.",
+      });
     } finally {
       setIsCreating(false);
     }

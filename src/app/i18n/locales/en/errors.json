@@ -1,0 +1,56 @@
+{
+  "generic": {
+    "title": "Something went wrong",
+    "body": "We hit an unexpected error. Please try again in a moment.",
+    "hint": "If this keeps happening, refresh the page or contact support."
+  },
+  "network": {
+    "title": "Connection problem",
+    "body": "We couldn't reach the server.",
+    "hint": "Check your internet connection and try again."
+  },
+  "unauthorized": {
+    "title": "Please sign in",
+    "body": "Your session has expired.",
+    "hint": "Sign back in to continue."
+  },
+  "forbidden": {
+    "title": "Access denied",
+    "body": "You don't have permission to do this.",
+    "hint": "Contact the project owner or an admin if you think this is a mistake."
+  },
+  "notFound": {
+    "title": "Not found",
+    "body": "We couldn't find what you were looking for.",
+    "hint": "It may have been removed or the link is wrong."
+  },
+  "rateLimit": {
+    "title": "Slow down a bit",
+    "body": "You're doing that too quickly.",
+    "hint": "Please wait a few seconds and try again."
+  },
+  "validation": {
+    "title": "Check your input",
+    "body": "Some fields need attention.",
+    "hint": "Fix the highlighted fields and submit again."
+  },
+  "upload": {
+    "title": "Upload failed",
+    "tooLarge": "This file is too large. Maximum size is {{max}}.",
+    "wrongType": "This file type isn't supported. Allowed: {{types}}.",
+    "serverError": "The server rejected the upload.",
+    "hint": "Try a smaller file or a different format."
+  },
+  "server": {
+    "title": "Server error",
+    "body": "Our servers had a problem handling that request.",
+    "hint": "Please try again in a minute."
+  },
+  "action": {
+    "loginFailed": "Sign-in failed",
+    "loadFailed": "Couldn't load {{what}}",
+    "saveFailed": "Couldn't save {{what}}",
+    "deleteFailed": "Couldn't delete {{what}}",
+    "createFailed": "Couldn't create {{what}}"
+  }
+}

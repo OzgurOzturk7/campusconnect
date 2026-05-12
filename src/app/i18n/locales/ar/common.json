@@ -1,0 +1,63 @@
+{
+  "appName": "CampusConnect",
+  "nav": {
+    "dashboard": "الرئيسية",
+    "profile": "الملف الشخصي",
+    "clubs": "النوادي",
+    "events": "الفعاليات",
+    "projects": "المشاريع",
+    "chats": "المحادثات",
+    "notifications": "الإشعارات"
+  },
+  "actions": {
+    "cancel": "إلغاء",
+    "save": "حفظ",
+    "delete": "حذف",
+    "confirm": "تأكيد",
+    "close": "إغلاق",
+    "edit": "تعديل",
+    "create": "إنشاء",
+    "submit": "إرسال",
+    "signOut": "تسجيل الخروج",
+    "markAllRead": "تعليم الكل كمقروء",
+    "viewAll": "عرض الكل",
+    "retry": "إعادة المحاولة",
+    "loadMore": "تحميل المزيد"
+  },
+  "search": {
+    "placeholder": "ابحث عن طلاب أو نوادٍ أو مشاريع..."
+  },
+  "badges": {
+    "admin": "مسؤول",
+    "owner": "المالك",
+    "member": "عضو"
+  },
+  "state": {
+    "loading": "جارٍ التحميل...",
+    "empty": "لا يوجد شيء هنا بعد",
+    "saving": "جارٍ الحفظ..."
+  },
+  "notifications": {
+    "title": "الإشعارات",
+    "newCount": "{{count}} جديدة",
+    "allCaught": "لقد اطلعت على كل الإشعارات!",
+    "viewAll": "عرض جميع الإشعارات",
+    "justNow": "الآن",
+    "minutesAgo": "منذ {{count}} د",
+    "hoursAgo": "منذ {{count}} س",
+    "daysAgo": "منذ {{count}} ي"
+  },
+  "userMenu": {
+    "profile": "الملف الشخصي",
+    "darkMode": "الوضع الداكن",
+    "lightMode": "الوضع الفاتح",
+    "language": "اللغة",
+    "logout": "تسجيل الخروج"
+  },
+  "languages": {
+    "en": "English",
+    "tr": "Türkçe",
+    "ru": "Русский",
+    "ar": "العربية"
+  }
+}

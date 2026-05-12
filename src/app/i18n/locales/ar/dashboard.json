@@ -1,0 +1,17 @@
+{
+  "welcome": "مرحبًا بعودتك يا {{name}}",
+  "welcomeAnon": "مرحبًا بعودتك",
+  "subtitle": "إليك آخر مستجدات الحرم اليوم.",
+  "sections": {
+    "myProjects": "مشاريعي",
+    "upcomingEvents": "الفعاليات القادمة",
+    "recentActivity": "النشاط الأخير",
+    "deadlines": "المواعيد النهائية القادمة"
+  },
+  "empty": {
+    "noProjects": "لم تنضم إلى أي مشروع بعد.",
+    "noEvents": "لا توجد فعاليات قادمة.",
+    "noActivity": "لا يوجد نشاط حديث.",
+    "noDeadlines": "لا توجد مواعيد نهائية قادمة."
+  }
+}

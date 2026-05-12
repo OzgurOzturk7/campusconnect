@@ -1,0 +1,16 @@
+{
+  "title": "Clubs",
+  "join": "Join",
+  "leave": "Leave",
+  "apply": "Apply to join",
+  "application": {
+    "sent": "Request sent",
+    "pending": "Request pending",
+    "rejected": "Request declined",
+    "approved": "Welcome to the club!"
+  },
+  "visibility": {
+    "open": "Open",
+    "closed": "Closed"
+  }
+}

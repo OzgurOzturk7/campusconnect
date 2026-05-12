@@ -88,12 +88,19 @@ def _hydrate_message(supabase, msg, users_map=None):
 @router.get("/unread-total")
 def get_total_unread(current_user: dict = Depends(get_current_user)):
     """Single number: total unread messages across all of the user's chats.
-    Used by Sidebar to show a badge next to "Chats"."""
+    Used by Sidebar to show a badge next to "Chats".
+
+    Muted chats are excluded from this count — they don't trigger notifications
+    by design. The chat-list view still shows their per-chat unread count, but
+    the global badge stays quiet.
+    """
     supabase = get_supabase_admin()
-    memberships = supabase.table("chat_members").select("chat_id, last_read_at") \
+    memberships = supabase.table("chat_members").select("chat_id, last_read_at, is_muted") \
         .eq("user_id", current_user["id"]).execute()
     total = 0
     for m in (memberships.data or []):
+        if m.get("is_muted"):
+            continue
         last_read = m.get("last_read_at")
         if not last_read:
             continue

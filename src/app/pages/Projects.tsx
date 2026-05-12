@@ -51,8 +51,19 @@ interface Application {
   status: string;
   rejection_reason?: string;
   applied_at: string;
+  cv_url?: string | null;
+  cv_name?: string | null;
+  links?: { label: string; url: string }[];
   applicant?: Owner;
   project?: { title: string; status: string; owner_id: string };
+}
+
+interface PublishLimitInfo {
+  limit: number | null;
+  used: number;
+  remaining: number | null;
+  resets_at: string | null;
+  is_admin: boolean;
 }
 
 // ISO date helpers — work in calendar days, not millisecond-clock time.
@@ -124,6 +135,7 @@ export function Projects() {
   const BROWSE_PAGE_SIZE = 8;
   const MY_PROJECTS_PAGE_SIZE = 6;
   const [suggested, setSuggested] = useState<Project[]>([]);
+  const [limitInfo, setLimitInfo] = useState<PublishLimitInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"all" | "open" | "closed" | "completed">("open");
@@ -193,18 +205,20 @@ export function Projects() {
   async function fetchAll() {
     setIsLoading(true);
     try {
-      const [all, mine, mineProj, apps, sugg] = await Promise.all([
+      const [all, mine, mineProj, apps, sugg, limit] = await Promise.all([
         apiFetch("/api/projects/"),
         apiFetch("/api/projects/mine/posts"),
         apiFetch("/api/projects/mine/projects"),
         apiFetch("/api/projects/mine/applications"),
         apiFetch("/api/projects/suggested").catch(() => []),
+        apiFetch("/api/projects/limit-info").catch(() => null),
       ]);
       setProjects(all);
       setMyPosts(mine);
       setMyProjects(mineProj);
       setMyApplications(apps);
       setSuggested(sugg);
+      setLimitInfo(limit);
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : "Failed to load projects", false);
     } finally {
@@ -234,6 +248,11 @@ export function Projects() {
   async function handleCreate() {
     const dateError = validateProjectDates(createForm.start_date, createForm.deadline);
     if (dateError) { showToast(dateError, false); return; }
+    // Local guard so we don't hit the backend with a request we already know will fail.
+    if (limitInfo && !limitInfo.is_admin && (limitInfo.remaining ?? 0) <= 0) {
+      showToast("Monthly publish limit reached. Try again next month.", false);
+      return;
+    }
     try {
       setIsSubmitting(true);
       const computedDuration = computeDurationLabel(createForm.start_date, createForm.deadline);
@@ -498,14 +517,43 @@ export function Projects() {
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between">
+      <div className="flex items-start justify-between gap-4 flex-wrap">
         <div>
           <h1 className="text-3xl font-bold mb-2">Projects</h1>
           <p className="text-muted-foreground">Find teammates and collaborate on projects</p>
         </div>
-        <Button onClick={() => setShowCreateModal(true)}>
-          <Plus className="w-4 h-4" /> Post a Project
-        </Button>
+        <div className="flex flex-col items-end gap-1.5">
+          {(() => {
+            const atLimit =
+              !!limitInfo && !limitInfo.is_admin && (limitInfo.remaining ?? 0) <= 0;
+            return (
+              <Button
+                onClick={() => setShowCreateModal(true)}
+                disabled={atLimit}
+                title={atLimit ? "Monthly publish limit reached" : undefined}
+              >
+                <Plus className="w-4 h-4" /> Post a Project
+              </Button>
+            );
+          })()}
+          {limitInfo && !limitInfo.is_admin && (
+            <p
+              className={`text-xs ${
+                (limitInfo.remaining ?? 0) === 0
+                  ? "text-destructive"
+                  : "text-muted-foreground"
+              }`}
+            >
+              {(limitInfo.remaining ?? 0) > 0
+                ? `${limitInfo.remaining} of ${limitInfo.limit} left this month`
+                : `Monthly limit reached${
+                    limitInfo.resets_at
+                      ? ` — resets ${new Date(limitInfo.resets_at).toLocaleDateString()}`
+                      : ""
+                  }`}
+            </p>
+          )}
+        </div>
       </div>
 
       {/* Tabs */}
@@ -806,6 +854,30 @@ export function Projects() {
                               <p className="text-xs font-semibold text-muted-foreground mb-1">Applying for: <span className="text-foreground">{app.role}</span></p>
                               <p className="text-sm text-foreground">{app.motivation}</p>
                             </div>
+                            {app.cv_url && (
+                              <div className="flex items-center gap-2 mt-2 flex-wrap">
+                                <a
+                                  href={app.cv_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-card hover:bg-muted transition-colors"
+                                >
+                                  <Sparkles className="w-3 h-3" /> Preview CV
+                                </a>
+                                <a
+                                  href={app.cv_url}
+                                  download={app.cv_name || "cv.pdf"}
+                                  className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-card hover:bg-muted transition-colors"
+                                >
+                                  Download
+                                </a>
+                                {app.cv_name && (
+                                  <span className="text-xs text-muted-foreground truncate max-w-[200px]">
+                                    {app.cv_name}
+                                  </span>
+                                )}
+                              </div>
+                            )}
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-2 flex-shrink-0">

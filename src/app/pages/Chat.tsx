@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo, KeyboardEvent } from "react";
+import { useState, useEffect, useRef, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useLocation } from "react-router";
 import {
   Search, Send, Paperclip, Smile, Reply as ReplyIcon, X, Plus, Loader2,
@@ -362,7 +362,7 @@ export function Chat() {
     }, 2500);
   }
 
-  function handleInputKey(e: KeyboardEvent<HTMLTextAreaElement>) {
+  function handleInputKey(e: ReactKeyboardEvent<HTMLTextAreaElement>) {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();

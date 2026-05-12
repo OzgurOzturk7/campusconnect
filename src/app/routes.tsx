@@ -1,4 +1,4 @@
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ComponentType } from "react";
 import { createBrowserRouter, Navigate } from "react-router";
 import { Loader2 } from "lucide-react";
 import { Layout } from "./components/Layout";
@@ -26,7 +26,7 @@ function PageLoader() {
   );
 }
 
-const lazyEl = (Component: React.LazyExoticComponent<() => JSX.Element>) => (
+const lazyEl = (Component: React.LazyExoticComponent<ComponentType>) => (
   <Suspense fallback={<PageLoader />}>
     <Component />
   </Suspense>

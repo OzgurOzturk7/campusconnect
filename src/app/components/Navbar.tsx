@@ -1,4 +1,4 @@
-import { Bell, LogOut, Briefcase, Calendar, Users, MessageSquare, CheckCheck, Sun, Moon, User as UserIcon, Globe, Check } from "lucide-react";
+import { Bell, LogOut, Briefcase, Calendar, Users, MessageSquare, CheckCheck, Sun, Moon, User as UserIcon, Globe, Check, Menu } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Avatar } from "./Avatar";
@@ -57,7 +57,11 @@ function useRelativeTime() {
   };
 }
 
-export function Navbar() {
+interface NavbarProps {
+  onMenuClick?: () => void;
+}
+
+export function Navbar({ onMenuClick }: NavbarProps = {}) {
   const { user, logout } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { t } = useTranslation("common");
@@ -153,7 +157,16 @@ export function Navbar() {
   }
 
   return (
-    <header className="fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-50 flex items-center px-4 gap-4">
+    <header className="fixed top-0 left-0 right-0 h-16 bg-card border-b border-border z-50 flex items-center px-4 gap-2 md:gap-4">
+      {onMenuClick && (
+        <button
+          onClick={onMenuClick}
+          aria-label="Open menu"
+          className="md:hidden p-2 rounded-lg hover:bg-muted -ml-1"
+        >
+          <Menu className="w-5 h-5" />
+        </button>
+      )}
       <Link to="/" className="flex items-center mr-2 md:mr-6 flex-shrink-0">
         <img
           src="/logo.png"

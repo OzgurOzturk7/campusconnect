@@ -1028,7 +1028,7 @@ export function Projects() {
                     )}
 
                     <p className="text-xs text-muted-foreground mt-2">
-                      {new Date(app.applied_at || app.created_at || "").toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {app.applied_at ? new Date(app.applied_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
                     </p>
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-1" />

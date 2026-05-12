@@ -389,28 +389,14 @@ Return ONLY a JSON array of project ids ordered by relevance (most relevant firs
     return top_posts[:3]
 
 
-@router.get("/{project_id}")
-def get_project(project_id: str, current_user: dict = Depends(get_current_user)):
-    supabase = get_supabase_admin()
-    result = supabase.table("project_posts").select("*").eq("id", project_id).single().execute()
-    if not result.data:
-        raise HTTPException(status_code=404, detail="Project not found")
-    post = result.data
-    try:
-        u = supabase.table("users").select("name, avatar_url, department, year, skills, github_url") \
-            .eq("id", post["owner_id"]).single().execute()
-        post["owner"] = u.data
-    except Exception:
-        post["owner"] = None
-    try:
-        c = supabase.table("project_applications").select("id", count="exact") \
-            .eq("project_id", project_id).execute()
-        post["application_count"] = c.count or 0
-    except Exception:
-        post["application_count"] = 0
-    return post
-
-
+# ============================================================
+# Monthly publish-limit helpers + endpoint
+#
+# IMPORTANT: this endpoint MUST be declared before any `/{project_id}` route.
+# FastAPI matches routes in declaration order, so a parameterized route
+# defined first would swallow `GET /limit-info` and try to parse "limit-info"
+# as a project UUID.
+# ============================================================
 def _month_window_iso() -> tuple[str, str]:
     """First-of-this-month and first-of-next-month as ISO strings (UTC).
     Used to count projects published within the current calendar month.
@@ -467,6 +453,28 @@ def project_limit_info(current_user: dict = Depends(get_current_user)):
         "resets_at": _publish_resets_at_iso(),
         "is_admin": False,
     }
+
+
+@router.get("/{project_id}")
+def get_project(project_id: str, current_user: dict = Depends(get_current_user)):
+    supabase = get_supabase_admin()
+    result = supabase.table("project_posts").select("*").eq("id", project_id).single().execute()
+    if not result.data:
+        raise HTTPException(status_code=404, detail="Project not found")
+    post = result.data
+    try:
+        u = supabase.table("users").select("name, avatar_url, department, year, skills, github_url") \
+            .eq("id", post["owner_id"]).single().execute()
+        post["owner"] = u.data
+    except Exception:
+        post["owner"] = None
+    try:
+        c = supabase.table("project_applications").select("id", count="exact") \
+            .eq("project_id", project_id).execute()
+        post["application_count"] = c.count or 0
+    except Exception:
+        post["application_count"] = 0
+    return post
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)

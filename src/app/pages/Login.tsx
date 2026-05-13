@@ -429,8 +429,12 @@ export function Login() {
         }
         const result = await loginWithGoogle(response.credential, rememberRef.current);
         if (result.kind === "invited") {
-          // Backend emailed a temp password; show the check-inbox screen.
+          // Backend emailed a temp password. Drop the user straight onto
+          // the email form with their address pre-filled and a banner
+          // explaining what to do — less jarring than a full-page takeover.
           setInvitedView({ email: result.email, emailFailed: result.emailFailed });
+          setEmail(result.email);
+          setShowEmailForm(true);
         } else {
           navigate("/", { replace: true });
         }
@@ -545,18 +549,6 @@ export function Login() {
         </div>
 
         <TiltCard>
-          {invitedView ? (
-            <InvitedView
-              email={invitedView.email}
-              emailFailed={invitedView.emailFailed}
-              onBackToLogin={() => {
-                setInvitedView(null);
-                setShowEmailForm(true);
-                setEmail(invitedView.email);
-              }}
-            />
-          ) : (
-          <>
           <h2
             className="text-4xl font-extrabold mb-1 tracking-tight"
             style={{
@@ -620,12 +612,42 @@ export function Login() {
           {showEmailForm && (
             <div className="cc-pop-in">
               {GOOGLE_CLIENT_ID && (
-                <button type="button" onClick={() => { setError(null); setShowEmailForm(false); }}
+                <button type="button" onClick={() => { setError(null); setShowEmailForm(false); setInvitedView(null); }}
                   className="flex items-center gap-1.5 text-xs font-semibold mb-5 transition-colors hover:underline"
                   style={{ color: "#7c3aed" }}>
                   <ArrowLeft className="w-3.5 h-3.5" />
                   Use Google instead
                 </button>
+              )}
+
+              {/* Invite banner — shown after a first-time Google sign-in.
+                  Tells the user a temp password just hit their inbox and
+                  what to do with it. Dismissed when they navigate away or
+                  successfully sign in. */}
+              {invitedView && (
+                <div
+                  className="flex items-start gap-3 rounded-xl px-4 py-3 mb-5 border cc-pop-in"
+                  style={
+                    invitedView.emailFailed
+                      ? { background: "#fef3c7", borderColor: "#fcd34d", color: "#92400e" }
+                      : { background: "rgba(124,58,237,0.08)", borderColor: "#ddd6fe", color: "#5b21b6" }
+                  }
+                >
+                  <CheckCircle2 className="w-5 h-5 flex-shrink-0 mt-0.5" />
+                  <div className="flex-1 text-xs leading-relaxed">
+                    {invitedView.emailFailed ? (
+                      <>
+                        <span className="font-bold block mb-0.5">Hesabın oluşturuldu, ama mail gönderilemedi.</span>
+                        Yöneticinden geçici şifreni iste ya da "Şifremi unuttum" akışını kullan.
+                      </>
+                    ) : (
+                      <>
+                        <span className="font-bold block mb-0.5">Geçici şifren <span className="break-all">{invitedView.email}</span> adresine gönderildi.</span>
+                        Mail kutunu kontrol et (spam'a da bak), şifreyi aşağıya yapıştır ve giriş yap.
+                      </>
+                    )}
+                  </div>
+                </div>
               )}
 
               <form onSubmit={handleSubmit}>
@@ -702,8 +724,6 @@ export function Login() {
               Contact your university admin.
             </span>
           </p>
-          </>
-          )}
         </TiltCard>
 
         {ripples.layer}

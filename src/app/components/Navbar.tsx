@@ -1,14 +1,11 @@
-import { Bell, LogOut, Briefcase, Calendar, Users, MessageSquare, CheckCheck, Sun, Moon, User as UserIcon, Globe, Check, Menu, Settings as SettingsIcon } from "lucide-react";
+import { Bell, LogOut, Briefcase, Calendar, Users, MessageSquare, CheckCheck, User as UserIcon, Menu, Settings as SettingsIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Avatar } from "./Avatar";
 import { useAuth } from "../context/AuthContext";
-import { useTheme } from "../context/ThemeContext";
-import { useLanguage } from "../context/LanguageContext";
 import { useNotifications } from "../context/NotificationContext";
 import { useEffect, useRef, useState } from "react";
 import { apiFetch } from "../lib/api";
-import { SUPPORTED_LANGS, type Lang } from "../lib/i18n";
 
 interface Notification {
   id: string;
@@ -65,9 +62,7 @@ interface NavbarProps {
 
 export function Navbar({ onMenuClick }: NavbarProps = {}) {
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useTheme();
   const { t } = useTranslation("common");
-  const { lang, setLang } = useLanguage();
   const { unreadCount, refresh: refreshUnread } = useNotifications();
   const navigate = useNavigate();
   const timeAgo = useRelativeTime();
@@ -307,35 +302,6 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
                 <SettingsIcon className="w-4 h-4 text-muted-foreground" />
                 <span>{t("userMenu.settings")}</span>
               </Link>
-
-              <button
-                onClick={toggleTheme}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted transition-colors text-left"
-              >
-                {theme === "dark" ? <Sun className="w-4 h-4 text-muted-foreground" /> : <Moon className="w-4 h-4 text-muted-foreground" />}
-                <span className="flex-1">{theme === "dark" ? t("userMenu.lightMode") : t("userMenu.darkMode")}</span>
-              </button>
-
-              <div className="border-t border-border px-4 py-2">
-                <div className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">
-                  <Globe className="w-3.5 h-3.5" />
-                  <span>{t("userMenu.language")}</span>
-                </div>
-                <div className="grid grid-cols-2 gap-1">
-                  {SUPPORTED_LANGS.map((code) => (
-                    <button
-                      key={code}
-                      onClick={() => setLang(code as Lang)}
-                      className={`flex items-center justify-center gap-1.5 px-2 py-1.5 rounded-md text-xs font-medium transition-colors ${
-                        lang === code ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-muted/70"
-                      }`}
-                    >
-                      {lang === code && <Check className="w-3 h-3" />}
-                      {t(`languages.${code}`)}
-                    </button>
-                  ))}
-                </div>
-              </div>
 
               <button
                 onClick={() => { setUserMenuOpen(false); logout(); }}

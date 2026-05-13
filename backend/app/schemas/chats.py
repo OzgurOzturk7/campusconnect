@@ -19,6 +19,10 @@ class MessageCreate(BaseModel):
     attachment_type: Optional[str] = Field(None, max_length=20)  # 'image' | 'video' | 'file' | 'audio'
     attachment_name: Optional[str] = Field(None, max_length=300)
     reply_to_id: Optional[str] = None
+    # User IDs the message tags via @mention. The server validates that
+    # each one is actually a member of the chat before notifying — clients
+    # can't escalate a mention into a notification to anyone they want.
+    mentions: List[str] = Field(default_factory=list, max_length=20)
 
 
 class MessageEdit(BaseModel):

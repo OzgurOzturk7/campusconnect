@@ -49,6 +49,7 @@
   },
   "userMenu": {
     "profile": "Profile",
+    "settings": "Settings",
     "darkMode": "Dark mode",
     "lightMode": "Light mode",
     "language": "Language",

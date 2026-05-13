@@ -49,6 +49,7 @@
   },
   "userMenu": {
     "profile": "الملف الشخصي",
+    "settings": "الإعدادات",
     "darkMode": "الوضع الداكن",
     "lightMode": "الوضع الفاتح",
     "language": "اللغة",

@@ -1,9 +1,48 @@
 {
   "title": "Ayarlar",
-  "appearance": "Görünüm",
-  "language": "Dil",
-  "theme": "Tema",
-  "notifications": "Bildirimler",
-  "account": "Hesap",
-  "saved": "Kaydedildi"
+  "subtitle": "Hesabınızı, görünümünüzü ve tercihlerinizi yönetin.",
+
+  "tabs": {
+    "profile": "Profil",
+    "password": "Şifre",
+    "appearance": "Görünüm",
+    "language": "Dil"
+  },
+
+  "profile": {
+    "title": "Profil",
+    "description": "Platform genelinde nasıl görüneceğiniz.",
+    "name_label": "Görünen ad",
+    "email_label": "E-posta",
+    "email_help": "Üniversite e-postanız. Değiştirilemez.",
+    "save": "Değişiklikleri kaydet",
+    "saved": "Profil güncellendi"
+  },
+
+  "password": {
+    "title": "Şifre",
+    "description": "Başka yerde kullanmadığınız güçlü bir şifre seçin.",
+    "current_label": "Mevcut şifre",
+    "new_label": "Yeni şifre",
+    "confirm_label": "Yeni şifreyi onayla",
+    "submit": "Şifreyi güncelle",
+    "updated": "Şifre güncellendi",
+    "mismatch": "Yeni şifre ve onay eşleşmiyor.",
+    "too_short": "En az 8 karakter kullanın.",
+    "same_as_old": "Yeni şifre, mevcut şifreden farklı olmalı."
+  },
+
+  "appearance": {
+    "title": "Görünüm",
+    "description": "Bu cihazda arayüzün nasıl görüneceğini seçin.",
+    "theme_light": "Açık",
+    "theme_dark": "Koyu",
+    "theme_system": "Sistemle eşleş"
+  },
+
+  "language": {
+    "title": "Dil",
+    "description": "Arayüzde kullanılan dili değiştirin.",
+    "saved": "Dil güncellendi"
+  }
 }

@@ -1,4 +1,4 @@
-import { Bell, LogOut, Briefcase, Calendar, Users, MessageSquare, CheckCheck, Sun, Moon, User as UserIcon, Globe, Check, Menu } from "lucide-react";
+import { Bell, LogOut, Briefcase, Calendar, Users, MessageSquare, CheckCheck, Sun, Moon, User as UserIcon, Globe, Check, Menu, Settings as SettingsIcon } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Avatar } from "./Avatar";
@@ -29,6 +29,7 @@ const iconMap: Record<string, React.ElementType> = {
   new_event: Calendar,
   event_reminder: Calendar,
   study_file_upload: MessageSquare,
+  chat_mention: MessageSquare,
   system: Bell,
 };
 
@@ -41,6 +42,7 @@ const colorMap: Record<string, string> = {
   new_event: "bg-orange-50 text-orange-600",
   event_reminder: "bg-orange-50 text-orange-600",
   study_file_upload: "bg-purple-50 text-purple-600",
+  chat_mention: "bg-purple-50 text-purple-600",
   system: "bg-primary/10 text-primary",
 };
 
@@ -295,6 +297,15 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
               >
                 <UserIcon className="w-4 h-4 text-muted-foreground" />
                 <span>{t("userMenu.profile")}</span>
+              </Link>
+
+              <Link
+                to="/settings"
+                onClick={() => setUserMenuOpen(false)}
+                className="flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-muted transition-colors"
+              >
+                <SettingsIcon className="w-4 h-4 text-muted-foreground" />
+                <span>{t("userMenu.settings")}</span>
               </Link>
 
               <button

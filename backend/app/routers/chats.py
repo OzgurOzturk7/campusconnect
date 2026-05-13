@@ -428,6 +428,38 @@ def send_message(chat_id: str, body: MessageCreate, current_user: dict = Depends
             .eq("chat_id", chat_id).neq("user_id", current_user["id"]).not_.is_("hidden_at", "null").execute()
     except Exception:
         pass
+
+    # Mention notifications — only fire for user ids that are (1) not the
+    # sender themselves and (2) actually members of this chat. The membership
+    # check defends against a client tagging arbitrary user ids to spam them.
+    if body.mentions:
+        try:
+            unique_targets = {uid for uid in body.mentions if uid != current_user["id"]}
+            if unique_targets:
+                members = supabase.table("chat_members").select("user_id") \
+                    .eq("chat_id", chat_id).in_("user_id", list(unique_targets)).execute()
+                valid_ids = [m["user_id"] for m in (members.data or [])]
+                if valid_ids:
+                    chat_row = supabase.table("chats").select("title, type") \
+                        .eq("id", chat_id).single().execute().data or {}
+                    chat_label = chat_row.get("title") or (
+                        "a direct chat" if chat_row.get("type") == "direct" else "a group chat"
+                    )
+                    snippet = (body.body or "").strip()
+                    if len(snippet) > 140:
+                        snippet = snippet[:137] + "..."
+                    for uid in valid_ids:
+                        send_notification(
+                            user_id=uid,
+                            type="chat_mention",
+                            title=f"{current_user['name']} mentioned you",
+                            body=f"In {chat_label}: {snippet}" if snippet else f"In {chat_label}",
+                            link=f"/chats?chatId={chat_id}",
+                        )
+        except Exception as e:
+            # Don't fail the send if the notification pass blew up.
+            print("MENTION NOTIFICATION ERROR:", e)
+
     return _hydrate_message(supabase, msg)
 
 

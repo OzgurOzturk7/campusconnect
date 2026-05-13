@@ -53,3 +53,20 @@ class AIAnalysisResponse(BaseModel):
     tips: List[str] = []
     club_suggestions: List[str] = []
     event_suggestions: List[str] = []
+
+
+class ChangePasswordRequest(BaseModel):
+    """Authenticated user changing their own password.
+
+    The current_password check defends against an attacker with a stolen
+    session token escalating to full account takeover via password reset.
+    """
+    current_password: str = Field(..., min_length=1, max_length=200)
+    new_password: str = Field(..., min_length=8, max_length=200)
+
+
+class ForgotPasswordRequest(BaseModel):
+    """Public endpoint — accepts an email and triggers a reset link if a
+    matching user exists. Always succeeds (no email enumeration).
+    """
+    email: EmailStr

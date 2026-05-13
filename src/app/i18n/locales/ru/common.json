@@ -49,6 +49,7 @@
   },
   "userMenu": {
     "profile": "Профиль",
+    "settings": "Настройки",
     "darkMode": "Тёмная тема",
     "lightMode": "Светлая тема",
     "language": "Язык",

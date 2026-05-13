@@ -24,6 +24,12 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
 
+    # Transactional email (Resend). See app/services/email.py.
+    # Leave RESEND_API_KEY empty in dev to log emails instead of sending.
+    RESEND_API_KEY: str = ""
+    EMAIL_FROM: str = "onboarding@resend.dev"
+    EMAIL_FROM_NAME: str = "CampusConnect"
+
     @classmethod
     def parse_env_var(cls, field_name: str, raw_val: str):
         """Parse ALLOWED_ORIGINS from a comma-separated string."""

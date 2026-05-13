@@ -1,5 +1,9 @@
 from fastapi import APIRouter, HTTPException, status, Depends, Request
-from app.schemas.auth import LoginRequest, LoginResponse, GoogleLoginRequest, UserPublic, UserUpdate, AIAnalysisResponse
+from app.schemas.auth import (
+    LoginRequest, LoginResponse, GoogleLoginRequest,
+    UserPublic, UserUpdate, AIAnalysisResponse,
+    ChangePasswordRequest, ForgotPasswordRequest,
+)
 from app.core.supabase import get_supabase, get_supabase_admin
 from app.core.security import create_access_token, get_current_user
 from app.core.config import settings
@@ -199,6 +203,78 @@ def update_profile(body: UserUpdate, current_user: dict = Depends(get_current_us
 @router.post("/logout")
 def logout():
     return {"message": "Logged out successfully"}
+
+
+@router.post("/change-password")
+@limiter.limit("5/minute")
+def change_password(
+    request: Request,
+    body: ChangePasswordRequest,
+    current_user: dict = Depends(get_current_user),
+):
+    """Authenticated user changes their own password.
+
+    Step 1: re-authenticate the user against Supabase with the current
+            password (proves the request really came from them, not just
+            from a stolen JWT).
+    Step 2: ask the admin API to set the new password.
+
+    Both steps must succeed. We never store either password.
+    """
+    if body.current_password == body.new_password:
+        raise HTTPException(
+            status_code=400,
+            detail="New password must be different from the current one.",
+        )
+
+    supabase = get_supabase()
+    try:
+        auth_response = supabase.auth.sign_in_with_password(
+            {"email": current_user["email"], "password": body.current_password}
+        )
+    except Exception:
+        raise HTTPException(status_code=401, detail="Current password is incorrect.")
+    if not auth_response or not auth_response.user:
+        raise HTTPException(status_code=401, detail="Current password is incorrect.")
+
+    admin = get_supabase_admin()
+    try:
+        admin.auth.admin.update_user_by_id(
+            current_user["id"], {"password": body.new_password}
+        )
+    except Exception as e:
+        print("PASSWORD UPDATE ERROR:", e)
+        raise HTTPException(status_code=500, detail="Couldn't update password. Try again.")
+
+    return {"ok": True}
+
+
+@router.post("/forgot-password")
+@limiter.limit("3/minute")
+def forgot_password(request: Request, body: ForgotPasswordRequest):
+    """Trigger a password-reset email.
+
+    Returns 200 regardless of whether the email matches a user — this
+    prevents email enumeration. Supabase Auth handles delivery via its
+    configured SMTP (default Supabase sender, or your Resend / SendGrid
+    integration when enabled in the dashboard).
+    """
+    # Reset URL the user lands on after clicking the email link. Must
+    # match a route in the SPA — we expose /reset-password.
+    frontend = (settings.ALLOWED_ORIGINS or ["http://localhost:5173"])[0]
+    redirect_to = f"{frontend}/reset-password"
+
+    supabase = get_supabase()
+    try:
+        supabase.auth.reset_password_for_email(
+            body.email, {"redirect_to": redirect_to}
+        )
+    except Exception as e:
+        # Log but don't surface — silent failure preserves the
+        # no-enumeration guarantee.
+        print("FORGOT PASSWORD ERROR:", e)
+
+    return {"ok": True}
 
 
 @router.get("/search-users")

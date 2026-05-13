@@ -638,7 +638,16 @@ export function Login() {
                   </button>
                 </div>
 
-                <div className="py-2" />
+                <div className="flex justify-end mb-2">
+                  <button
+                    type="button"
+                    onClick={() => navigate("/forgot-password")}
+                    className="text-xs font-semibold hover:underline transition-colors"
+                    style={{ color: "#7c3aed" }}
+                  >
+                    Forgot password?
+                  </button>
+                </div>
 
                 <Magnetic strength={5}>
                   <button

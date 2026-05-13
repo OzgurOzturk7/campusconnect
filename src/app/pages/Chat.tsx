@@ -134,12 +134,24 @@ export function Chat() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [pendingPreviewUrl, setPendingPreviewUrl] = useState<string | null>(null);
 
+  // @mention autocomplete state — see scanMention() and pickMention() below.
+  type MentionUser = { id: string; name: string; avatar_url?: string; department?: string };
+  const [mentionQuery, setMentionQuery] = useState<string | null>(null);
+  const [mentionStart, setMentionStart] = useState<number>(0);
+  const [mentionResults, setMentionResults] = useState<MentionUser[]>([]);
+  const [mentionIndex, setMentionIndex] = useState(0);
+  // Users the composer has explicitly mentioned; we filter to those still
+  // present in the body on send so backspacing past a mention drops it.
+  const [pendingMentions, setPendingMentions] = useState<MentionUser[]>([]);
+
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const messagesChannelRef = useRef<RealtimeChannel | null>(null);
   const typingChannelRef = useRef<RealtimeChannel | null>(null);
   const reactionsChannelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
+  const mentionSearchTimeoutRef = useRef<number | null>(null);
 
   // Initial load
   useEffect(() => { fetchChats(); }, []);
@@ -306,6 +318,103 @@ export function Chat() {
     };
   }
 
+  // ----------- @mention helpers -----------
+  /**
+   * Look backwards from the caret for an `@` that starts a word. If found
+   * and the characters between it and the caret are valid for a username
+   * query, return them. Otherwise null = no dropdown.
+   */
+  function scanMention(text: string, caret: number): { start: number; query: string } | null {
+    let i = caret - 1;
+    while (i >= 0) {
+      const c = text[i];
+      if (c === "@") {
+        const prev = i > 0 ? text[i - 1] : " ";
+        // `@` must start a word (line start or whitespace before it).
+        if (i === 0 || /\s/.test(prev)) {
+          const query = text.slice(i + 1, caret);
+          if (/^[\w .-]*$/.test(query)) return { start: i, query };
+        }
+        return null;
+      }
+      if (/\s/.test(c)) return null;
+      i--;
+    }
+    return null;
+  }
+
+  function handleComposerChange(value: string, caret: number) {
+    handleInputChange(value);
+    const m = scanMention(value, caret);
+    if (m) {
+      setMentionQuery(m.query);
+      setMentionStart(m.start);
+      setMentionIndex(0);
+    } else {
+      setMentionQuery(null);
+      setMentionResults([]);
+    }
+  }
+
+  // Debounced user search for the mention dropdown.
+  useEffect(() => {
+    if (mentionQuery === null) return;
+    if (mentionSearchTimeoutRef.current) {
+      window.clearTimeout(mentionSearchTimeoutRef.current);
+    }
+    const q = mentionQuery.trim();
+    if (q.length < 1) {
+      // For empty `@`, show this chat's members minus me (instant, no fetch).
+      if (activeChat) {
+        const me = user?.user_id;
+        setMentionResults(
+          activeChat.members
+            .filter((m) => m.id !== me)
+            .slice(0, 5)
+            .map((m) => ({ id: m.id, name: m.name, avatar_url: m.avatar_url, department: m.department }))
+        );
+      } else {
+        setMentionResults([]);
+      }
+      return;
+    }
+    mentionSearchTimeoutRef.current = window.setTimeout(async () => {
+      try {
+        const data = await apiFetch(`/api/auth/search-users?q=${encodeURIComponent(q)}`);
+        setMentionResults((data || []).slice(0, 5));
+      } catch {
+        setMentionResults([]);
+      }
+    }, 200);
+    return () => {
+      if (mentionSearchTimeoutRef.current) {
+        window.clearTimeout(mentionSearchTimeoutRef.current);
+      }
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mentionQuery, activeChat?.id]);
+
+  function pickMention(u: MentionUser) {
+    const before = input.slice(0, mentionStart);
+    const after = input.slice(mentionStart + 1 + (mentionQuery?.length ?? 0));
+    const inserted = `@${u.name} `;
+    const next = `${before}${inserted}${after}`;
+    setInput(next);
+    setMentionQuery(null);
+    setMentionResults([]);
+    setPendingMentions((prev) =>
+      prev.some((m) => m.id === u.id) ? prev : [...prev, u]
+    );
+    // Restore caret right after the inserted mention.
+    requestAnimationFrame(() => {
+      const el = inputRef.current;
+      if (!el) return;
+      const pos = (before + inserted).length;
+      el.focus();
+      el.setSelectionRange(pos, pos);
+    });
+  }
+
   // ----------- Sending -----------
   async function sendMessage() {
     if (!activeChatId) return;
@@ -314,10 +423,18 @@ export function Chat() {
 
     const file = pendingFile;
     const replyId = replyTo?.id;
+    // Filter mentions to those whose `@<name>` is still in the body — gives
+    // users a graceful way to drop a mention by backspacing past it.
+    const activeMentions = pendingMentions.filter((m) =>
+      text.includes(`@${m.name}`)
+    );
 
     // Optimistic clear
     setInput("");
     setReplyTo(null);
+    setMentionQuery(null);
+    setMentionResults([]);
+    setPendingMentions([]);
     if (file) clearPendingFile();
 
     try {
@@ -326,7 +443,11 @@ export function Chat() {
       } else {
         const m = await apiFetch(`/api/chats/${activeChatId}/messages`, {
           method: "POST",
-          body: JSON.stringify({ body: text, reply_to_id: replyId }),
+          body: JSON.stringify({
+            body: text,
+            reply_to_id: replyId,
+            mentions: activeMentions.map((u) => u.id),
+          }),
         });
         setMessages((prev) => prev.some((x) => x.id === m.id) ? prev : [...prev, m]);
         setChats((prev) => {
@@ -363,6 +484,31 @@ export function Chat() {
   }
 
   function handleInputKey(e: ReactKeyboardEvent<HTMLTextAreaElement>) {
+    // Mention dropdown intercepts arrow + enter + esc when open.
+    if (mentionQuery !== null && mentionResults.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setMentionIndex((i) => (i + 1) % mentionResults.length);
+        return;
+      }
+      if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setMentionIndex((i) => (i - 1 + mentionResults.length) % mentionResults.length);
+        return;
+      }
+      if (e.key === "Enter" || e.key === "Tab") {
+        e.preventDefault();
+        const picked = mentionResults[mentionIndex];
+        if (picked) pickMention(picked);
+        return;
+      }
+      if (e.key === "Escape") {
+        e.preventDefault();
+        setMentionQuery(null);
+        setMentionResults([]);
+        return;
+      }
+    }
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
@@ -1037,7 +1183,36 @@ export function Chat() {
             )}
 
             {/* Composer */}
-            <div className="px-3 py-3 border-t border-border bg-card flex items-end gap-2">
+            <div className="relative px-3 py-3 border-t border-border bg-card flex items-end gap-2">
+              {/* @mention dropdown — floats above the textarea */}
+              {mentionQuery !== null && mentionResults.length > 0 && (
+                <div
+                  role="listbox"
+                  className="absolute bottom-full left-12 right-12 mb-2 max-h-64 overflow-y-auto bg-card border border-border rounded-xl shadow-xl py-1 z-20"
+                >
+                  {mentionResults.map((u, idx) => (
+                    <button
+                      key={u.id}
+                      role="option"
+                      aria-selected={idx === mentionIndex}
+                      onMouseDown={(e) => { e.preventDefault(); pickMention(u); }}
+                      onMouseEnter={() => setMentionIndex(idx)}
+                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-left transition-colors ${
+                        idx === mentionIndex ? "bg-primary/10" : "hover:bg-muted"
+                      }`}
+                    >
+                      <Avatar name={u.name} src={u.avatar_url} size="sm" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-sm font-medium truncate">{u.name}</div>
+                        {u.department && (
+                          <div className="text-xs text-muted-foreground truncate">{u.department}</div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
               <input
                 ref={fileInputRef}
                 type="file"
@@ -1053,8 +1228,23 @@ export function Chat() {
                 {uploadingFile ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
               </button>
               <textarea
+                ref={inputRef}
                 value={input}
-                onChange={(e) => handleInputChange(e.target.value)}
+                onChange={(e) => handleComposerChange(e.target.value, e.target.selectionStart)}
+                onKeyUp={(e) => {
+                  // Re-scan on caret moves (arrow keys, click) — value didn't
+                  // change so onChange wouldn't fire.
+                  if (["ArrowLeft", "ArrowRight", "Home", "End"].includes(e.key)) {
+                    const el = e.currentTarget;
+                    const m = scanMention(el.value, el.selectionStart);
+                    if (m) {
+                      setMentionQuery(m.query);
+                      setMentionStart(m.start);
+                    } else {
+                      setMentionQuery(null);
+                    }
+                  }
+                }}
                 onKeyDown={handleInputKey}
                 placeholder="Type a message..."
                 rows={1}

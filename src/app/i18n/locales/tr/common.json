@@ -49,6 +49,7 @@
   },
   "userMenu": {
     "profile": "Profil",
+    "settings": "Ayarlar",
     "darkMode": "Karanlık mod",
     "lightMode": "Aydınlık mod",
     "language": "Dil",

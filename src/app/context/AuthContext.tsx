@@ -6,6 +6,9 @@ interface User {
   email: string;
   role: "admin" | "student";
   access_token: string;
+  /** Set when the user is signed in with a system-issued temp password.
+   *  The ProtectedRoute guard forces /onboarding until this clears. */
+  must_change_password?: boolean;
 }
 
 interface AuthContextType {
@@ -14,6 +17,9 @@ interface AuthContextType {
   login: (email: string, password: string, remember: boolean) => Promise<void>;
   loginWithGoogle: (credential: string, remember: boolean) => Promise<void>;
   logout: () => void;
+  /** Clear the must_change_password flag after the onboarding password
+   *  change succeeds — keeps the local cache in sync with the DB. */
+  markPasswordChanged: () => void;
   isAdmin: boolean;
   isStudent: boolean;
 }
@@ -65,6 +71,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: data.email,
       role: data.role,
       access_token: data.access_token,
+      must_change_password: !!data.must_change_password,
     };
 
     if (remember) {
@@ -91,6 +98,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       email: data.email,
       role: data.role,
       access_token: data.access_token,
+      must_change_password: !!data.must_change_password,
     };
     if (remember) {
       localStorage.setItem(TOKEN_KEY, data.access_token);
@@ -128,6 +136,22 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
+  const markPasswordChanged = () => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, must_change_password: false };
+      // Mirror into whichever storage already holds this user — we don't
+      // know if they logged in with "remember me" or not.
+      if (localStorage.getItem(USER_KEY)) {
+        localStorage.setItem(USER_KEY, JSON.stringify(updated));
+      }
+      if (sessionStorage.getItem(USER_KEY)) {
+        sessionStorage.setItem(USER_KEY, JSON.stringify(updated));
+      }
+      return updated;
+    });
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -136,6 +160,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         login,
         loginWithGoogle,
         logout,
+        markPasswordChanged,
         isAdmin: user?.role === "admin",
         isStudent: user?.role === "student",
       }}

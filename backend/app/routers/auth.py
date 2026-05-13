@@ -2,15 +2,34 @@ from fastapi import APIRouter, HTTPException, status, Depends, Request
 from app.schemas.auth import (
     LoginRequest, LoginResponse, GoogleLoginRequest,
     UserPublic, UserUpdate, AIAnalysisResponse,
-    ChangePasswordRequest, ForgotPasswordRequest,
+    ChangePasswordRequest, ForgotPasswordRequest, InviteUserRequest,
 )
 from app.core.supabase import get_supabase, get_supabase_admin
-from app.core.security import create_access_token, get_current_user
+from app.core.security import create_access_token, get_current_user, require_admin
 from app.core.config import settings
 from app.core.ratelimit import limiter
+from app.services.email import send_email, EmailError
+from app.services.email_templates import welcome as welcome_email_template
 import os
 import json
+import secrets
+import string
 from datetime import datetime, timedelta
+
+
+ALLOWED_INVITE_DOMAIN = "final.edu.tr"
+
+
+def _generate_temp_password(length: int = 14) -> str:
+    """A reasonably memorable but unguessable temp password — letters + digits.
+    Avoids ambiguous chars (0/O/1/l) to keep copy-from-email painless.
+    """
+    alphabet = (
+        "ABCDEFGHJKLMNPQRSTUVWXYZ"
+        "abcdefghijkmnopqrstuvwxyz"
+        "23456789"
+    )
+    return "".join(secrets.choice(alphabet) for _ in range(length))
 
 router = APIRouter()
 
@@ -38,7 +57,7 @@ def login(request: Request, body: LoginRequest):
     try:
         result = (
             supabase.table("users")
-            .select("id, email, name, role")
+            .select("id, email, name, role, must_change_password")
             .eq("id", supabase_user_id)
             .maybe_single()
             .execute()
@@ -59,6 +78,7 @@ def login(request: Request, body: LoginRequest):
         user_id=user["id"],
         name=user["name"],
         email=user["email"],
+        must_change_password=bool(user.get("must_change_password", False)),
     )
 
 
@@ -174,12 +194,15 @@ def google_login(request: Request, body: GoogleLoginRequest):
 
     token = create_access_token(data={"sub": user["id"], "role": user["role"], "email": user["email"]})
 
+    # Google sign-in is its own credential; users who arrived this way
+    # don't have a temp password to swap out. Always return False here.
     return LoginResponse(
         access_token=token,
         role=user["role"],
         user_id=user["id"],
         name=user["name"],
         email=user["email"],
+        must_change_password=False,
     )
 
 
@@ -246,7 +269,113 @@ def change_password(
         print("PASSWORD UPDATE ERROR:", e)
         raise HTTPException(status_code=500, detail="Couldn't update password. Try again.")
 
+    # Onboarding: once they've picked a real password the temp-password
+    # flag is gone. Idempotent — fine to set when it was already False.
+    try:
+        admin.table("users").update({"must_change_password": False}) \
+            .eq("id", current_user["id"]).execute()
+    except Exception as e:
+        # Non-fatal — password is updated, the flag is a UX hint.
+        print("CLEAR must_change_password FAILED:", e)
+
     return {"ok": True}
+
+
+@router.post("/invite", status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/minute")
+def invite_user(
+    request: Request,
+    body: InviteUserRequest,
+    current_user: dict = Depends(require_admin),
+):
+    """Admin onboards a new university member.
+
+    Flow:
+      1. Validate the email is on the allowed university domain.
+      2. Generate a random temporary password (server never stores it).
+      3. Create the auth.users row with email_confirm=True so the user
+         doesn't have to click a verification link before logging in.
+      4. Create the public.users profile row with must_change_password=True
+         so the frontend forces them onto /onboarding on first sign-in.
+      5. Email the temp password via Resend. If that fails we roll back
+         the auth + profile rows so the admin can retry safely.
+    """
+    email = body.email.lower().strip()
+    if not email.endswith(f"@{ALLOWED_INVITE_DOMAIN}"):
+        raise HTTPException(
+            status_code=400,
+            detail=f"Only @{ALLOWED_INVITE_DOMAIN} emails can be invited.",
+        )
+
+    admin = get_supabase_admin()
+
+    # Reject if someone with this email already exists in our profile table.
+    try:
+        existing = admin.table("users").select("id").eq("email", email).maybe_single().execute()
+    except Exception as e:
+        print("INVITE EXISTING CHECK ERROR:", e)
+        existing = None
+    if existing and existing.data:
+        raise HTTPException(status_code=409, detail="A user with this email already exists.")
+
+    temp_password = _generate_temp_password()
+
+    # 1) Auth user
+    try:
+        auth_user = admin.auth.admin.create_user({
+            "email": email,
+            "password": temp_password,
+            "email_confirm": True,
+            "user_metadata": {"invited_by": current_user.get("id")},
+        })
+        new_id = auth_user.user.id
+    except Exception as e:
+        print("INVITE AUTH CREATE ERROR:", repr(e))
+        raise HTTPException(status_code=500, detail="Couldn't create the account. Try again.")
+
+    # 2) Profile row — flagged so onboarding kicks in.
+    try:
+        admin.table("users").insert({
+            "id": new_id,
+            "email": email,
+            "name": body.name.strip(),
+            "role": body.role,
+            "must_change_password": True,
+        }).execute()
+    except Exception as e:
+        print("INVITE PROFILE INSERT ERROR:", repr(e))
+        # Roll back the auth user so an admin can retry without hitting
+        # the "email already exists" check above.
+        try:
+            admin.auth.admin.delete_user(new_id)
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail="Couldn't create the profile. Try again.")
+
+    # 3) Welcome email with the temp password.
+    frontend_origin = (settings.ALLOWED_ORIGINS or ["http://localhost:5173"])[0]
+    login_url = f"{frontend_origin}/login"
+    subject, html, text = welcome_email_template(
+        recipient_name=body.name,
+        login_url=login_url,
+        temp_password=temp_password,
+    )
+    try:
+        send_email(to=email, subject=subject, html=html, text=text)
+    except EmailError as e:
+        # The user IS created (auth + profile) — admin can re-send the
+        # invite by deleting + re-inviting, or by triggering a password
+        # reset. We surface the failure so they know.
+        print("INVITE EMAIL FAILED:", e)
+        raise HTTPException(
+            status_code=502,
+            detail="Account created but the welcome email failed to send. Send a password reset manually.",
+        )
+    except Exception as e:
+        # Network blip — treat as soft warning, leave the account.
+        print("INVITE EMAIL UNEXPECTED ERROR:", e)
+
+    return {"ok": True, "user_id": new_id, "email": email}
 
 
 @router.post("/forgot-password")

@@ -18,6 +18,9 @@ class LoginResponse(BaseModel):
     user_id: str
     name: str
     email: str
+    # True when the user is signed in with a system-issued temporary password
+    # and the frontend must force them through /onboarding to set a real one.
+    must_change_password: bool = False
 
 
 class UserPublic(BaseModel):
@@ -34,6 +37,7 @@ class UserPublic(BaseModel):
     bio: Optional[str] = None
     skills: Optional[list] = []
     courses: Optional[list] = []
+    must_change_password: bool = False
 
 
 class UserUpdate(BaseModel):
@@ -70,3 +74,15 @@ class ForgotPasswordRequest(BaseModel):
     matching user exists. Always succeeds (no email enumeration).
     """
     email: EmailStr
+
+
+class InviteUserRequest(BaseModel):
+    """Admin onboards a new university member.
+
+    The server generates a temporary password, creates the auth + profile
+    rows, emails the temp password to the user, and flags the account
+    `must_change_password=True` so first login forces a real password.
+    """
+    email: EmailStr
+    name: str = Field(..., min_length=1, max_length=100)
+    role: str = Field(default="student", pattern="^(student|admin)$")

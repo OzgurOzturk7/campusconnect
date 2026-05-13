@@ -20,6 +20,7 @@ const Workspace = lazy(() => import("./pages/Workspace").then((m) => ({ default:
 const Chat = lazy(() => import("./pages/Chat").then((m) => ({ default: m.Chat })));
 const Notifications = lazy(() => import("./pages/Notifications").then((m) => ({ default: m.Notifications })));
 const Settings = lazy(() => import("./pages/Settings").then((m) => ({ default: m.Settings })));
+const Onboarding = lazy(() => import("./pages/Onboarding").then((m) => ({ default: m.Onboarding })));
 
 function PageLoader() {
   return (
@@ -52,6 +53,10 @@ export const router = createBrowserRouter([
     path: "/",
     element: <ProtectedRoute />,
     children: [
+      // /onboarding is authenticated but renders OUTSIDE the Layout
+      // (no sidebar/navbar) — the user shouldn't be exploring the app
+      // before they've set a permanent password.
+      { path: "onboarding", element: lazyEl(Onboarding) },
       {
         element: <Layout />,
         children: [

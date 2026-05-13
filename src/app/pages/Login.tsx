@@ -389,6 +389,10 @@ export function Login() {
   // Always persist session (Remember me removed — sessions persist across reloads)
   const remember = true;
   const [showEmailForm, setShowEmailForm] = useState(!GOOGLE_CLIENT_ID);
+  // When Google sign-in resolves to "invited" the backend emailed a temp
+  // password and refused to issue a session. We park the email here and
+  // render an inbox-check view instead of bouncing to /.
+  const [invitedView, setInvitedView] = useState<{ email: string; emailFailed: boolean } | null>(null);
   const rememberRef = useRef(false);
   useEffect(() => { rememberRef.current = remember; }, [remember]);
 
@@ -423,8 +427,13 @@ export function Login() {
         if (payload.email && !payload.email.endsWith(`@${ALLOWED_EMAIL_DOMAIN}`)) {
           throw new Error(`Only @${ALLOWED_EMAIL_DOMAIN} accounts are allowed.`);
         }
-        await loginWithGoogle(response.credential, rememberRef.current);
-        navigate("/", { replace: true });
+        const result = await loginWithGoogle(response.credential, rememberRef.current);
+        if (result.kind === "invited") {
+          // Backend emailed a temp password; show the check-inbox screen.
+          setInvitedView({ email: result.email, emailFailed: result.emailFailed });
+        } else {
+          navigate("/", { replace: true });
+        }
       } catch (err: unknown) {
         setError(err instanceof Error ? err.message : "Google sign-in failed.");
       } finally { setIsLoading(false); }
@@ -536,6 +545,18 @@ export function Login() {
         </div>
 
         <TiltCard>
+          {invitedView ? (
+            <InvitedView
+              email={invitedView.email}
+              emailFailed={invitedView.emailFailed}
+              onBackToLogin={() => {
+                setInvitedView(null);
+                setShowEmailForm(true);
+                setEmail(invitedView.email);
+              }}
+            />
+          ) : (
+          <>
           <h2
             className="text-4xl font-extrabold mb-1 tracking-tight"
             style={{
@@ -681,6 +702,8 @@ export function Login() {
               Contact your university admin.
             </span>
           </p>
+          </>
+          )}
         </TiltCard>
 
         {ripples.layer}
@@ -737,6 +760,85 @@ export function Login() {
           filter: drop-shadow(0 25px 60px rgba(124,58,237,0.5)) brightness(1.05);
         }
       `}</style>
+    </div>
+  );
+}
+
+// =============================================================================
+// Invited view — shown after Google sign-in if the backend onboarded the
+// user (created the auth+profile, emailed a temp password, refused to issue
+// a session). The user can either go check their inbox, or fall through to
+// the email/password form when their temp password is in hand.
+// =============================================================================
+function InvitedView({
+  email,
+  emailFailed,
+  onBackToLogin,
+}: {
+  email: string;
+  emailFailed: boolean;
+  onBackToLogin: () => void;
+}) {
+  return (
+    <div className="cc-pop-in">
+      <div
+        className="w-14 h-14 mx-auto rounded-full flex items-center justify-center mb-4"
+        style={{ background: "rgba(124,58,237,0.12)", color: "#7c3aed" }}
+      >
+        <Mail className="w-7 h-7" />
+      </div>
+      <h2
+        className="text-2xl font-extrabold mb-2 tracking-tight text-center"
+        style={{
+          backgroundImage: "linear-gradient(135deg, #7c3aed 0%, #8b5cf6 50%, #a78bfa 100%)",
+          WebkitBackgroundClip: "text",
+          WebkitTextFillColor: "transparent",
+          backgroundClip: "text",
+        }}
+      >
+        Check your inbox
+      </h2>
+      <p className="text-sm text-center mb-3" style={{ color: "#6d28d9" }}>
+        We've sent a temporary password to{" "}
+        <span className="font-semibold break-all">{email}</span>.
+      </p>
+      <p className="text-xs text-center mb-6" style={{ color: "#a78bfa" }}>
+        Use it to sign in once, then pick a permanent password — that's it.
+        After that you can sign in with email + password, or just hit
+        "Continue with Google" again.
+      </p>
+
+      {emailFailed && (
+        <div
+          className="flex items-start gap-2 rounded-xl px-4 py-3 mb-5 text-xs border"
+          style={{ background: "#fef3c7", borderColor: "#fcd34d", color: "#92400e" }}
+        >
+          <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+          <span>
+            We hit a snag while sending the email. The account is ready —
+            ask the admin to check the server log for your temporary password,
+            or use "Forgot password?" to set one yourself.
+          </span>
+        </div>
+      )}
+
+      <button
+        type="button"
+        onClick={onBackToLogin}
+        className="w-full py-3 rounded-2xl text-sm font-bold text-white transition-all hover:-translate-y-0.5 hover:shadow-xl"
+        style={{
+          background: "linear-gradient(135deg, #7c3aed 0%, #8b5cf6 50%, #a78bfa 100%)",
+          fontFamily: "'Outfit', sans-serif",
+          boxShadow: "0 12px 30px -10px rgba(124,58,237,0.55)",
+        }}
+      >
+        I have my password — sign in
+      </button>
+
+      <p className="text-center text-xs mt-6" style={{ color: "#a78bfa" }}>
+        Didn't get it? Check your spam folder. The link is valid until you
+        sign in once.
+      </p>
     </div>
   );
 }

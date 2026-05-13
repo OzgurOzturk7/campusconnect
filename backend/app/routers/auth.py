@@ -79,13 +79,26 @@ def login(request: Request, body: LoginRequest):
     )
 
 
-@router.post("/google", response_model=LoginResponse)
+@router.post("/google")
 @limiter.limit("10/minute")
 def google_login(request: Request, body: GoogleLoginRequest):
-    """
-    Verify a Google ID token (credential) from Google Identity Services.
-    Only @final.edu.tr accounts are allowed.
-    The user must already exist in the `users` table — this endpoint does not create accounts.
+    """Google ID token sign-in with two outcomes.
+
+    Returns a discriminated dict:
+      { "status": "session", "session": LoginResponse } — user exists, log them in
+      { "status": "invited", "email": ..., "email_failed": bool }
+        — first time we've seen this Google account. We:
+          1. Create the auth.users + public.users rows
+          2. Set must_change_password=True so /onboarding traps them on
+             first sign-in
+          3. Email them a temporary password (Resend)
+          4. DO NOT issue a JWT — frontend shows a 'check your email' view
+        Why not just log them in via Google? Because the product wants
+        every account to have a real email+password as the primary
+        credential. That way the user can sign in from any device, even
+        ones without their Google session.
+
+    Only @final.edu.tr accounts pass the Google domain gate.
     """
     google_client_id = settings.GOOGLE_CLIENT_ID or os.getenv("GOOGLE_CLIENT_ID", "")
     if not google_client_id:
@@ -117,7 +130,7 @@ def google_login(request: Request, body: GoogleLoginRequest):
     if not email or not email_verified:
         raise HTTPException(status_code=401, detail="Email not verified by Google")
 
-    # Domain restriction — both `hd` claim and email suffix
+    # Domain restriction — both `hd` claim and email suffix.
     if hd != ALLOWED_GOOGLE_DOMAIN and not email.endswith(f"@{ALLOWED_GOOGLE_DOMAIN}"):
         raise HTTPException(
             status_code=403,
@@ -129,11 +142,11 @@ def google_login(request: Request, body: GoogleLoginRequest):
 
     supabase = get_supabase_admin()
 
-    # 1) Check if user already exists in public.users
+    # ---- Existing user? Just log them in. ----
     try:
         result = (
             supabase.table("users")
-            .select("id, email, name, role")
+            .select("id, email, name, role, must_change_password")
             .eq("email", email)
             .maybe_single()
             .execute()
@@ -144,63 +157,101 @@ def google_login(request: Request, body: GoogleLoginRequest):
 
     user = result.data if result and result.data else None
 
-    # 2) Auto-provision on first sign-in
-    if not user:
-        try:
-            # Create Supabase Auth user (foreign key target for public.users.id)
-            auth_user = supabase.auth.admin.create_user({
-                "email": email,
-                "email_confirm": True,
-                "user_metadata": {
-                    "name": name,
-                    "avatar_url": avatar_url,
-                    "provider": "google",
-                },
-            })
-            new_id = auth_user.user.id
-        except Exception as e:
-            # If user already exists in auth but not in public.users, try to fetch it
-            print("AUTH CREATE ERROR:", repr(e))
-            try:
-                listed = supabase.auth.admin.list_users()
-                match = next((u for u in (listed or []) if (getattr(u, "email", "") or "").lower() == email), None)
-                if not match:
-                    raise HTTPException(status_code=500, detail=f"Could not provision account: {e}")
-                new_id = match.id
-            except HTTPException:
-                raise
-            except Exception as e2:
-                raise HTTPException(status_code=500, detail=f"Could not provision account: {e2}")
+    if user:
+        # Returning user — issue a session. If they still owe us a real
+        # password (admin invite they never completed, or a previous
+        # Google-triggered invite they ignored), ProtectedRoute will trap
+        # them on /onboarding and force the swap.
+        token = create_access_token(data={
+            "sub": user["id"], "role": user["role"], "email": user["email"],
+        })
+        login = LoginResponse(
+            access_token=token,
+            role=user["role"],
+            user_id=user["id"],
+            name=user["name"],
+            email=user["email"],
+            must_change_password=bool(user.get("must_change_password", False)),
+        )
+        return {"status": "session", "session": login.model_dump()}
 
-        # Insert profile row
-        try:
-            insert_payload = {
-                "id": new_id,
-                "email": email,
+    # ---- First time — provision + email a temp password, no session. ----
+    temp_password = _generate_temp_password()
+    try:
+        auth_user = supabase.auth.admin.create_user({
+            "email": email,
+            "password": temp_password,
+            "email_confirm": True,
+            "user_metadata": {
                 "name": name,
-                "role": "student",
-            }
-            if avatar_url:
-                insert_payload["avatar_url"] = avatar_url
+                "avatar_url": avatar_url,
+                "provider": "google",
+            },
+        })
+        new_id = auth_user.user.id
+    except Exception as e:
+        # If the auth row already exists (orphaned from a half-failed
+        # earlier attempt) recover by reading it back instead of giving up.
+        print("GOOGLE INVITE AUTH CREATE ERROR:", repr(e))
+        try:
+            listed = supabase.auth.admin.list_users()
+            match = next((u for u in (listed or []) if (getattr(u, "email", "") or "").lower() == email), None)
+            if not match:
+                raise HTTPException(status_code=500, detail=f"Could not provision account: {e}")
+            new_id = match.id
+            # Reset the password to one we know, since we don't have the original.
+            supabase.auth.admin.update_user_by_id(new_id, {"password": temp_password})
+        except HTTPException:
+            raise
+        except Exception as e2:
+            raise HTTPException(status_code=500, detail=f"Could not provision account: {e2}")
 
-            inserted = supabase.table("users").insert(insert_payload).execute()
-            user = inserted.data[0] if inserted.data else insert_payload
-        except Exception as e:
-            print("PROFILE INSERT ERROR:", repr(e))
-            raise HTTPException(status_code=500, detail=f"Could not create profile: {e}")
+    try:
+        insert_payload = {
+            "id": new_id,
+            "email": email,
+            "name": name,
+            "role": "student",
+            "must_change_password": True,
+        }
+        if avatar_url:
+            insert_payload["avatar_url"] = avatar_url
+        supabase.table("users").insert(insert_payload).execute()
+    except Exception as e:
+        print("GOOGLE INVITE PROFILE INSERT ERROR:", repr(e))
+        try:
+            supabase.auth.admin.delete_user(new_id)
+        except Exception:
+            pass
+        raise HTTPException(status_code=500, detail=f"Could not create profile: {e}")
 
-    token = create_access_token(data={"sub": user["id"], "role": user["role"], "email": user["email"]})
-
-    # Google sign-in is its own credential; users who arrived this way
-    # don't have a temp password to swap out. Always return False here.
-    return LoginResponse(
-        access_token=token,
-        role=user["role"],
-        user_id=user["id"],
-        name=user["name"],
-        email=user["email"],
-        must_change_password=False,
+    # Welcome email with the temp password. Failure is non-fatal here —
+    # the account exists; in DEBUG we print the password to the server log
+    # so the operator can still finish the test flow.
+    frontend_origin = (settings.ALLOWED_ORIGINS or ["http://localhost:5173"])[0]
+    subject, html, text = welcome_email_template(
+        recipient_name=name,
+        login_url=f"{frontend_origin}/login",
+        temp_password=temp_password,
     )
+    email_failed = False
+    try:
+        send_email(to=email, subject=subject, html=html, text=text)
+    except EmailError as e:
+        email_failed = True
+        print("GOOGLE INVITE EMAIL FAILED:", e)
+    except Exception as e:
+        email_failed = True
+        print("GOOGLE INVITE EMAIL UNEXPECTED ERROR:", e)
+    if email_failed and settings.DEBUG:
+        print(
+            f"\n*** DEV ONLY *** GOOGLE-INVITE temp password for {email}: {temp_password}"
+            "\n*** REMOVE DEBUG=true BEFORE PRODUCTION ***\n",
+            flush=True,
+        )
+
+    # No JWT. Frontend renders the 'check your inbox' view.
+    return {"status": "invited", "email": email, "email_failed": email_failed}
 
 
 @router.get("/me", response_model=UserPublic)

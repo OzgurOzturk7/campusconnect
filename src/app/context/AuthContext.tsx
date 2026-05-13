@@ -11,11 +11,24 @@ interface User {
   must_change_password?: boolean;
 }
 
+/**
+ * Two possible outcomes when the user hits "Continue with Google":
+ *   - "session"   → existing user, a JWT was issued and persisted, navigate to /
+ *   - "invited"   → first time we've seen this Google account. Backend
+ *                    created the auth+profile rows, emailed a temp password,
+ *                    and refused to issue a session. UI should show a
+ *                    "check your inbox" screen and let the user sign in
+ *                    via email+password afterwards.
+ */
+export type GoogleLoginResult =
+  | { kind: "session" }
+  | { kind: "invited"; email: string; emailFailed: boolean };
+
 interface AuthContextType {
   user: User | null;
   isLoading: boolean;
   login: (email: string, password: string, remember: boolean) => Promise<void>;
-  loginWithGoogle: (credential: string, remember: boolean) => Promise<void>;
+  loginWithGoogle: (credential: string, remember: boolean) => Promise<GoogleLoginResult>;
   logout: () => void;
   /** Clear the must_change_password flag after the onboarding password
    *  change succeeds — keeps the local cache in sync with the DB. */
@@ -114,7 +127,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(userData);
   };
 
-  const loginWithGoogle = async (credential: string, remember: boolean) => {
+  const loginWithGoogle = async (
+    credential: string,
+    remember: boolean
+  ): Promise<GoogleLoginResult> => {
     const response = await fetch(`${API_BASE}/api/auth/google`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -125,7 +141,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       throw new Error(error.detail || "Google sign-in failed");
     }
     const data = await response.json();
-    persistSession(data, remember);
+    if (data?.status === "invited") {
+      // No JWT issued; just hand the outcome up to the caller.
+      return { kind: "invited", email: data.email, emailFailed: !!data.email_failed };
+    }
+    // Backend wraps the session payload inside `session` on the new contract;
+    // older deployments still return the LoginResponse at the top level, so
+    // fall back to `data` itself if `session` is missing.
+    persistSession(data.session ?? data, remember);
+    return { kind: "session" };
   };
 
   const logout = () => {

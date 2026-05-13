@@ -360,20 +360,33 @@ def invite_user(
         login_url=login_url,
         temp_password=temp_password,
     )
+    email_failed = False
     try:
         send_email(to=email, subject=subject, html=html, text=text)
     except EmailError as e:
-        # The user IS created (auth + profile) — admin can re-send the
-        # invite by deleting + re-inviting, or by triggering a password
-        # reset. We surface the failure so they know.
+        email_failed = True
         print("INVITE EMAIL FAILED:", e)
+    except Exception as e:
+        email_failed = True
+        print("INVITE EMAIL UNEXPECTED ERROR:", e)
+
+    if email_failed:
+        # In dev, print the temp password to the server log so the operator
+        # can finish testing the onboarding flow even when SMTP isn't wired
+        # up yet. Strictly gated on DEBUG so this never leaks in production.
+        if settings.DEBUG:
+            print(
+                f"\n*** DEV ONLY *** INVITE temp password for {email}: {temp_password}"
+                "\n*** REMOVE DEBUG=true BEFORE PRODUCTION ***\n",
+                flush=True,
+            )
+        # Surface to the admin so they know to act.
         raise HTTPException(
             status_code=502,
-            detail="Account created but the welcome email failed to send. Send a password reset manually.",
+            detail="Account created but the welcome email failed to send. "
+                   "Check the server log (DEBUG mode prints the temp password) "
+                   "or send a password reset manually.",
         )
-    except Exception as e:
-        # Network blip — treat as soft warning, leave the account.
-        print("INVITE EMAIL UNEXPECTED ERROR:", e)
 
     return {"ok": True, "user_id": new_id, "email": email}
 

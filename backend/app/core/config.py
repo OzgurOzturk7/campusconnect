@@ -30,10 +30,16 @@ class Settings(BaseSettings):
     EMAIL_FROM: str = "onboarding@resend.dev"
     EMAIL_FROM_NAME: str = "CampusConnect"
 
+    # Comma-separated list of email domains the admin can invite users on.
+    # Production should keep this locked to the university domain. Dev can
+    # add the operator's personal gmail/etc. so it can be tested against
+    # Resend's sandbox before a real domain is verified.
+    INVITE_ALLOWED_DOMAINS: List[str] = ["final.edu.tr"]
+
     @classmethod
     def parse_env_var(cls, field_name: str, raw_val: str):
-        """Parse ALLOWED_ORIGINS from a comma-separated string."""
-        if field_name == "ALLOWED_ORIGINS":
+        """Parse comma-separated list fields from env."""
+        if field_name in ("ALLOWED_ORIGINS", "INVITE_ALLOWED_DOMAINS"):
             return [s.strip() for s in raw_val.split(",") if s.strip()]
         return raw_val
 

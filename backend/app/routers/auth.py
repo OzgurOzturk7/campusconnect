@@ -17,9 +17,6 @@ import string
 from datetime import datetime, timedelta
 
 
-ALLOWED_INVITE_DOMAIN = "final.edu.tr"
-
-
 def _generate_temp_password(length: int = 14) -> str:
     """A reasonably memorable but unguessable temp password — letters + digits.
     Avoids ambiguous chars (0/O/1/l) to keep copy-from-email painless.
@@ -301,10 +298,13 @@ def invite_user(
          the auth + profile rows so the admin can retry safely.
     """
     email = body.email.lower().strip()
-    if not email.endswith(f"@{ALLOWED_INVITE_DOMAIN}"):
+    allowed = [d.lower().lstrip("@") for d in (settings.INVITE_ALLOWED_DOMAINS or ["final.edu.tr"])]
+    if not any(email.endswith(f"@{d}") for d in allowed):
+        # Build a friendly message: "@final.edu.tr" or "@final.edu.tr or @gmail.com"
+        rendered = " or ".join(f"@{d}" for d in allowed)
         raise HTTPException(
             status_code=400,
-            detail=f"Only @{ALLOWED_INVITE_DOMAIN} emails can be invited.",
+            detail=f"Only {rendered} emails can be invited.",
         )
 
     admin = get_supabase_admin()

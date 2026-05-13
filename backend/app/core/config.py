@@ -1,19 +1,6 @@
 from pydantic import field_validator
-from pydantic_settings import BaseSettings
-from typing import List, Any
-
-
-def _csv_to_list(value: Any) -> Any:
-    """Accept comma-separated env values for List[str] fields.
-
-    pydantic-settings v2 tries to JSON-parse complex types by default,
-    which made ALLOWED_ORIGINS=http://a,http://b crash on startup. We
-    intercept the raw string and split it ourselves; anything else
-    (already a list) passes through.
-    """
-    if isinstance(value, str):
-        return [s.strip() for s in value.split(",") if s.strip()]
-    return value
+from pydantic_settings import BaseSettings, NoDecode
+from typing import Annotated, Any, List
 
 
 class Settings(BaseSettings):
@@ -33,7 +20,12 @@ class Settings(BaseSettings):
 
     # CORS — comma-separated list in env, e.g.
     #   ALLOWED_ORIGINS=http://localhost:5173,https://campusconnect.example.com
-    ALLOWED_ORIGINS: List[str] = [
+    #
+    # NoDecode keeps pydantic-settings from running its default JSON decoder
+    # on the raw env value. Without it, "http://a,http://b" would crash at
+    # source-load time because it's not valid JSON. The field_validator below
+    # then splits the CSV ourselves.
+    ALLOWED_ORIGINS: Annotated[List[str], NoDecode] = [
         "http://localhost:5173",
         "http://localhost:5174",
         "http://localhost:3000",
@@ -52,13 +44,15 @@ class Settings(BaseSettings):
     # Production should keep this locked to the university domain. Dev can
     # add the operator's personal gmail/etc. so it can be tested against
     # Resend's sandbox before a real domain is verified.
-    INVITE_ALLOWED_DOMAINS: List[str] = ["final.edu.tr"]
+    INVITE_ALLOWED_DOMAINS: Annotated[List[str], NoDecode] = ["final.edu.tr"]
 
-    # Both fields above ship as List[str]; pydantic-settings v2 would
-    # otherwise try to JSON-decode their env values. The validator runs
-    # *before* type coercion and turns plain CSV into a list.
-    _split_origins = field_validator("ALLOWED_ORIGINS", mode="before")(_csv_to_list)
-    _split_domains = field_validator("INVITE_ALLOWED_DOMAINS", mode="before")(_csv_to_list)
+    @field_validator("ALLOWED_ORIGINS", "INVITE_ALLOWED_DOMAINS", mode="before")
+    @classmethod
+    def _split_csv(cls, value: Any) -> Any:
+        """Treat env values for these list fields as comma-separated."""
+        if isinstance(value, str):
+            return [s.strip() for s in value.split(",") if s.strip()]
+        return value
 
     class Config:
         env_file = ".env"

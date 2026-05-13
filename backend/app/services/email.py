@@ -1,32 +1,30 @@
 """
-Transactional email service.
+Transactional email service — provider-agnostic.
 
-Backed by Resend (https://resend.com) over plain HTTP — no extra SDK
-dependency, just httpx (already in requirements). Resend was picked for
-three reasons over SendGrid/Postmark:
+Resolution order (first matching transport wins):
 
-  * Cleanest DX for small teams (single API key, no SMTP fiddling).
-  * Native Supabase integration: setting the same Resend SMTP in
-    Supabase Dashboard → Auth → SMTP makes Supabase's built-in emails
-    (reset password, magic link) flow through the same sender domain.
-  * Generous free tier (3000 emails/mo, 100/day) covers an entire dev
-    cycle without a credit card.
+  1. SMTP_HOST set        → send via stdlib smtplib (Gmail, Workspace,
+                            Outlook, any provider with a working SMTP).
+  2. RESEND_API_KEY set   → send via Resend's REST API.
+  3. Neither set          → "dev mode": log the message body, return success.
 
-If RESEND_API_KEY is empty the service degrades gracefully: it logs the
-email it *would* have sent and returns success. That keeps local dev
-unblocked when you don't have a real key, and prevents the app from
-crashing in environments where email isn't configured yet.
+Why both? Resend is the cleanest production setup *once you have a
+verified domain*. Until then its sandbox sender only delivers to the
+account owner's address, which blocks real onboarding testing. Gmail
+SMTP (with a Google App Password) sidesteps that — sender is your own
+mailbox, deliverability works for any recipient. When the domain is
+verified later, drop the SMTP_* env values and Resend takes over with
+zero code change.
 
-Environment variables (see app/core/config.py):
-  RESEND_API_KEY       — from the Resend dashboard. Empty = dev mode.
-  EMAIL_FROM           — verified sender. Defaults to onboarding@resend.dev
-                         (Resend's sandbox sender; only delivers to the
-                         account owner's address).
-  EMAIL_FROM_NAME      — display name; e.g. "CampusConnect".
+`send_email()` is the only public surface. Templates live in
+email_templates.py.
 """
 from __future__ import annotations
 
 import logging
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 from typing import Optional
 
 import httpx
@@ -39,15 +37,18 @@ RESEND_API_URL = "https://api.resend.com/emails"
 
 
 class EmailError(Exception):
-    """Raised for non-transient email send failures (4xx from Resend)."""
+    """Raised for non-transient email send failures (4xx from the provider)."""
 
 
 def _from_header() -> str:
     name = (settings.EMAIL_FROM_NAME or "").strip()
-    addr = (settings.EMAIL_FROM or "onboarding@resend.dev").strip()
+    addr = (settings.EMAIL_FROM or "").strip()
     return f"{name} <{addr}>" if name else addr
 
 
+# ---------------------------------------------------------------------------
+# Public entry point
+# ---------------------------------------------------------------------------
 def send_email(
     to: str | list[str],
     subject: str,
@@ -56,25 +57,106 @@ def send_email(
     *,
     reply_to: Optional[str] = None,
 ) -> dict:
-    """Send an email via Resend.
+    """Send an email through whichever transport is configured.
 
-    Returns the Resend response body on success. Raises EmailError on a
-    4xx response (bad request, invalid key). 5xx errors are re-raised as
-    the underlying httpx exception so the caller can retry.
-
-    In dev mode (no API key) returns a fake response and logs the email.
+    Returns a small dict describing the transport for debugging. Raises
+    EmailError on non-transient failures; network blips re-raise the
+    underlying httpx/smtplib exception so the caller can retry.
     """
     recipients = [to] if isinstance(to, str) else list(to)
     if not recipients:
         raise EmailError("send_email called with no recipients")
 
-    if not settings.RESEND_API_KEY:
-        logger.info(
-            "[email/dev] To=%s | Subject=%s | (RESEND_API_KEY not set — not actually sent)",
-            recipients, subject,
-        )
-        return {"id": "dev-no-key", "dev_mode": True}
+    if settings.SMTP_HOST:
+        return _send_via_smtp(recipients, subject, html, text, reply_to)
+    if settings.RESEND_API_KEY:
+        return _send_via_resend(recipients, subject, html, text, reply_to)
 
+    logger.info(
+        "[email/dev] To=%s | Subject=%s | (no SMTP_HOST or RESEND_API_KEY — not actually sent)",
+        recipients, subject,
+    )
+    return {"id": "dev-no-transport", "transport": "dev", "dev_mode": True}
+
+
+# ---------------------------------------------------------------------------
+# SMTP transport (Option A — recommended for dev / pre-domain)
+# ---------------------------------------------------------------------------
+def _send_via_smtp(
+    recipients: list[str],
+    subject: str,
+    html: str,
+    text: Optional[str],
+    reply_to: Optional[str],
+) -> dict:
+    """Standard SMTP send. Supports STARTTLS (587) and implicit TLS (465).
+
+    Auth: SMTP_USER + SMTP_PASSWORD. For Gmail / Google Workspace this is
+    the email address + a 16-char App Password (regular passwords are
+    rejected by Google for SMTP).
+    """
+    sender_addr = (settings.EMAIL_FROM or settings.SMTP_USER or "").strip()
+    if not sender_addr:
+        raise EmailError("EMAIL_FROM (or SMTP_USER) must be set for SMTP")
+
+    msg = MIMEMultipart("alternative")
+    msg["Subject"] = subject
+    msg["From"] = _from_header() or sender_addr
+    msg["To"] = ", ".join(recipients)
+    if reply_to:
+        msg["Reply-To"] = reply_to
+
+    # Text part first, then HTML — RFC 2046 says the most faithful
+    # representation goes last so mail clients prefer the HTML.
+    if text:
+        msg.attach(MIMEText(text, "plain", "utf-8"))
+    msg.attach(MIMEText(html, "html", "utf-8"))
+
+    host = settings.SMTP_HOST
+    port = int(settings.SMTP_PORT or 587)
+    user = settings.SMTP_USER
+    password = settings.SMTP_PASSWORD
+
+    try:
+        if port == 465:
+            with smtplib.SMTP_SSL(host, port, timeout=15) as server:
+                if user and password:
+                    server.login(user, password)
+                server.sendmail(sender_addr, recipients, msg.as_string())
+        else:
+            with smtplib.SMTP(host, port, timeout=15) as server:
+                server.ehlo()
+                server.starttls()
+                server.ehlo()
+                if user and password:
+                    server.login(user, password)
+                server.sendmail(sender_addr, recipients, msg.as_string())
+    except smtplib.SMTPAuthenticationError as e:
+        logger.error("SMTP auth failed for %s: %s", user, e)
+        raise EmailError(
+            f"SMTP authentication failed. Check SMTP_USER and SMTP_PASSWORD "
+            f"(Gmail/Workspace need an App Password, not the regular one)."
+        ) from e
+    except smtplib.SMTPRecipientsRefused as e:
+        logger.error("SMTP refused recipients %s: %s", recipients, e)
+        raise EmailError(f"All recipients refused by the SMTP server: {e}") from e
+    except smtplib.SMTPException as e:
+        logger.exception("SMTP send failed")
+        raise EmailError(f"SMTP error: {e}") from e
+
+    return {"id": "smtp", "transport": "smtp"}
+
+
+# ---------------------------------------------------------------------------
+# Resend transport (Option B — production once a domain is verified)
+# ---------------------------------------------------------------------------
+def _send_via_resend(
+    recipients: list[str],
+    subject: str,
+    html: str,
+    text: Optional[str],
+    reply_to: Optional[str],
+) -> dict:
     payload: dict = {
         "from": _from_header(),
         "to": recipients,
@@ -99,13 +181,11 @@ def send_email(
         raise
 
     if res.status_code >= 500:
-        # Let the caller decide whether to retry.
         res.raise_for_status()
     if res.status_code >= 400:
-        # 4xx is a non-transient client error — bad From, missing recipient,
-        # invalid key. Surface the detail in a readable way and stop.
         body = res.text
         logger.error("Resend rejected the request: %s — %s", res.status_code, body)
         raise EmailError(f"Resend {res.status_code}: {body[:300]}")
 
-    return res.json()
+    data = res.json()
+    return {"id": data.get("id", "resend"), "transport": "resend"}

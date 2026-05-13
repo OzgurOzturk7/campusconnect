@@ -44,11 +44,20 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
 
-    # Transactional email (Resend). See app/services/email.py.
-    # Leave RESEND_API_KEY empty in dev to log emails instead of sending.
-    RESEND_API_KEY: str = ""
+    # Transactional email. See app/services/email.py for the resolution
+    # rules between SMTP and Resend.
     EMAIL_FROM: str = "onboarding@resend.dev"
     EMAIL_FROM_NAME: str = "CampusConnect"
+
+    # Option A — generic SMTP (Gmail, Workspace, Outlook, etc.). When
+    # SMTP_HOST is set the email service uses SMTP and ignores Resend.
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_PASSWORD: str = ""
+
+    # Option B — Resend. Used when SMTP_HOST is empty and this is set.
+    RESEND_API_KEY: str = ""
 
     # ---- CSV env fields ----
     # CORS — comma-separated origins, e.g.

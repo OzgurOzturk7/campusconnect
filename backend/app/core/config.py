@@ -1,5 +1,19 @@
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
-from typing import List
+from typing import List, Any
+
+
+def _csv_to_list(value: Any) -> Any:
+    """Accept comma-separated env values for List[str] fields.
+
+    pydantic-settings v2 tries to JSON-parse complex types by default,
+    which made ALLOWED_ORIGINS=http://a,http://b crash on startup. We
+    intercept the raw string and split it ourselves; anything else
+    (already a list) passes through.
+    """
+    if isinstance(value, str):
+        return [s.strip() for s in value.split(",") if s.strip()]
+    return value
 
 
 class Settings(BaseSettings):
@@ -19,7 +33,11 @@ class Settings(BaseSettings):
 
     # CORS — comma-separated list in env, e.g.
     #   ALLOWED_ORIGINS=http://localhost:5173,https://campusconnect.example.com
-    ALLOWED_ORIGINS: List[str] = ["http://localhost:5173", "http://localhost:5174", "http://localhost:3000"]
+    ALLOWED_ORIGINS: List[str] = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:3000",
+    ]
 
     # Google OAuth
     GOOGLE_CLIENT_ID: str = ""
@@ -36,12 +54,11 @@ class Settings(BaseSettings):
     # Resend's sandbox before a real domain is verified.
     INVITE_ALLOWED_DOMAINS: List[str] = ["final.edu.tr"]
 
-    @classmethod
-    def parse_env_var(cls, field_name: str, raw_val: str):
-        """Parse comma-separated list fields from env."""
-        if field_name in ("ALLOWED_ORIGINS", "INVITE_ALLOWED_DOMAINS"):
-            return [s.strip() for s in raw_val.split(",") if s.strip()]
-        return raw_val
+    # Both fields above ship as List[str]; pydantic-settings v2 would
+    # otherwise try to JSON-decode their env values. The validator runs
+    # *before* type coercion and turns plain CSV into a list.
+    _split_origins = field_validator("ALLOWED_ORIGINS", mode="before")(_csv_to_list)
+    _split_domains = field_validator("INVITE_ALLOWED_DOMAINS", mode="before")(_csv_to_list)
 
     class Config:
         env_file = ".env"

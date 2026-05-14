@@ -472,7 +472,7 @@ export function Projects() {
                 className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
               />
               <p className="text-xs text-muted-foreground mt-1.5">
-                Please provide a reason — this helps the applicant understand and improve.
+                Please provide a reason. This helps the applicant understand and improve.
               </p>
             </div>
             <div className="flex gap-3">
@@ -1104,7 +1104,7 @@ export function Projects() {
                     ) : duration ? (
                       <p className="text-xs text-muted-foreground -mt-2">
                         <Clock className="w-3.5 h-3.5 inline mr-1" />
-                        Duration: <span className="font-medium text-foreground">{duration}</span> (auto-calculated)
+                        Duration: <span className="font-medium text-foreground">{duration}</span>
                       </p>
                     ) : null}
                   </>

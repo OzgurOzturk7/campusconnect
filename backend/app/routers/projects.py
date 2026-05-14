@@ -9,6 +9,7 @@ from app.core.security import get_current_user
 from datetime import date, datetime, timezone
 import logging
 import os
+import re
 import time
 import uuid
 
@@ -302,7 +303,15 @@ async def upload_cv(file: UploadFile = File(...), current_user: dict = Depends(g
             detail=f"File too large. Maximum size is {MAX_CV_BYTES // (1024*1024)} MB.",
         )
 
-    safe_name = (file.filename or "cv").replace("/", "_").replace("\\", "_").strip()[:200] or "cv"
+    # Supabase Storage object keys must match a restricted character set —
+    # non-ASCII characters like em-dash (—) in "Brief 12 — Parking Lot.pdf"
+    # cause the upload to fail with an opaque 500. We keep the original
+    # filename available for the response (display) but write to storage
+    # under a strictly ASCII path: [A-Za-z0-9._-], everything else → '_'.
+    raw_name = (file.filename or "cv").strip()
+    display_name = raw_name[:200] or "cv"
+    base = raw_name.replace("/", "_").replace("\\", "_")
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", base).strip("._-")[:120] or "cv"
     object_path = f"{current_user['id']}/{uuid.uuid4().hex}_{safe_name}"
 
     bucket = supabase.storage.from_(CV_BUCKET)
@@ -342,7 +351,7 @@ async def upload_cv(file: UploadFile = File(...), current_user: dict = Depends(g
         "upload_cv: ok user=%s bucket=%s path=%s size=%d type=%s",
         current_user.get("id"), CV_BUCKET, object_path, len(contents), content_type,
     )
-    return {"url": url, "name": safe_name}
+    return {"url": url, "name": display_name}
 
 
 @router.get("/suggested")

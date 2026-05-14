@@ -80,7 +80,7 @@ class ProjectPostResponse(BaseModel):
 
 class ApplicationCreate(BaseModel):
     role: str = Field(..., min_length=1, max_length=100)
-    motivation: str = Field(..., min_length=10, max_length=2000)
+    motivation: str = Field(..., min_length=1, max_length=2000)
     cv_url: Optional[str] = Field(None, max_length=1000)
     links: Optional[List[ProjectLink]] = Field(default_factory=list, max_length=10)
 

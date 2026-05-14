@@ -268,9 +268,24 @@ def update_profile(body: UserUpdate, current_user: dict = Depends(get_current_us
     update_data = {k: v for k, v in body.model_dump().items() if v is not None}
     if not update_data:
         raise HTTPException(status_code=400, detail="No fields to update")
-    result = supabase.table("users").update(update_data).eq("id", current_user["id"]).execute()
+    try:
+        result = (
+            supabase.table("users")
+            .update(update_data)
+            .eq("id", current_user["id"])
+            .execute()
+        )
+    except Exception as e:
+        # Surface the real reason — column type mismatch, length overflow,
+        # RLS policy, etc. Without this the user just sees a bare 500.
+        print("UPDATE PROFILE ERROR:", repr(e), "data=", update_data)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Couldn't save profile: {type(e).__name__}",
+        )
     if not result.data:
-        raise HTTPException(status_code=500, detail="Update failed")
+        # No row matched (id changed mid-flight? or RLS hid the row).
+        raise HTTPException(status_code=500, detail="Update returned no row")
     return result.data[0]
 
 

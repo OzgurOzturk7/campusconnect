@@ -4,7 +4,7 @@ import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
 import { Avatar } from "../components/Avatar";
 import {
-  Github, Linkedin, Mail, MapPin, GraduationCap,
+  Github, Linkedin, Mail, GraduationCap,
   Edit, X, Loader2, Check, Sparkles, BookOpen,
   AlertCircle, RefreshCw, Users, LogOut
 } from "lucide-react";
@@ -18,7 +18,6 @@ interface UserProfile {
   name: string;
   email: string;
   role: string;
-  university?: string;
   department?: string;
   year?: number;
   avatar_url?: string;
@@ -67,7 +66,6 @@ export function Profile() {
 
   const [editForm, setEditForm] = useState({
     name: "",
-    university: "",
     department: "",
     year: "",
     github_url: "",
@@ -130,7 +128,6 @@ export function Profile() {
       setProfile(data);
       setEditForm({
         name: data.name || "",
-        university: data.university || "",
         department: data.department || "",
         year: data.year?.toString() || "",
         github_url: data.github_url || "",
@@ -153,7 +150,6 @@ export function Profile() {
         method: "PUT",
         body: JSON.stringify({
           name: editForm.name || undefined,
-          university: editForm.university || undefined,
           department: editForm.department || undefined,
           year: editForm.year ? parseInt(editForm.year) : undefined,
           github_url: editForm.github_url || undefined,
@@ -212,7 +208,10 @@ export function Profile() {
       {/* ── Header card ── */}
       <Card className="p-8">
         <div className="flex items-start gap-6">
-          <Avatar name={profile.name} size="xl" src={profile.avatar_url} />
+          {/* Always render initials on the profile page — keeps the brand
+              identity consistent and avoids broken-image flashes when a
+              Google avatar URL goes stale. */}
+          <Avatar name={profile.name} size="xl" />
           <div className="flex-1">
             <div className="flex items-start justify-between">
               <div>
@@ -225,12 +224,6 @@ export function Profile() {
                         {profile.department}
                         {profile.year ? `, Semester ${profile.year}` : ""}
                       </span>
-                    </div>
-                  )}
-                  {profile.university && (
-                    <div className="flex items-center gap-1">
-                      <MapPin className="w-4 h-4" />
-                      <span>{profile.university}</span>
                     </div>
                   )}
                 </div>
@@ -551,15 +544,6 @@ export function Profile() {
                 <input
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
-                  className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1.5">University</label>
-                <input
-                  value={editForm.university}
-                  onChange={(e) => setEditForm({ ...editForm, university: e.target.value })}
-                  placeholder="e.g. Final International University"
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>

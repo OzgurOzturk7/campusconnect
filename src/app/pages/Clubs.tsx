@@ -35,11 +35,19 @@ interface ClubRequest {
   club_name: string;
   category: string;
   description: string;
+  motivation?: string | null;
+  is_open?: boolean;
   status: string;
+  review_note?: string | null;
   created_at: string;
 }
 
-const CATEGORIES = ["All", "Technical", "Social", "Sports", "Arts", "Research", "Business"];
+// Single source of truth for club categories.
+// `CATEGORIES` includes the "All" pseudo-option used by the filter.
+// `CLUB_CATEGORIES` is the actual list used in forms (no "All").
+// Keep "Others" last — it's the catch-all.
+const CATEGORIES = ["All", "Technical", "Social", "Sports", "Arts", "Research", "Business", "Others"];
+const CLUB_CATEGORIES = ["Technical", "Social", "Sports", "Arts", "Research", "Business", "Others"];
 const MEMBERSHIP_FILTERS = ["All", "Joined", "Not Joined", "Pending"];
 
 const CATEGORY_GRADIENTS: Record<string, string> = {
@@ -49,6 +57,7 @@ const CATEGORY_GRADIENTS: Record<string, string> = {
   Arts: "from-pink-400 to-purple-500",
   Research: "from-cyan-500 to-blue-500",
   Business: "from-yellow-400 to-orange-500",
+  Others: "from-slate-400 to-slate-600",
   default: "from-primary to-secondary",
 };
 
@@ -59,6 +68,7 @@ const CATEGORY_COLORS: Record<string, string> = {
   Arts: "#ec4899",
   Research: "#06b6d4",
   Business: "#eab308",
+  Others: "#64748b",
   default: "#6366f1",
 };
 
@@ -99,7 +109,18 @@ export function Clubs() {
   const [reviewingId, setReviewingId] = useState<string | null>(null);
 
   const [createForm, setCreateForm] = useState({ name: "", description: "", category: "Technical", is_open: true });
-  const [requestForm, setRequestForm] = useState({ club_name: "", category: "Technical", description: "" });
+  const [requestForm, setRequestForm] = useState({
+    club_name: "",
+    category: "Technical",
+    description: "",
+    motivation: "",
+    is_open: true,
+  });
+  // Modal state for admin-side rejection: holds the request being rejected
+  // plus the reason text. Reason is required server-side; we enforce on
+  // the client too so the admin gets immediate feedback.
+  const [rejectModal, setRejectModal] = useState<{ requestId: string; clubName: string } | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
 
   const [joiningId, setJoiningId] = useState<string | null>(null);
   const [joinFeedback, setJoinFeedback] = useState<{ id: string; msg: string; ok: boolean } | null>(null);
@@ -201,9 +222,24 @@ export function Clubs() {
   async function handleRequest() {
     try {
       setIsRequesting(true);
-      await apiFetch("/api/clubs/request", { method: "POST", body: JSON.stringify(requestForm) });
+      await apiFetch("/api/clubs/request", {
+        method: "POST",
+        body: JSON.stringify({
+          club_name: requestForm.club_name,
+          category: requestForm.category,
+          description: requestForm.description,
+          motivation: requestForm.motivation || undefined,
+          is_open: requestForm.is_open,
+        }),
+      });
       setShowRequestModal(false);
-      setRequestForm({ club_name: "", category: "Technical", description: "" });
+      setRequestForm({
+        club_name: "",
+        category: "Technical",
+        description: "",
+        motivation: "",
+        is_open: true,
+      });
       showToast("Club request submitted! Admin will review it soon.");
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : "Failed to submit request", false);
@@ -226,19 +262,28 @@ export function Clubs() {
     }
   }
 
-  async function handleReviewRequest(requestId: string, status: "approved" | "rejected") {
+  async function handleReviewRequest(
+    requestId: string,
+    status: "approved" | "rejected",
+    note?: string,
+  ) {
     try {
       setReviewingId(requestId);
       await apiFetch(`/api/clubs/review-request/${requestId}`, {
         method: "PATCH",
         body: JSON.stringify({
           status,
-          review_note: status === "rejected" ? "Request does not meet club creation criteria." : null,
+          review_note: status === "rejected" ? (note || "").trim() : null,
         }),
       });
       showToast(status === "approved" ? "Club approved and created!" : "Request rejected.");
       fetchClubRequests();
       if (status === "approved") fetchClubs();
+      // Close the reject modal if it was open for this request.
+      if (status === "rejected") {
+        setRejectModal(null);
+        setRejectReason("");
+      }
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : "Failed to review request", false);
     } finally {
@@ -387,11 +432,24 @@ export function Clubs() {
               <Card key={req.id} className="p-6">
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-bold text-base">{req.club_name}</h3>
                       <Tag variant="muted" className="text-xs">{req.category}</Tag>
+                      <Tag variant="muted" className="text-xs">
+                        {req.is_open === false ? "Members-only" : "Open"}
+                      </Tag>
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">{req.description}</p>
+                    {req.motivation && (
+                      <div className="mb-2 rounded-md bg-muted/60 px-3 py-2">
+                        <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">
+                          Motivation
+                        </div>
+                        <p className="text-sm text-foreground/90 whitespace-pre-wrap">
+                          {req.motivation}
+                        </p>
+                      </div>
+                    )}
                     <p className="text-xs text-muted-foreground">
                       Submitted {new Date(req.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
                     </p>
@@ -410,7 +468,7 @@ export function Clubs() {
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={() => handleReviewRequest(req.id, "rejected")}
+                      onClick={() => { setRejectModal({ requestId: req.id, clubName: req.club_name }); setRejectReason(""); }}
                       disabled={reviewingId === req.id}
                       className="text-destructive border-destructive hover:bg-destructive/10"
                     >
@@ -807,8 +865,49 @@ export function Clubs() {
               <div>
                 <label className="block text-sm font-medium mb-1.5">Description</label>
                 <textarea value={requestForm.description} onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })}
-                  placeholder="Why should this club be created? What will it do?" rows={4}
+                  placeholder="What will this club do? Who is it for?" rows={3}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">
+                  Motivation <span className="text-muted-foreground font-normal">(optional)</span>
+                </label>
+                <textarea
+                  value={requestForm.motivation}
+                  onChange={(e) => setRequestForm({ ...requestForm, motivation: e.target.value })}
+                  placeholder="Why should this club exist? What problem does it solve?"
+                  rows={3}
+                  className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-2">Membership type</label>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setRequestForm({ ...requestForm, is_open: true })}
+                    className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
+                      requestForm.is_open
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    <div className="font-semibold mb-0.5">Open</div>
+                    <div className="text-xs opacity-80">Anyone can join instantly</div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRequestForm({ ...requestForm, is_open: false })}
+                    className={`px-3 py-2.5 rounded-lg border text-sm font-medium transition-colors ${
+                      !requestForm.is_open
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border hover:bg-muted"
+                    }`}
+                  >
+                    <div className="font-semibold mb-0.5">Members-only</div>
+                    <div className="text-xs opacity-80">Approval required to join</div>
+                  </button>
+                </div>
               </div>
             </div>
             <div className="flex gap-3 mt-6">
@@ -816,6 +915,42 @@ export function Clubs() {
                 {isRequesting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Request"}
               </Button>
               <Button variant="outline" onClick={() => setShowRequestModal(false)}>Cancel</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Admin: Reject Club Request Modal — reason required, matches the
+          project-application rejection UX. */}
+      {rejectModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-xl border border-border p-6 w-full max-w-md">
+            <div className="flex items-center justify-between mb-2">
+              <h2 className="text-xl font-bold">Reject Club Request</h2>
+              <button onClick={() => { setRejectModal(null); setRejectReason(""); }} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Rejecting <span className="font-semibold text-foreground">"{rejectModal.clubName}"</span>. Please tell the requester why so they can adjust and try again.
+            </p>
+            <textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="e.g. We already have a similar club, please consider joining it instead..."
+              rows={4}
+              autoFocus
+              className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none mb-4"
+            />
+            <div className="flex gap-3">
+              <Button
+                variant="danger"
+                onClick={() => handleReviewRequest(rejectModal.requestId, "rejected", rejectReason.trim())}
+                disabled={!rejectReason.trim() || reviewingId === rejectModal.requestId}
+              >
+                {reviewingId === rejectModal.requestId ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reject"}
+              </Button>
+              <Button variant="outline" onClick={() => { setRejectModal(null); setRejectReason(""); }}>Cancel</Button>
             </div>
           </div>
         </div>

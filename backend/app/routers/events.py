@@ -168,6 +168,36 @@ def delete_event(event_id: str, current_user: dict = Depends(get_current_user)):
     supabase.table("events").delete().eq("id", event_id).execute()
 
 
+def _is_event_manager(supabase, event_row: dict, current_user: dict) -> bool:
+    """True if the user can see/manage attendees for this event.
+
+    Eligible: platform admin, event creator, or president of the linked
+    club. Other club members (regular, vice president if we add one) are
+    explicitly NOT included — only the elected president gets the list.
+    """
+    if current_user.get("role") == "admin":
+        return True
+    if event_row.get("created_by") == current_user["id"]:
+        return True
+    club_id = event_row.get("club_id")
+    if not club_id:
+        return False
+    try:
+        mem = (
+            supabase.table("club_memberships")
+            .select("role, status")
+            .eq("club_id", club_id)
+            .eq("user_id", current_user["id"])
+            .maybe_single()
+            .execute()
+        )
+        if mem and mem.data and mem.data.get("role") == "president" and mem.data.get("status") == "approved":
+            return True
+    except Exception:
+        pass
+    return False
+
+
 @router.post("/{event_id}/attend", status_code=status.HTTP_201_CREATED)
 def attend_event(event_id: str, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
@@ -178,6 +208,25 @@ def attend_event(event_id: str, current_user: dict = Depends(get_current_user)):
     existing = supabase.table("event_attendees").select("id").eq("event_id", event_id).eq("user_id", current_user["id"]).execute()
     if existing.data:
         raise HTTPException(status_code=400, detail="Already attending")
+
+    # Capacity enforcement — capacity NULL means uncapped (legacy behaviour).
+    capacity = event.data.get("capacity")
+    if capacity is not None and isinstance(capacity, int) and capacity > 0:
+        try:
+            count_res = (
+                supabase.table("event_attendees")
+                .select("id", count="exact")
+                .eq("event_id", event_id)
+                .execute()
+            )
+            current = count_res.count or 0
+        except Exception:
+            current = 0
+        if current >= capacity:
+            raise HTTPException(
+                status_code=409,
+                detail="This event is full. Try another one or check back if a spot opens up.",
+            )
 
     result = supabase.table("event_attendees").insert({
         "event_id": event_id,
@@ -194,9 +243,117 @@ def cancel_attendance(event_id: str, current_user: dict = Depends(get_current_us
 
 @router.get("/{event_id}/attendees")
 def get_attendees(event_id: str, current_user: dict = Depends(get_current_user)):
+    """List attendees for an event with hydrated user info.
+
+    Restricted to platform admins, the event creator, and the linked
+    club's president. Other students can't enumerate the list — that's
+    personally identifiable info and only the people running the event
+    have a reason to see it.
+    """
     supabase = get_supabase_admin()
-    result = supabase.table("event_attendees").select("*").eq("event_id", event_id).execute()
-    return result.data
+    event = supabase.table("events").select("id, created_by, club_id, title").eq("id", event_id).single().execute()
+    if not event.data:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if not _is_event_manager(supabase, event.data, current_user):
+        raise HTTPException(status_code=403, detail="Only the event organiser can view the attendee list.")
+
+    rows = (
+        supabase.table("event_attendees")
+        .select("id, user_id, created_at")
+        .eq("event_id", event_id)
+        .order("created_at", desc=False)
+        .execute()
+    )
+    raw = rows.data or []
+    if not raw:
+        return []
+
+    user_ids = list({r["user_id"] for r in raw if r.get("user_id")})
+    users_map: dict = {}
+    try:
+        u_res = (
+            supabase.table("users")
+            .select("id, name, email, department, year, avatar_url")
+            .in_("id", user_ids)
+            .execute()
+        )
+        users_map = {u["id"]: u for u in (u_res.data or [])}
+    except Exception:
+        users_map = {}
+
+    return [
+        {
+            **r,
+            "user": users_map.get(r["user_id"]),
+        }
+        for r in raw
+    ]
+
+
+@router.get("/{event_id}/attendees/export")
+def export_attendees_csv(event_id: str, current_user: dict = Depends(get_current_user)):
+    """CSV download of the attendee list. Same authorisation as the JSON
+    listing — admin / event creator / club president only.
+
+    Columns: Name, Email, Department, Year, RSVP'd At.
+    """
+    import csv
+    import io
+    from datetime import datetime
+    from fastapi.responses import StreamingResponse
+
+    supabase = get_supabase_admin()
+    event = supabase.table("events").select("id, created_by, club_id, title").eq("id", event_id).single().execute()
+    if not event.data:
+        raise HTTPException(status_code=404, detail="Event not found")
+    if not _is_event_manager(supabase, event.data, current_user):
+        raise HTTPException(status_code=403, detail="Only the event organiser can export the attendee list.")
+
+    rows = (
+        supabase.table("event_attendees")
+        .select("user_id, created_at")
+        .eq("event_id", event_id)
+        .order("created_at", desc=False)
+        .execute()
+    )
+    raw = rows.data or []
+
+    users_map: dict = {}
+    if raw:
+        try:
+            u_res = (
+                supabase.table("users")
+                .select("id, name, email, department, year")
+                .in_("id", [r["user_id"] for r in raw if r.get("user_id")])
+                .execute()
+            )
+            users_map = {u["id"]: u for u in (u_res.data or [])}
+        except Exception:
+            users_map = {}
+
+    buf = io.StringIO()
+    writer = csv.writer(buf)
+    writer.writerow(["Name", "Email", "Department", "Year", "RSVP'd At"])
+    for r in raw:
+        u = users_map.get(r["user_id"]) or {}
+        writer.writerow([
+            u.get("name") or "",
+            u.get("email") or "",
+            u.get("department") or "",
+            u.get("year") if u.get("year") is not None else "",
+            r.get("created_at") or "",
+        ])
+
+    safe_title = "".join(
+        c for c in (event.data.get("title") or "event") if c.isalnum() or c in (" ", "-", "_")
+    ).strip().replace(" ", "_") or "event"
+    filename = f"{safe_title}_attendees_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+
+    return StreamingResponse(
+        iter([buf.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/{event_id}/upload-cover")

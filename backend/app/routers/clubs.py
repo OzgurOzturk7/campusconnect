@@ -143,8 +143,13 @@ def request_club(request: Request, body: ClubRequestCreate, current_user: dict =
         )
 
     result = supabase.table("club_requests").insert({
-        "requester_id": current_user["id"], "club_name": body.club_name,
-        "category": body.category, "description": body.description, "status": "pending",
+        "requester_id": current_user["id"],
+        "club_name": body.club_name,
+        "category": body.category,
+        "description": body.description,
+        "motivation": body.motivation,
+        "is_open": body.is_open,
+        "status": "pending",
     }).execute()
     # Notify all platform admins
     notify_platform_admins(
@@ -163,6 +168,14 @@ def review_club_request(request_id: str, body: ClubRequestReview, current_user: 
         raise HTTPException(status_code=403, detail="Admin only")
     if body.status not in ("approved", "rejected"):
         raise HTTPException(status_code=400, detail="Status must be approved or rejected")
+    # Rejection without a reason is bad UX — the requester deserves to know
+    # why. Mirror the same rule we use on project application rejections.
+    if body.status == "rejected" and not (body.review_note and body.review_note.strip()):
+        raise HTTPException(
+            status_code=400,
+            detail="A rejection reason is required.",
+        )
+
     supabase = get_supabase_admin()
     req = supabase.table("club_requests").select("*").eq("id", request_id).single().execute()
     if not req.data:
@@ -171,9 +184,14 @@ def review_club_request(request_id: str, body: ClubRequestReview, current_user: 
         "status": body.status, "reviewed_by": current_user["id"], "review_note": body.review_note,
     }).eq("id", request_id).execute()
     if body.status == "approved":
+        # Carry the requester's is_open preference into the created club.
+        # Defaults to True for legacy rows that don't have the column set.
+        is_open = req.data.get("is_open")
+        if is_open is None:
+            is_open = True
         club_result = supabase.table("clubs").insert({
             "name": req.data["club_name"], "description": req.data["description"],
-            "category": req.data["category"], "is_open": True,
+            "category": req.data["category"], "is_open": is_open,
             "admin_user_id": req.data["requester_id"], "status": "active",
         }).execute()
         club = club_result.data[0]
@@ -186,9 +204,12 @@ def review_club_request(request_id: str, body: ClubRequestReview, current_user: 
             body=f"Your club '{req.data['club_name']}' has been approved! You are now the club president.",
             link=f"/clubs/{club['id']}")
     else:
+        notif_body = f"Your request to create '{req.data['club_name']}' was rejected."
+        if body.review_note:
+            notif_body += f" Reason: {body.review_note}"
         send_notification(user_id=req.data["requester_id"], type="club_request_result",
             title=f"Club request rejected: {req.data['club_name']}",
-            body=body.review_note or f"Your request to create '{req.data['club_name']}' was not approved.",
+            body=notif_body,
             link="/clubs")
     return {"status": body.status}
 

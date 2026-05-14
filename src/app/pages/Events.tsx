@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
+import { Avatar } from "../components/Avatar";
 import {
   Calendar, MapPin, Users, Clock, Search,
   Plus, X, Loader2, ChevronLeft, ChevronRight,
@@ -18,6 +19,7 @@ interface Event {
   created_by: string;
   event_date: string;
   location: string;
+  capacity?: number | null;
   is_school_wide: boolean;
   is_members_only?: boolean;
   cover_url?: string;
@@ -64,6 +66,11 @@ export function Events() {
   const [isDeletingId, setIsDeletingId] = useState<string | null>(null);
   const [attendingIds, setAttendingIds] = useState<Set<string>>(new Set());
   const [togglingAttendId, setTogglingAttendId] = useState<string | null>(null);
+
+  // Attendee list panel — opened from the "Attendees (N)" button on each
+  // event the current user organises. Holds the event id + title for the
+  // modal header; the modal does its own data fetch by id.
+  const [attendeesPanel, setAttendeesPanel] = useState<{ eventId: string; title: string } | null>(null);
 
   // Toast
   const [toast, setToast] = useState<{ msg: string; ok: boolean } | null>(null);
@@ -459,6 +466,16 @@ export function Events() {
                           <Check className="w-3 h-3" /> Attending
                         </span>
                       )}
+                      {(() => {
+                        const cap = event.capacity ?? null;
+                        const filled = cap !== null && cap > 0 && (event.attendee_count ?? 0) >= cap;
+                        if (!filled || isPast) return null;
+                        return (
+                          <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-red-500 text-white">
+                            Full
+                          </span>
+                        );
+                      })()}
                       {isPast && <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-black/40 text-white">Past</span>}
                     </div>
                     {/* Admin edit/delete overlay */}
@@ -499,32 +516,60 @@ export function Events() {
                         <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
                         <span className="truncate">{event.location}</span>
                       </div>
-                      {(event.attendee_count ?? 0) > 0 && (
+                      {((event.attendee_count ?? 0) > 0 || (event.capacity ?? 0) > 0) && (
                         <div className="flex items-center gap-1.5">
                           <Users className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>{event.attendee_count} attending</span>
+                          <span>
+                            {event.attendee_count ?? 0}
+                            {event.capacity ? ` / ${event.capacity}` : ""} attending
+                          </span>
                         </div>
                       )}
                     </div>
 
-                    {/* Mark as Attending — students only, upcoming events only */}
-                    {!isAdmin && !isPast && (
+                    {/* Mark as Attending — students only, upcoming events only.
+                        Capacity full → button is disabled but still shown so
+                        the user understands why they can't RSVP. */}
+                    {!isAdmin && !isPast && (() => {
+                      const cap = event.capacity ?? null;
+                      const isFull =
+                        !isAttending &&
+                        cap !== null &&
+                        cap > 0 &&
+                        (event.attendee_count ?? 0) >= cap;
+                      return (
+                        <button
+                          onClick={() => handleToggleAttend(event.id)}
+                          disabled={togglingAttendId === event.id || isFull}
+                          className={`mt-3 w-full py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
+                            isAttending
+                              ? "bg-green-50 text-green-700 border border-green-300 hover:bg-green-100"
+                              : isFull
+                              ? "bg-muted text-muted-foreground border border-border cursor-not-allowed"
+                              : "bg-muted text-foreground border border-border hover:bg-muted/80"
+                          }`}
+                        >
+                          {togglingAttendId === event.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : isAttending ? (
+                            <><Check className="w-4 h-4" /> Attending</>
+                          ) : isFull ? (
+                            <>Event full</>
+                          ) : (
+                            <>+ Mark as Attending</>
+                          )}
+                        </button>
+                      );
+                    })()}
+
+                    {/* Attendee list / export — visible only to the event
+                        organisers (admin, creator, club president). */}
+                    {canEditThis && (
                       <button
-                        onClick={() => handleToggleAttend(event.id)}
-                        disabled={togglingAttendId === event.id}
-                        className={`mt-3 w-full py-2 rounded-lg text-sm font-medium transition-all flex items-center justify-center gap-2 ${
-                          isAttending
-                            ? "bg-green-50 text-green-700 border border-green-300 hover:bg-green-100"
-                            : "bg-muted text-foreground border border-border hover:bg-muted/80"
-                        }`}
+                        onClick={() => setAttendeesPanel({ eventId: event.id, title: event.title })}
+                        className="mt-2 w-full py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted transition-colors flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
                       >
-                        {togglingAttendId === event.id ? (
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                        ) : isAttending ? (
-                          <><Check className="w-4 h-4" /> Attending</>
-                        ) : (
-                          <>+ Mark as Attending</>
-                        )}
+                        <Users className="w-3.5 h-3.5" /> Attendees ({event.attendee_count ?? 0})
                       </button>
                     )}
 
@@ -610,6 +655,170 @@ export function Events() {
           </div>
         </div>
       )}
+
+      {attendeesPanel && (
+        <AttendeesModal
+          eventId={attendeesPanel.eventId}
+          eventTitle={attendeesPanel.title}
+          onClose={() => setAttendeesPanel(null)}
+          onError={(msg) => showToast(msg, false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// =============================================================================
+// Attendees panel — fetched on open. Visible to admin / event creator /
+// club president (server enforces). Includes a Download CSV button that
+// hits the export endpoint with our auth header.
+// =============================================================================
+interface AttendeeRow {
+  id: string;
+  user_id: string;
+  created_at: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    department?: string;
+    year?: number;
+    avatar_url?: string;
+  } | null;
+}
+
+function AttendeesModal({
+  eventId,
+  eventTitle,
+  onClose,
+  onError,
+}: {
+  eventId: string;
+  eventTitle: string;
+  onClose: () => void;
+  onError: (msg: string) => void;
+}) {
+  const [rows, setRows] = useState<AttendeeRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [exporting, setExporting] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiFetch(`/api/events/${eventId}/attendees`);
+        if (!cancelled) setRows(data || []);
+      } catch (e: any) {
+        if (!cancelled) onError(e?.message || "Couldn't load attendees");
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [eventId]);
+
+  async function downloadCsv() {
+    try {
+      setExporting(true);
+      // We bypass apiFetch because we need the raw Blob to trigger a
+      // download. Same auth header pattern, no body parsing.
+      const token =
+        localStorage.getItem("campusconnect_token") ||
+        sessionStorage.getItem("campusconnect_token") ||
+        "";
+      const apiBase =
+        (import.meta as any).env?.VITE_API_URL || "http://localhost:8000";
+      const res = await fetch(`${apiBase}/api/events/${eventId}/attendees/export`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail || `Export failed (${res.status})`);
+      }
+      const blob = await res.blob();
+      // Browser-friendly filename hint, server sends Content-Disposition too.
+      const cd = res.headers.get("Content-Disposition") || "";
+      const match = cd.match(/filename="?([^"]+)"?/);
+      const filename = match?.[1] || `${eventTitle}-attendees.csv`;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (e: any) {
+      onError(e?.message || "Couldn't export CSV");
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-card rounded-2xl border border-border w-full max-w-2xl shadow-xl flex flex-col" style={{ maxHeight: "80vh" }}>
+        <div className="px-5 py-4 border-b border-border flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h3 className="font-bold truncate">{eventTitle}</h3>
+            <p className="text-xs text-muted-foreground">
+              {loading ? "Loading…" : `${rows.length} attending`}
+            </p>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <button
+              onClick={downloadCsv}
+              disabled={loading || exporting || rows.length === 0}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-md border border-border bg-card hover:bg-muted transition-colors disabled:opacity-50"
+              title={rows.length === 0 ? "No attendees yet" : "Download as CSV"}
+            >
+              {exporting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Download CSV"}
+            </button>
+            <button onClick={onClose} aria-label="Close" className="p-2 rounded-lg hover:bg-muted">
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        <div className="flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex justify-center py-12">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : rows.length === 0 ? (
+            <div className="px-5 py-12 text-center text-sm text-muted-foreground">
+              Nobody has marked attendance yet.
+            </div>
+          ) : (
+            <ul className="divide-y divide-border">
+              {rows.map((r) => {
+                const u = r.user;
+                return (
+                  <li key={r.id} className="px-5 py-3 flex items-start gap-3">
+                    <Avatar
+                      name={u?.name || "?"}
+                      src={u?.avatar_url}
+                      size="sm"
+                    />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm font-medium truncate">{u?.name || "Unknown"}</div>
+                      <div className="text-xs text-muted-foreground truncate">
+                        {u?.email}
+                        {u?.department && ` · ${u.department}`}
+                        {u?.year != null && ` · Year ${u.year}`}
+                      </div>
+                    </div>
+                    <div className="text-xs text-muted-foreground flex-shrink-0">
+                      {new Date(r.created_at).toLocaleDateString()}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -38,9 +38,22 @@ class ClubRequestCreate(BaseModel):
     club_name: str = Field(..., min_length=2, max_length=100)
     category: str = Field(..., min_length=1, max_length=50)
     description: str = Field(..., min_length=1, max_length=2000)
+    # Why the requester wants this club. Helps admins decide; shown
+    # alongside the request in the admin panel.
+    motivation: Optional[str] = Field(None, max_length=2000)
+    # Whether the resulting club is open to anyone (True) or membership-
+    # gated (False). Carried through to clubs.is_open on approval.
+    is_open: bool = True
 
 
 class ClubRequestReview(BaseModel):
+    """Admin verdict on a pending club request.
+
+    `review_note` is required when status='rejected' so the requester
+    gets actionable feedback in the notification. The router enforces
+    this — the field stays optional at the schema level so an accepted
+    request doesn't need a note.
+    """
     status: str = Field(..., max_length=20)
     review_note: Optional[str] = Field(None, max_length=1000)
 

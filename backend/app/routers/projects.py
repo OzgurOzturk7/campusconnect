@@ -604,10 +604,36 @@ def apply_to_project(project_id: str, body: ApplicationCreate, current_user: dic
     if project.data["owner_id"] == current_user["id"]:
         raise HTTPException(status_code=400, detail="Cannot apply to your own project")
 
-    existing = supabase.table("project_applications").select("id") \
+    # A user may have prior application rows for this project. Re-apply rules:
+    #   - pending        → block (their request is still under review)
+    #   - accepted       → only block if they're still in the workspace; if
+    #                      the owner has since removed them, treat the old
+    #                      row as stale and let them re-apply.
+    #   - rejected /     → allow re-apply; wipe the stale row so the unique
+    #     anything else    "one application per (project, applicant)" shape
+    #                      we want stays clean.
+    existing = supabase.table("project_applications").select("id, status") \
         .eq("project_id", project_id).eq("applicant_id", current_user["id"]).execute()
     if existing.data:
-        raise HTTPException(status_code=400, detail="Already applied to this project")
+        statuses = {row.get("status") for row in existing.data}
+        if "pending" in statuses:
+            raise HTTPException(status_code=400, detail="You already have a pending application for this project.")
+        if "accepted" in statuses:
+            ws = supabase.table("workspaces").select("id") \
+                .eq("project_id", project_id).maybe_single().execute()
+            is_member = False
+            if ws and ws.data:
+                mem = supabase.table("workspace_members").select("user_id") \
+                    .eq("workspace_id", ws.data["id"]) \
+                    .eq("user_id", current_user["id"]) \
+                    .maybe_single().execute()
+                is_member = bool(mem and mem.data)
+            if is_member:
+                raise HTTPException(status_code=400, detail="You are already a member of this project.")
+        # Either purely rejected, or accepted-but-removed. Clear all old rows
+        # so the insert below creates a fresh pending application.
+        supabase.table("project_applications").delete() \
+            .eq("project_id", project_id).eq("applicant_id", current_user["id"]).execute()
 
     result = supabase.table("project_applications").insert({
         "project_id": project_id,

@@ -780,7 +780,7 @@ export function Projects() {
             {/* Apply section — for non-owners */}
             {selectedProject.owner_id !== user?.user_id && (
               <div className="border-t border-border pt-4">
-                {myApplicationForProject ? (
+                {myApplicationForProject && myApplicationForProject.status !== "rejected" ? (
                   <div className="space-y-3">
                     <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${APP_STATUS_COLORS[myApplicationForProject.status]}`}>
                       <AlertCircle className="w-5 h-5 flex-shrink-0" />
@@ -789,10 +789,27 @@ export function Projects() {
                         <p className="text-xs opacity-80">
                           {myApplicationForProject.status === "pending" && "The project owner will review your application and notify you."}
                           {myApplicationForProject.status === "accepted" && "Congratulations! You've been accepted to the team."}
-                          {myApplicationForProject.status === "rejected" && "Your application was not accepted this time."}
                           {myApplicationForProject.role && ` · Role: ${myApplicationForProject.role}`}
                         </p>
                       </div>
+                    </div>
+                  </div>
+                ) : myApplicationForProject?.status === "rejected" && selectedProject.status === "open" ? (
+                  // Previously rejected — show the banner AND a fresh
+                  // Apply button so the user can try again with a new
+                  // pitch. Backend wipes the old row on re-apply.
+                  <div className="space-y-3">
+                    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${APP_STATUS_COLORS.rejected}`}>
+                      <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold">Previous application was not accepted</p>
+                        <p className="text-xs opacity-80">You can apply again with an updated pitch.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <Button onClick={() => setShowApplyModal(true)}>
+                        <Briefcase className="w-4 h-4" /> Apply Again
+                      </Button>
                     </div>
                   </div>
                 ) : selectedProject.status === "open" ? (

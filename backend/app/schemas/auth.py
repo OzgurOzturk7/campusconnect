@@ -44,7 +44,7 @@ class UserUpdate(BaseModel):
     name: Optional[str] = Field(None, max_length=100)
     university: Optional[str] = Field(None, max_length=200)
     department: Optional[str] = Field(None, max_length=200)
-    year: Optional[int] = Field(None, ge=1, le=10)
+    year: Optional[int] = Field(None, ge=1, le=12)
     github_url: Optional[str] = Field(None, max_length=500)
     linkedin_url: Optional[str] = Field(None, max_length=500)
     bio: Optional[str] = Field(None, max_length=2000)

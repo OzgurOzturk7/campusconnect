@@ -279,6 +279,19 @@ def update_profile(body: UserUpdate, current_user: dict = Depends(get_current_us
         # Surface the real reason — column type mismatch, length overflow,
         # RLS policy, etc. Without this the user just sees a bare 500.
         print("UPDATE PROFILE ERROR:", repr(e), "data=", update_data)
+        msg = str(e)
+        # Translate a couple of common Postgres failure codes into 400s
+        # with operator-friendly copy.
+        if "users_year_check" in msg or "23514" in msg:
+            raise HTTPException(
+                status_code=400,
+                detail="Year of study must be between 1 and 12.",
+            )
+        if "value too long" in msg or "22001" in msg:
+            raise HTTPException(
+                status_code=400,
+                detail="One of the fields is too long for the database.",
+            )
         raise HTTPException(
             status_code=500,
             detail=f"Couldn't save profile: {type(e).__name__}",

@@ -637,13 +637,13 @@ export function Login() {
                   <div className="flex-1 text-xs leading-relaxed">
                     {invitedView.emailFailed ? (
                       <>
-                        <span className="font-bold block mb-0.5">Hesabın oluşturuldu, ama mail gönderilemedi.</span>
-                        Yöneticinden geçici şifreni iste ya da "Şifremi unuttum" akışını kullan.
+                        <span className="font-bold block mb-0.5">Account created, but the email couldn't be sent.</span>
+                        Ask the admin for your temporary password or use "Forgot password?" to set one yourself.
                       </>
                     ) : (
                       <>
-                        <span className="font-bold block mb-0.5">Geçici şifren <span className="break-all">{invitedView.email}</span> adresine gönderildi.</span>
-                        Mail kutunu kontrol et (spam'a da bak), şifreyi aşağıya yapıştır ve giriş yap.
+                        <span className="font-bold block mb-0.5">A temporary password was sent to <span className="break-all">{invitedView.email}</span>.</span>
+                        Check your inbox (and spam folder), paste the password below, and sign in.
                       </>
                     )}
                   </div>

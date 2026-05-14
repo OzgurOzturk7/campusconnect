@@ -9,7 +9,10 @@ from app.core.security import create_access_token, get_current_user, require_adm
 from app.core.config import settings
 from app.core.ratelimit import limiter
 from app.services.email import send_email, EmailError
-from app.services.email_templates import welcome as welcome_email_template
+from app.services.email_templates import (
+    welcome as welcome_email_template,
+    password_reset_notice,
+)
 import os
 import json
 import secrets
@@ -445,27 +448,86 @@ def invite_user(
 @router.post("/forgot-password")
 @limiter.limit("3/minute")
 def forgot_password(request: Request, body: ForgotPasswordRequest):
-    """Trigger a password-reset email.
+    """Trigger a password-reset email via *our own* email pipeline.
 
-    Returns 200 regardless of whether the email matches a user — this
-    prevents email enumeration. Supabase Auth handles delivery via its
-    configured SMTP (default Supabase sender, or your Resend / SendGrid
-    integration when enabled in the dashboard).
+    Why not just `supabase.auth.reset_password_for_email()`? That uses
+    Supabase's built-in SMTP — which until you configure custom SMTP in
+    the Supabase dashboard means the email comes from
+    `noreply@mail.app.supabase.io` and is rate-limited 4/hour on free tier.
+    By generating the recovery link via the admin API and sending the
+    email ourselves we get:
+      - One sender across invite/welcome/reset (currently Gmail SMTP)
+      - One template/brand
+      - Whatever rate limit our SMTP allows (Gmail = ~500/day)
+
+    Returns 200 regardless of whether the email matches a user —
+    standard anti-enumeration practice.
     """
-    # Reset URL the user lands on after clicking the email link. Must
-    # match a route in the SPA — we expose /reset-password.
+    email = body.email.lower().strip()
     frontend = (settings.ALLOWED_ORIGINS or ["http://localhost:5173"])[0]
     redirect_to = f"{frontend}/reset-password"
 
-    supabase = get_supabase()
+    admin = get_supabase_admin()
+
+    # Look up the profile row first — silently skip if the email doesn't
+    # match a real user. We don't tell the caller either way.
     try:
-        supabase.auth.reset_password_for_email(
-            body.email, {"redirect_to": redirect_to}
+        result = (
+            admin.table("users")
+            .select("name, email")
+            .eq("email", email)
+            .maybe_single()
+            .execute()
         )
+        user_row = result.data if result and result.data else None
     except Exception as e:
-        # Log but don't surface — silent failure preserves the
-        # no-enumeration guarantee.
-        print("FORGOT PASSWORD ERROR:", e)
+        print("FORGOT PASSWORD LOOKUP ERROR:", e)
+        return {"ok": True}
+
+    if not user_row:
+        return {"ok": True}
+
+    # Ask Supabase for the recovery action_link *without* sending its own
+    # email. The link contains a one-time token that drops the user into a
+    # recovery session when they click; our /reset-password page picks it
+    # up via supabase-js's hash-fragment detector.
+    action_link: str | None = None
+    try:
+        link_res = admin.auth.admin.generate_link({
+            "type": "recovery",
+            "email": email,
+            "options": {"redirect_to": redirect_to},
+        })
+        # supabase-py varies the response shape across versions; check both.
+        action_link = (
+            getattr(link_res, "action_link", None)
+            or getattr(getattr(link_res, "properties", None), "action_link", None)
+        )
+        # Dict-shaped responses (older SDKs / raw HTTP fallback).
+        if not action_link and isinstance(link_res, dict):
+            action_link = (
+                link_res.get("action_link")
+                or (link_res.get("properties") or {}).get("action_link")
+            )
+    except Exception as e:
+        print("FORGOT PASSWORD GENERATE LINK ERROR:", e)
+        return {"ok": True}
+
+    if not action_link:
+        print("FORGOT PASSWORD: generate_link returned no action_link")
+        return {"ok": True}
+
+    # Send via our own pipeline (SMTP or Resend depending on env).
+    subject, html, text = password_reset_notice(
+        recipient_name=user_row.get("name") or "",
+        reset_url=action_link,
+    )
+    try:
+        send_email(to=email, subject=subject, html=html, text=text)
+    except EmailError as e:
+        print("FORGOT PASSWORD EMAIL FAILED:", e)
+    except Exception as e:
+        print("FORGOT PASSWORD EMAIL UNEXPECTED ERROR:", e)
 
     return {"ok": True}
 

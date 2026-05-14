@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate, useSearchParams } from "react-router";
 import {
@@ -9,6 +9,7 @@ import {
   Sun,
   Moon,
   Check,
+  CheckCircle2,
   Loader2,
   AlertCircle,
 } from "lucide-react";
@@ -150,6 +151,18 @@ function PasswordTab() {
   const [confirm, setConfirm] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [clientError, setClientError] = useState<string | null>(null);
+  // Persistent in-form success banner. The toast is fleeting (auto-dismisses
+  // bottom-right); for a destructive action like a password change we want
+  // a more anchored confirmation right where the user is looking.
+  const [showSuccess, setShowSuccess] = useState(false);
+  const successTimerRef = useRef<number | null>(null);
+
+  // Clear the timer if the tab unmounts mid-banner.
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) window.clearTimeout(successTimerRef.current);
+    };
+  }, []);
 
   function validate(): string | null {
     if (next.length < 8) return t("password.too_short");
@@ -161,6 +174,7 @@ function PasswordTab() {
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     setClientError(null);
+    setShowSuccess(false);
     const err = validate();
     if (err) {
       setClientError(err);
@@ -176,6 +190,9 @@ function PasswordTab() {
       setCurrent("");
       setNext("");
       setConfirm("");
+      setShowSuccess(true);
+      if (successTimerRef.current) window.clearTimeout(successTimerRef.current);
+      successTimerRef.current = window.setTimeout(() => setShowSuccess(false), 6000);
     } catch (e: unknown) {
       toastError(toUserError(e));
     } finally {
@@ -191,6 +208,22 @@ function PasswordTab() {
       </div>
 
       <form onSubmit={onSubmit} className="space-y-4 max-w-md">
+        {showSuccess && (
+          <div
+            role="status"
+            aria-live="polite"
+            className="flex items-start gap-2.5 rounded-lg px-3.5 py-3 text-sm border bg-green-50 border-green-200 text-green-800 dark:bg-green-500/10 dark:border-green-500/30 dark:text-green-300"
+          >
+            <CheckCircle2 className="w-4 h-4 flex-shrink-0 mt-0.5" />
+            <div className="flex-1">
+              <p className="font-semibold leading-snug">{t("password.updated")}</p>
+              <p className="text-xs opacity-80 mt-0.5">
+                Next time you sign in, use your new password.
+              </p>
+            </div>
+          </div>
+        )}
+
         <PasswordInput
           label={t("password.current_label")}
           value={current}

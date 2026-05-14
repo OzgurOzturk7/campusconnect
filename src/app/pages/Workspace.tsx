@@ -626,6 +626,17 @@ function ChatBridgeTab({
 
 // ── Tasks Tab ──────────────────────────────────────────────────
 
+// "YYYY-MM-DD" in the user's local timezone — used as the `min`
+// attribute on task due-date inputs so the native picker won't let
+// you pick a past day. Backend re-validates the same rule.
+function todayISO(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 const DEFAULT_FORM = {
   title: "",
   description: "",
@@ -907,6 +918,7 @@ function TasksTab({
                   <input
                     type="date"
                     value={form.due_date}
+                    min={todayISO()}
                     onChange={(e) => setForm({ ...form, due_date: e.target.value })}
                     className="w-full text-xs bg-muted px-2 py-1.5 rounded-lg border border-border focus:outline-none"
                   />
@@ -1110,6 +1122,7 @@ function TaskDetailModal({
             <input
               type="date"
               value={dueDate}
+              min={todayISO()}
               onChange={(e) => {
                 const val = e.target.value;
                 setDueDate(val);

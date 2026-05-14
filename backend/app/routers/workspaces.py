@@ -1,3 +1,5 @@
+from datetime import date
+import logging
 from fastapi import APIRouter, HTTPException, status, Depends
 from app.schemas.workspaces import (
     WorkspaceStageUpdate, TaskCreate, TaskUpdate,
@@ -6,6 +8,8 @@ from app.schemas.workspaces import (
 from app.schemas.notifications import send_notification
 from app.core.supabase import get_supabase_admin
 from app.core.security import get_current_user
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -231,6 +235,12 @@ def create_task(
     supabase = get_supabase_admin()
     _require_member(supabase, workspace_id, current_user["id"])
 
+    # Reject due dates in the past. The HTML date picker has a `min`
+    # attribute but it's only a UI hint — clients can still POST any
+    # value. Enforce server-side so a stray request can't bypass it.
+    if body.due_date is not None and body.due_date < date.today():
+        raise HTTPException(status_code=400, detail="Due date can't be in the past.")
+
     # Place at bottom of that column
     pos_res = (
         supabase.table("workspace_tasks")
@@ -285,8 +295,15 @@ def update_task(
         raise HTTPException(status_code=404, detail="Task not found")
 
     update_data = body.model_dump(exclude_unset=True)
-    if "due_date" in update_data and update_data["due_date"] is not None and hasattr(update_data["due_date"], "isoformat"):
-        update_data["due_date"] = update_data["due_date"].isoformat()
+    # Same past-date rule as in create_task, but only when the user is
+    # actually changing the due date (status-only updates, for example,
+    # shouldn't be blocked because an old task happens to be overdue).
+    if "due_date" in update_data and update_data["due_date"] is not None:
+        new_due = update_data["due_date"]
+        if hasattr(new_due, "isoformat"):
+            if new_due < date.today():
+                raise HTTPException(status_code=400, detail="Due date can't be in the past.")
+            update_data["due_date"] = new_due.isoformat()
 
     result = (
         supabase.table("workspace_tasks")
@@ -448,6 +465,42 @@ def remove_member(
         supabase, workspace_id, current_user["id"], "member_removed",
         metadata={"removed_user_id": user_id},
     )
+
+    # When a member is removed from the workspace, the corresponding
+    # `project_applications` row must go too — otherwise the user keeps
+    # seeing "Application Accepted" on the project card and cannot
+    # re-apply. Also drop them from the project group chat so any
+    # newly-created chat thread doesn't auto-include the ex-member.
+    #
+    # All of this is best-effort: failure here must not roll back the
+    # member removal that already succeeded. We just log and move on.
+    try:
+        ws_row = (
+            supabase.table("workspaces")
+            .select("project_id")
+            .eq("id", workspace_id)
+            .maybe_single()
+            .execute()
+        )
+        project_id = ws_row.data.get("project_id") if (ws_row and ws_row.data) else None
+        if project_id:
+            supabase.table("project_applications").delete() \
+                .eq("project_id", project_id).eq("applicant_id", user_id).execute()
+            chat_row = (
+                supabase.table("chats")
+                .select("id")
+                .eq("project_id", project_id)
+                .maybe_single()
+                .execute()
+            )
+            if chat_row and chat_row.data:
+                supabase.table("chat_members").delete() \
+                    .eq("chat_id", chat_row.data["id"]).eq("user_id", user_id).execute()
+    except Exception:
+        logger.exception(
+            "remove_member: cleanup of application/chat failed workspace=%s user=%s",
+            workspace_id, user_id,
+        )
 
 
 # ──────────────────────────────────────────────────────────────

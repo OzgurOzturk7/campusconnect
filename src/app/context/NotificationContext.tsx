@@ -78,13 +78,24 @@ export function NotificationProvider({ children }: { children: ReactNode }) {
     onChange: () => refresh(),
   });
 
-  // Realtime: chat badge. We can't pre-filter messages by membership at the
-  // subscription level (Supabase Realtime doesn't join), so we listen to all
-  // inserts and let the backend's mute-aware /unread-total compute the truth.
-  // For active users this is one extra REST call per incoming message — cheap.
+  // Chat unread badge: the old implementation subscribed to every INSERT
+  // on the public.messages table — that meant every signed-in client
+  // re-queried `/unread-total` for every chat message sent anywhere on
+  // the platform. With 100 users chatting the cost was quadratic.
+  //
+  // The refresh signals we keep are:
+  //   1. The 60s safety poll above (already in the useEffect).
+  //   2. The "chat-unread-updated" window event Chat.tsx dispatches
+  //      whenever the active chat changes its unread state (markRead,
+  //      send, etc.).
+  //   3. Realtime subscription on chat_members filtered by user_id —
+  //      catches admin add/remove and the soft-hide reset on a new
+  //      direct message (the send_message endpoint nulls hidden_at,
+  //      which writes to chat_members).
   useRealtimeChannel({
-    table: "messages",
-    event: "INSERT",
+    table: "chat_members",
+    event: "*",
+    filter: user ? `user_id=eq.${user.user_id}` : undefined,
     enabled: !!user,
     onChange: () => refresh(),
   });

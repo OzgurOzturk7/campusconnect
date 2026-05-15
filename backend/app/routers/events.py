@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
 from app.schemas.events import EventCreate, EventUpdate
 from app.schemas.notifications import send_notification
@@ -356,6 +357,13 @@ def export_attendees_csv(event_id: str, current_user: dict = Depends(get_current
     )
 
 
+# Same guard set as club covers — keep these in sync so a poster can't
+# bypass one limit by uploading through the other endpoint.
+MAX_EVENT_COVER_BYTES = 8 * 1024 * 1024
+ALLOWED_EVENT_COVER_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+_SAFE_EXT_PATTERN = re.compile(r"^[A-Za-z0-9]{1,8}$")
+
+
 @router.post("/{event_id}/upload-cover")
 async def upload_event_cover(event_id: str, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
@@ -365,8 +373,24 @@ async def upload_event_cover(event_id: str, file: UploadFile = File(...), curren
     if event.data["created_by"] != current_user["id"] and current_user["role"] != "admin":
         raise HTTPException(status_code=403, detail="Not authorized")
 
+    if (file.content_type or "").lower() not in ALLOWED_EVENT_COVER_MIMES:
+        raise HTTPException(status_code=415, detail="Cover must be a JPG, PNG, WebP or GIF image.")
     file_content = await file.read()
-    ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+    if not file_content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(file_content) > MAX_EVENT_COVER_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Cover image too large. Max {MAX_EVENT_COVER_BYTES // (1024 * 1024)} MB.",
+        )
+
+    # Validate the file extension before using it as part of a storage
+    # path. Without this, a filename like `cover.PHP` would land in
+    # storage as-is (Supabase ignores the extension, but our keys feed
+    # back into the public URL, and we'd rather not encode user-chosen
+    # tokens into URLs).
+    raw_ext = file.filename.rsplit(".", 1)[-1].lower() if "." in (file.filename or "") else "jpg"
+    ext = raw_ext if _SAFE_EXT_PATTERN.match(raw_ext) else "jpg"
     file_path = f"{event_id}/cover.{ext}"
 
     try:

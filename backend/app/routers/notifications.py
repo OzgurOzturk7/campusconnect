@@ -47,12 +47,24 @@ def mark_all_read(current_user: dict = Depends(get_current_user)):
 def delete_notification(notification_id: str, current_user: dict = Depends(get_current_user)):
     """Hard-delete a single notification belonging to the caller."""
     supabase = get_supabase_admin()
-    res = supabase.table("notifications").delete() \
-        .eq("id", notification_id).eq("user_id", current_user["id"]).execute()
-    # If nothing was deleted the row either doesn't exist or belongs to
-    # someone else — both are 404 from the caller's perspective.
-    if not res.data:
+    # supabase-py's delete() returns an empty data array when the table
+    # doesn't have REPLICA IDENTITY FULL, so we can't infer success from
+    # `res.data`. Instead, verify ownership with a select first; if the
+    # row doesn't exist or belongs to someone else, return 404. Then
+    # perform the delete unconditionally.
+    existing = (
+        supabase.table("notifications")
+        .select("id")
+        .eq("id", notification_id)
+        .eq("user_id", current_user["id"])
+        .maybe_single()
+        .execute()
+    )
+    if not existing or not existing.data:
         raise HTTPException(status_code=404, detail="Notification not found")
+
+    supabase.table("notifications").delete() \
+        .eq("id", notification_id).eq("user_id", current_user["id"]).execute()
 
 
 @router.post("/delete")
@@ -81,4 +93,7 @@ def unread_count(current_user: dict = Depends(get_current_user)):
         .eq("is_read", False)
         .execute()
     )
-    return {"count": result.count}
+    # PostgREST occasionally returns count=None when no rows match; the
+    # frontend treats null as "unknown" and skips updating the badge,
+    # so coerce to 0 here.
+    return {"count": result.count or 0}

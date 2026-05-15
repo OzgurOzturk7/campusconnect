@@ -41,8 +41,12 @@ class UserPublic(BaseModel):
 
 
 class UserUpdate(BaseModel):
+    # NOTE: `university` was removed from the users table — the project
+    # is scoped to a single university now (final.edu.tr) so the column
+    # doesn't exist. Posting it from a stale client used to 500 because
+    # the supabase update referenced a missing column; we now drop it
+    # silently via model_config = ignore.
     name: Optional[str] = Field(None, max_length=100)
-    university: Optional[str] = Field(None, max_length=200)
     department: Optional[str] = Field(None, max_length=200)
     year: Optional[int] = Field(None, ge=1, le=12)
     github_url: Optional[str] = Field(None, max_length=500)
@@ -50,6 +54,8 @@ class UserUpdate(BaseModel):
     bio: Optional[str] = Field(None, max_length=2000)
     skills: Optional[List[str]] = Field(None, max_length=50)
     courses: Optional[List[str]] = Field(None, max_length=50)
+
+    model_config = {"extra": "ignore"}
 
 
 class AIAnalysisResponse(BaseModel):

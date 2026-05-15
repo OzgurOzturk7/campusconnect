@@ -92,6 +92,26 @@ export async function apiFetch(path: string, options: RequestInit = {}) {
     const rawDetail =
       (body && typeof body === "object" && "detail" in body && body.detail) ||
       `Request failed (${response.status})`;
+    // A 401 means our token is no longer valid — typically expired or
+    // pointed at a deleted user. Wipe the stored credentials and bounce
+    // the user to /login so they're not stuck in a half-authenticated
+    // state where every subsequent request also 401s. We avoid
+    // bouncing on /login itself (an invalid password posts to a public
+    // endpoint, and an "Invalid token" error wouldn't apply there).
+    if (response.status === 401 && !path.startsWith("/api/auth/login")) {
+      try {
+        localStorage.removeItem("campusconnect_token");
+        localStorage.removeItem("campusconnect_user");
+        sessionStorage.removeItem("campusconnect_token");
+        sessionStorage.removeItem("campusconnect_user");
+      } catch {
+        // localStorage can throw in private mode / quota-full; ignore.
+      }
+      if (typeof window !== "undefined" && !window.location.pathname.startsWith("/login")) {
+        // Use replace so the broken page isn't kept in history.
+        window.location.replace("/login");
+      }
+    }
     throw new ApiError(response.status, formatDetail(rawDetail, response.status), body);
   }
 

@@ -368,11 +368,20 @@ def suggested_projects(current_user: dict = Depends(get_current_user)):
 
     applied = supabase.table("project_applications").select("project_id") \
         .eq("applicant_id", current_user["id"]).execute()
-    applied_ids = {a["project_id"] for a in (applied.data or [])}
+    applied_ids = [a["project_id"] for a in (applied.data or [])]
 
-    result = supabase.table("project_posts").select("*") \
-        .eq("status", "open").neq("owner_id", current_user["id"]).execute()
-    open_posts = [p for p in (result.data or []) if p["id"] not in applied_ids]
+    # Push the "exclude projects I've already applied to" filter down to
+    # the database instead of fetching every open post and filtering in
+    # Python. With many open projects, the old version transferred the
+    # full table on every request.
+    query = supabase.table("project_posts").select("*") \
+        .eq("status", "open").neq("owner_id", current_user["id"])
+    if applied_ids:
+        # PostgREST's `not.in.(...)` operator takes a comma-separated list
+        # wrapped in parens.
+        query = query.not_.in_("id", applied_ids)
+    result = query.execute()
+    open_posts = result.data or []
 
     if not open_posts:
         return []

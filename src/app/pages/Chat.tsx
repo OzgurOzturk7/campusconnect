@@ -344,6 +344,13 @@ export function Chat() {
     reactionsChannelRef.current = rxCh;
 
     // 3) Typing (broadcast)
+    //
+    // Each "typing" broadcast spawns a 3s timer that removes the user
+    // from the list. The previous version created a fresh timer on every
+    // event without clearing the old one, so a chat with 100 rapid
+    // typings would leak 100 timers all racing to remove the same user.
+    // We track the latest timer per user id and clear before scheduling.
+    const typingTimers = new Map<string, number>();
     const typingCh = supabase.channel(`typing-${chatId}`, { config: { broadcast: { self: false } } })
       .on("broadcast", { event: "typing" }, (msg: any) => {
         const { user_id, name } = msg.payload || {};
@@ -352,10 +359,13 @@ export function Chat() {
           const without = prev.filter((u) => u.id !== user_id);
           return [...without, { id: user_id, name }];
         });
-        // auto-remove after 3s
-        window.setTimeout(() => {
+        const prevTimer = typingTimers.get(user_id);
+        if (prevTimer) window.clearTimeout(prevTimer);
+        const t = window.setTimeout(() => {
           setTypingUsers((prev) => prev.filter((u) => u.id !== user_id));
+          typingTimers.delete(user_id);
         }, 3000);
+        typingTimers.set(user_id, t);
       })
       .subscribe();
     typingChannelRef.current = typingCh;
@@ -380,6 +390,10 @@ export function Chat() {
       supabase.removeChannel(rxCh);
       supabase.removeChannel(typingCh);
       supabase.removeChannel(membersCh);
+      // Cancel any pending typing-indicator timers so they don't fire
+      // after the channel is torn down.
+      typingTimers.forEach((t) => window.clearTimeout(t));
+      typingTimers.clear();
     };
   }
 

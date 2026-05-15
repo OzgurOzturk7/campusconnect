@@ -116,7 +116,7 @@ def list_my_chats(current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
 
     memberships = supabase.table("chat_members").select(
-        "chat_id, last_read_at, is_muted, role, hidden_at, pinned_at"
+        "chat_id, last_read_at, is_muted, role, hidden_at"
     ).eq("user_id", current_user["id"]).execute()
     # Filter out chats the user has hidden (per-user delete on direct chats)
     membership_rows = [m for m in (memberships.data or []) if not m.get("hidden_at")]
@@ -127,20 +127,6 @@ def list_my_chats(current_user: dict = Depends(get_current_user)):
     chats = supabase.table("chats").select("*").in_("id", chat_ids).order("updated_at", desc=True).execute()
     chat_rows = chats.data or []
     membership_map = {m["chat_id"]: m for m in membership_rows}
-
-    # Pinned chats float to the top, newest pin first. Within each
-    # group (pinned / unpinned) we preserve the updated_at desc order
-    # that PostgREST already applied.
-    chat_rows.sort(
-        key=lambda c: (
-            membership_map.get(c["id"], {}).get("pinned_at") or "",
-        ),
-        reverse=True,
-    )
-    chat_rows.sort(
-        key=lambda c: bool(membership_map.get(c["id"], {}).get("pinned_at")),
-        reverse=True,
-    )
 
     out = []
     for c in chat_rows:
@@ -176,7 +162,6 @@ def list_my_chats(current_user: dict = Depends(get_current_user)):
             "unread_count": unread,
             "is_muted": m.get("is_muted", False),
             "my_role": m.get("role", "member"),
-            "pinned_at": m.get("pinned_at"),
         })
 
     return out
@@ -368,21 +353,6 @@ def toggle_mute(chat_id: str, body: MuteUpdate, current_user: dict = Depends(get
     supabase.table("chat_members").update({"is_muted": body.is_muted}) \
         .eq("chat_id", chat_id).eq("user_id", current_user["id"]).execute()
     return {"ok": True, "is_muted": body.is_muted}
-
-
-@router.patch("/{chat_id}/pin")
-def toggle_pin(chat_id: str, current_user: dict = Depends(get_current_user)):
-    """Flip the pinned state for the current user. Per-user — only my
-    own chat list ordering changes. Body is empty; the server decides
-    whether this becomes a pin (set to NOW) or an unpin (set to NULL)
-    based on the existing value so the client doesn't have to track it.
-    """
-    supabase = get_supabase_admin()
-    row = _ensure_member(supabase, chat_id, current_user["id"])
-    new_value = None if row.get("pinned_at") else datetime.utcnow().isoformat()
-    supabase.table("chat_members").update({"pinned_at": new_value}) \
-        .eq("chat_id", chat_id).eq("user_id", current_user["id"]).execute()
-    return {"ok": True, "pinned_at": new_value}
 
 
 @router.patch("/{chat_id}/read")

@@ -59,7 +59,6 @@ interface ChatSummary {
   unread_count: number;
   is_muted: boolean;
   my_role: "admin" | "member";
-  pinned_at?: string | null;
 }
 
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
@@ -103,9 +102,7 @@ function chatDisplayAvatar(chat: ChatSummary, currentUserId: string): { name: st
     const other = chat.members.find((m) => m.id !== currentUserId);
     return { name: other?.name || "?", url: other?.avatar_url };
   }
-  // Group / project chats: always show initials of the group name.
-  // No image upload — keeps the look consistent and avoids storage cost.
-  return { name: chat.title || "Group" };
+  return { name: chat.title || "Group", url: chat.avatar_url };
 }
 
 // ================================================================
@@ -153,41 +150,11 @@ export function Chat() {
   const messagesChannelRef = useRef<RealtimeChannel | null>(null);
   const typingChannelRef = useRef<RealtimeChannel | null>(null);
   const reactionsChannelRef = useRef<RealtimeChannel | null>(null);
-  const membersChannelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
   const mentionSearchTimeoutRef = useRef<number | null>(null);
 
   // Initial load
   useEffect(() => { fetchChats(); }, []);
-
-  // Global membership subscription: when *I* get added to a chat or
-  // removed from one (by any admin, anywhere), my sidebar list must
-  // update without a manual refresh. Filtered by user_id so we don't
-  // get noise from every membership change on the platform.
-  useEffect(() => {
-    if (!user?.user_id) return;
-    const ch = supabase.channel(`my-chat-memberships-${user.user_id}`)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "chat_members", filter: `user_id=eq.${user.user_id}` },
-        (payload) => {
-          fetchChats();
-          // If the row that just disappeared is the chat I'm currently
-          // viewing, kick me out of it — I'm no longer a member.
-          if (payload.eventType === "DELETE") {
-            const oldRow = payload.old as { chat_id?: string } | null;
-            if (oldRow?.chat_id && oldRow.chat_id === activeChatIdRef.current) {
-              setActiveChatId(null);
-            }
-          }
-        })
-      .subscribe();
-    return () => { supabase.removeChannel(ch); };
-  }, [user?.user_id]);
-
-  // Keep a ref in sync with activeChatId so the subscription callback
-  // above always sees the latest value without re-subscribing.
-  const activeChatIdRef = useRef<string | null>(null);
-  useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
 
   // Deep-link: ?chatId=<id> navigates directly into a chat once list is loaded
   useEffect(() => {
@@ -254,22 +221,6 @@ export function Chat() {
       setMessages(data || []);
     } catch (e) { console.error(e); }
     finally { setIsLoadingMessages(false); }
-  }
-
-  async function toggleChatPin(chatId: string) {
-    // Optimistic flip — the API call is fire-and-forget; on failure we
-    // re-fetch to recover the correct state.
-    setChats((prev) => prev.map((c) =>
-      c.id === chatId ? { ...c, pinned_at: c.pinned_at ? null : new Date().toISOString() } : c
-    ));
-    try {
-      await apiFetch(`/api/chats/${chatId}/pin`, { method: "PATCH", body: JSON.stringify({}) });
-      // Re-sort the list with the authoritative server state on the next
-      // tick so anything we got wrong is corrected.
-      fetchChats();
-    } catch {
-      fetchChats();
-    }
   }
 
   async function markRead(chatId: string) {
@@ -360,26 +311,10 @@ export function Chat() {
       .subscribe();
     typingChannelRef.current = typingCh;
 
-    // 4) Membership changes (someone added/removed by admin) — refresh
-    // the open chat's member list so the right-hand member panel stays
-    // in sync without a page reload.
-    const membersCh = supabase.channel(`chat-members-${chatId}`)
-      .on("postgres_changes",
-        { event: "*", schema: "public", table: "chat_members", filter: `chat_id=eq.${chatId}` },
-        () => {
-          // Lightweight: refetch the chat (which includes the members
-          // list) and the sidebar list (member counts/badges).
-          loadChat(chatId);
-          fetchChats();
-        })
-      .subscribe();
-    membersChannelRef.current = membersCh;
-
     return () => {
       supabase.removeChannel(msgsCh);
       supabase.removeChannel(rxCh);
       supabase.removeChannel(typingCh);
-      supabase.removeChannel(membersCh);
     };
   }
 
@@ -847,68 +782,49 @@ export function Chat() {
                   : c.last_message?.attachment_type === "file" ? "📎 File"
                   : c.last_message?.attachment_type === "audio" ? "🎤 Audio"
                   : "");
-              const isPinned = !!c.pinned_at;
               return (
-                <div key={c.id} className="relative group/row">
-                  <button
-                    onClick={() => setActiveChatId(c.id)}
-                    className={`w-full px-3 py-3 flex items-start gap-3 text-left border-b border-border/40 transition-colors ${
-                      isActive ? "bg-accent" : "hover:bg-muted/60"
-                    }`}
-                  >
-                    <div className="relative flex-shrink-0">
-                      {c.type === "project" ? (
-                        <div className="w-12 h-12 rounded-full bg-primary/15 text-primary flex items-center justify-center">
-                          <Hash className="w-5 h-5" />
-                        </div>
-                      ) : (
-                        // Group + Direct: show the standard Avatar. For
-                        // groups, `av.url` is intentionally undefined
-                        // (see chatDisplayAvatar) so it renders the
-                        // group-name initials on the primary gradient.
-                        <Avatar name={av.name} src={av.url} size="md" />
-                      )}
-                      {c.is_muted && (
-                        <BellOff className="absolute -bottom-1 -right-1 w-4 h-4 p-0.5 rounded-full bg-card text-muted-foreground border border-border" />
+                <button
+                  key={c.id}
+                  onClick={() => setActiveChatId(c.id)}
+                  className={`w-full px-3 py-3 flex items-start gap-3 text-left border-b border-border/40 transition-colors ${
+                    isActive ? "bg-accent" : "hover:bg-muted/60"
+                  }`}
+                >
+                  <div className="relative flex-shrink-0">
+                    {c.type === "project" ? (
+                      <div className="w-12 h-12 rounded-full bg-primary/15 text-primary flex items-center justify-center">
+                        <Hash className="w-5 h-5" />
+                      </div>
+                    ) : c.type === "group" ? (
+                      <div className="w-12 h-12 rounded-full bg-secondary/15 text-secondary flex items-center justify-center">
+                        <UsersIcon className="w-5 h-5" />
+                      </div>
+                    ) : (
+                      <Avatar name={av.name} src={av.url} size="md" />
+                    )}
+                    {c.is_muted && (
+                      <BellOff className="absolute -bottom-1 -right-1 w-4 h-4 p-0.5 rounded-full bg-card text-muted-foreground border border-border" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <span className={`truncate ${c.unread_count > 0 ? "font-bold" : "font-semibold"}`}>{title}</span>
+                      <span className="text-xs text-muted-foreground flex-shrink-0">
+                        {c.last_message ? timeAgo(c.last_message.created_at) : ""}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs truncate flex-1 ${c.unread_count > 0 ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                        {lastBody || <em className="opacity-60">No messages yet</em>}
+                      </span>
+                      {c.unread_count > 0 && (
+                        <span className="bg-primary text-primary-foreground text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
+                          {c.unread_count > 9 ? "9+" : c.unread_count}
+                        </span>
                       )}
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-baseline justify-between gap-2">
-                        <span className={`truncate flex items-center gap-1.5 ${c.unread_count > 0 ? "font-bold" : "font-semibold"}`}>
-                          {isPinned && <Pin className="w-3 h-3 text-primary flex-shrink-0 fill-current" />}
-                          <span className="truncate">{title}</span>
-                        </span>
-                        <span className="text-xs text-muted-foreground flex-shrink-0">
-                          {c.last_message ? timeAgo(c.last_message.created_at) : ""}
-                        </span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <span className={`text-xs truncate flex-1 ${c.unread_count > 0 ? "text-foreground font-medium" : "text-muted-foreground"}`}>
-                          {lastBody || <em className="opacity-60">No messages yet</em>}
-                        </span>
-                        {c.unread_count > 0 && (
-                          <span className="bg-primary text-primary-foreground text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
-                            {c.unread_count > 9 ? "9+" : c.unread_count}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  </button>
-                  {/* Pin toggle — visible on row hover (always visible
-                      when pinned, so the user can unpin in one click). */}
-                  <button
-                    type="button"
-                    onClick={(e) => { e.stopPropagation(); toggleChatPin(c.id); }}
-                    title={isPinned ? "Unpin chat" : "Pin chat"}
-                    className={`absolute top-2 right-2 p-1.5 rounded-md transition-opacity ${
-                      isPinned
-                        ? "opacity-100 text-primary hover:bg-primary/10"
-                        : "opacity-0 group-hover/row:opacity-100 text-muted-foreground hover:bg-muted hover:text-foreground"
-                    }`}
-                  >
-                    <Pin className={`w-3.5 h-3.5 ${isPinned ? "fill-current" : ""}`} />
-                  </button>
-                </div>
+                  </div>
+                </button>
               );
             })
           )}

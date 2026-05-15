@@ -225,9 +225,9 @@ export function Notifications() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-end justify-between flex-wrap gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-1">Notifications</h1>
+          <h1 className="text-2xl md:text-3xl font-bold mb-1">Notifications</h1>
           <p className="text-sm text-muted-foreground">
             {unreadCount > 0
               ? `You have ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}.`
@@ -366,7 +366,7 @@ export function Notifications() {
                   onClick={(e) => { e.stopPropagation(); deleteOne(notif.id); }}
                   aria-label="Delete notification"
                   title="Delete"
-                  className="flex-shrink-0 self-start mt-1 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-0 group-hover/notif:opacity-100 focus:opacity-100 transition-opacity"
+                  className="flex-shrink-0 self-start mt-1 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-100 md:opacity-0 md:group-hover/notif:opacity-100 focus:opacity-100 transition-opacity"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>

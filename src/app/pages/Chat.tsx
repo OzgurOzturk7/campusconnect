@@ -903,7 +903,7 @@ export function Chat() {
                     className={`absolute top-2 right-2 p-1.5 rounded-md transition-opacity ${
                       isPinned
                         ? "opacity-100 text-primary hover:bg-primary/10"
-                        : "opacity-0 group-hover/row:opacity-100 text-muted-foreground hover:bg-muted hover:text-foreground"
+                        : "opacity-100 md:opacity-0 md:group-hover/row:opacity-100 text-muted-foreground hover:bg-muted hover:text-foreground"
                     }`}
                   >
                     <Pin className={`w-3.5 h-3.5 ${isPinned ? "fill-current" : ""}`} />

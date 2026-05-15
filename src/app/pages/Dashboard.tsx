@@ -152,17 +152,18 @@ export function Dashboard() {
     <div className="space-y-8">
       {/* Welcome */}
       <div className="border-b border-border pb-6">
-        <h1 className="text-3xl font-bold tracking-tight">
+        <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
           Welcome back{user?.name ? `, ${user.name.split(" ")[0]}` : ""}
         </h1>
-        <p className="text-muted-foreground mt-1.5">
+        <p className="text-muted-foreground mt-1.5 text-sm md:text-base">
           Here's what's happening in your campus community today.
         </p>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="p-6">
+      {/* Stats — two-up always so the second card is visible above the fold
+          on phones too, just narrower. */}
+      <div className="grid grid-cols-2 gap-3 md:gap-6">
+        <Card className="p-4 md:p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Clubs</p>
@@ -171,22 +172,22 @@ export function Dashboard() {
             <Users className="w-10 h-10 text-primary" />
           </div>
         </Card>
-        <Card className="p-6">
+        <Card className="p-4 md:p-6">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-muted-foreground">Total Events</p>
               <p className="text-2xl font-bold mt-1">{stats.eventsRsvpd}</p>
             </div>
-            <Calendar className="w-10 h-10 text-secondary" />
+            <Calendar className="w-8 h-8 md:w-10 md:h-10 text-secondary flex-shrink-0" />
           </div>
         </Card>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         {/* Left — Upcoming Events */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-2xl font-bold">Upcoming Events</h2>
+            <h2 className="text-xl md:text-2xl font-bold">Upcoming Events</h2>
             <Link to="/events">
               <Button variant="ghost" size="sm">View all</Button>
             </Link>
@@ -273,7 +274,7 @@ export function Dashboard() {
         <div className="space-y-8">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold">Open Projects</h2>
+              <h2 className="text-xl md:text-2xl font-bold">Open Projects</h2>
               <Link to="/projects">
                 <Button variant="ghost" size="sm">View all</Button>
               </Link>
@@ -308,7 +309,7 @@ export function Dashboard() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Bell className="w-5 h-5 text-primary" />
-              <h2 className="text-2xl font-bold">Notifications</h2>
+              <h2 className="text-xl md:text-2xl font-bold">Notifications</h2>
               {unreadCount > 0 && (
                 <span className="w-6 h-6 bg-primary text-white text-xs rounded-full flex items-center justify-center font-bold">
                   {unreadCount}

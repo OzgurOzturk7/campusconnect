@@ -959,27 +959,52 @@ export function Chat() {
                   </div>
                 </div>
               </div>
-              <button onClick={() => setShowInChatSearch((v) => !v)} className="p-2 rounded-lg hover:bg-muted" title="Search in chat">
+              {/* Secondary actions: hide on phones to keep the header
+                  from overflowing. They're still accessible from sm:
+                  up; on mobile the user can long-press a message to
+                  pin/search/etc. */}
+              <button onClick={() => setShowInChatSearch((v) => !v)} className="hidden sm:flex p-2 rounded-lg hover:bg-muted" title="Search in chat">
                 <Search className="w-5 h-5" />
               </button>
-              <button onClick={() => { setShowPinned((v) => !v); setShowFiles(false); }} className="p-2 rounded-lg hover:bg-muted" title="Pinned messages">
+              <button onClick={() => { setShowPinned((v) => !v); setShowFiles(false); }} className="hidden sm:flex p-2 rounded-lg hover:bg-muted" title="Pinned messages">
                 <Pin className={`w-5 h-5 ${pinnedMessages.length > 0 ? "text-primary" : ""}`} />
               </button>
-              <button onClick={() => { setShowFiles((v) => !v); setShowPinned(false); }} className="p-2 rounded-lg hover:bg-muted" title="Files & media">
+              <button onClick={() => { setShowFiles((v) => !v); setShowPinned(false); }} className="hidden sm:flex p-2 rounded-lg hover:bg-muted" title="Files & media">
                 <Folder className="w-5 h-5" />
               </button>
-              <button onClick={toggleMute} className="p-2 rounded-lg hover:bg-muted" title={activeChat.is_muted ? "Unmute" : "Mute"}>
+              <button onClick={toggleMute} className="p-1.5 sm:p-2 rounded-lg hover:bg-muted" title={activeChat.is_muted ? "Unmute" : "Mute"}>
                 {activeChat.is_muted ? <BellOff className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
               </button>
 
-              {/* Three-dots menu: leave / hide / delete */}
-              {activeChat.type !== "project" && (
-                <div className="relative" onClick={(e) => e.stopPropagation()}>
-                  <button onClick={() => setShowChatMenu((v) => !v)} className="p-2 rounded-lg hover:bg-muted" title="More">
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
-                  {showChatMenu && (
-                    <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-xl py-1 z-50 min-w-[200px]">
+              {/* Three-dots menu: leave / hide / delete (+ secondary
+                  actions on mobile where the header buttons are hidden). */}
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => setShowChatMenu((v) => !v)} className="p-1.5 sm:p-2 rounded-lg hover:bg-muted" title="More">
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+                {showChatMenu && (
+                  <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-xl py-1 z-50 min-w-[200px]">
+                    {/* Mobile-only mirrors of the header icons */}
+                    <button
+                      onClick={() => { setShowChatMenu(false); setShowInChatSearch((v) => !v); }}
+                      className="sm:hidden w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted text-left transition-colors"
+                    >
+                      <Search className="w-4 h-4" /> Search in chat
+                    </button>
+                    <button
+                      onClick={() => { setShowChatMenu(false); setShowPinned((v) => !v); setShowFiles(false); }}
+                      className="sm:hidden w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted text-left transition-colors"
+                    >
+                      <Pin className="w-4 h-4" /> Pinned messages
+                    </button>
+                    <button
+                      onClick={() => { setShowChatMenu(false); setShowFiles((v) => !v); setShowPinned(false); }}
+                      className="sm:hidden w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted text-left transition-colors border-b border-border"
+                    >
+                      <Folder className="w-4 h-4" /> Files &amp; media
+                    </button>
+
+                    {activeChat.type !== "project" && (
                       <button
                         onClick={() => { setShowChatMenu(false); setConfirmDelete({ kind: "leave" }); }}
                         className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted text-left transition-colors"
@@ -987,20 +1012,20 @@ export function Chat() {
                         <LogOut className="w-4 h-4" />
                         {activeChat.type === "direct" ? "Delete chat" : "Leave group"}
                       </button>
-                      {activeChat.type === "group" &&
-                        (activeChat.my_role === "admin" || user?.role === "admin") && (
-                        <button
-                          onClick={() => { setShowChatMenu(false); setConfirmDelete({ kind: "full" }); }}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-destructive/10 text-destructive text-left transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Delete entire group
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                    {activeChat.type === "group" &&
+                      (activeChat.my_role === "admin" || user?.role === "admin") && (
+                      <button
+                        onClick={() => { setShowChatMenu(false); setConfirmDelete({ kind: "full" }); }}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-destructive/10 text-destructive text-left transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete entire group
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </header>
 
             {/* In-chat search bar */}
@@ -1373,7 +1398,7 @@ export function Chat() {
       {/* Confirm delete / leave modal */}
       {confirmDelete && activeChat && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm shadow-xl">
+          <div className="bg-card rounded-2xl border border-border p-5 md:p-6 w-full max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
                 {confirmDelete.kind === "full" ? <Trash2 className="w-5 h-5 text-destructive" /> : <LogOut className="w-5 h-5 text-destructive" />}

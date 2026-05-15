@@ -458,7 +458,7 @@ export function ClubDetail() {
       {/* Custom confirm modal */}
       {confirmModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm shadow-xl">
+          <div className="bg-card rounded-2xl border border-border p-5 md:p-6 w-full max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
             <h3 className="font-bold text-base mb-2">{confirmModal.title}</h3>
             <p className="text-sm text-muted-foreground mb-6">{confirmModal.message}</p>
             <div className="flex gap-3">

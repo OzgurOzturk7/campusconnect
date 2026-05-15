@@ -367,10 +367,11 @@ export function Clubs() {
         </div>
       )}
 
-      {/* Header */}
-      <div className="flex items-start justify-between">
+      {/* Header — stacks on mobile so the action button drops below the
+          title instead of getting pushed off-screen. */}
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Student Clubs</h1>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Student Clubs</h1>
         </div>
         <div className="flex gap-2">
           {user?.role === "admin" ? (
@@ -387,7 +388,7 @@ export function Clubs() {
 
       {/* Admin tabs */}
       {user?.role === "admin" && (
-        <div className="flex gap-0 border-b border-border">
+        <div className="flex gap-0 border-b border-border overflow-x-auto">
           <button
             onClick={() => setActiveTab("clubs")}
             className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${

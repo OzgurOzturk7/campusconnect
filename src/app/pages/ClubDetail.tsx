@@ -505,10 +505,10 @@ export function ClubDetail() {
           <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
         </div>
 
-        <div className="p-6">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <h1 className="text-3xl font-bold mb-2">{club.name}</h1>
+        <div className="p-5 md:p-6">
+          <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-2xl md:text-3xl font-bold mb-2 break-words">{club.name}</h1>
               <div className="flex gap-2 flex-wrap mb-3">
                 <Tag variant="muted">{club.category}</Tag>
                 <Tag variant={club.is_open ? "primary" : "secondary"}>
@@ -524,7 +524,7 @@ export function ClubDetail() {
                 <span className="text-sm font-medium">{approvedMembers.length} members</span>
               </div>
             </div>
-            <div className="flex gap-2 ml-4 flex-shrink-0">
+            <div className="flex gap-2 md:ml-4 flex-shrink-0">
               {!isClubManager && (
                 isApprovedMember ? (
                   <Button variant="outline" onClick={handleLeave} disabled={isJoining}>
@@ -543,8 +543,9 @@ export function ClubDetail() {
         </div>
       </Card>
 
-      {/* Tabs */}
-      <div className="flex gap-0 border-b border-border">
+      {/* Tabs — horizontal scroll on small screens so long labels
+          ("Events & Announcements (12)") don't push the page width. */}
+      <div className="flex gap-0 border-b border-border overflow-x-auto">
         {[
           { key: "overview", label: "Overview" },
           { key: "announcements", label: `Events & Announcements${clubEvents.length + announcements.length > 0 ? ` (${clubEvents.length + announcements.length})` : ""}` },
@@ -553,7 +554,7 @@ export function ClubDetail() {
           <button
             key={tab.key}
             onClick={() => setActiveTab(tab.key as typeof activeTab)}
-            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+            className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors whitespace-nowrap ${
               activeTab === tab.key
                 ? "border-primary text-primary"
                 : "border-transparent text-muted-foreground hover:text-foreground"

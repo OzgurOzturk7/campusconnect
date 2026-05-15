@@ -354,7 +354,7 @@ export function Events() {
 
       {/* Header */}
       <div className="flex items-start justify-between">
-        <h1 className="text-3xl font-bold mb-2">Campus Events</h1>
+        <h1 className="text-2xl md:text-3xl font-bold mb-2">Campus Events</h1>
       </div>
 
       {/* Search + filters + view toggle */}
@@ -389,29 +389,29 @@ export function Events() {
 
       {/* Calendar View */}
       {viewMode === "calendar" && (
-        <Card className="p-6">
-          <div className="flex items-center justify-between mb-6">
+        <Card className="p-3 md:p-6">
+          <div className="flex items-center justify-between mb-4 md:mb-6">
             <button onClick={prevMonth} className="p-2 rounded-lg hover:bg-muted transition-colors"><ChevronLeft className="w-5 h-5" /></button>
-            <h2 className="text-xl font-bold">{MONTHS[calMonth]} {calYear}</h2>
+            <h2 className="text-lg md:text-xl font-bold">{MONTHS[calMonth]} {calYear}</h2>
             <button onClick={nextMonth} className="p-2 rounded-lg hover:bg-muted transition-colors"><ChevronRight className="w-5 h-5" /></button>
           </div>
           <div className="grid grid-cols-7 mb-2">
-            {DAYS.map((d) => <div key={d} className="text-center text-xs font-semibold text-muted-foreground py-2">{d}</div>)}
+            {DAYS.map((d) => <div key={d} className="text-center text-[10px] md:text-xs font-semibold text-muted-foreground py-1.5 md:py-2">{d.slice(0, 2)}</div>)}
           </div>
-          <div className="grid grid-cols-7 gap-1">
-            {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} className="min-h-[80px]" />)}
+          <div className="grid grid-cols-7 gap-0.5 md:gap-1">
+            {Array.from({ length: firstDay }).map((_, i) => <div key={`e-${i}`} className="min-h-[56px] md:min-h-[80px]" />)}
             {Array.from({ length: daysInMonth }).map((_, i) => {
               const day = i + 1;
               const dayEvents = getEventsForDay(day);
               const isToday = day === today.getDate() && calMonth === today.getMonth() && calYear === today.getFullYear();
               return (
-                <div key={day} className={`min-h-[80px] p-1 rounded-lg border transition-colors ${isToday ? "border-primary bg-primary/5" : "border-transparent hover:border-border"}`}>
-                  <div className={`text-sm font-medium mb-1 w-7 h-7 flex items-center justify-center rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>{day}</div>
+                <div key={day} className={`min-h-[56px] md:min-h-[80px] p-0.5 md:p-1 rounded-lg border transition-colors ${isToday ? "border-primary bg-primary/5" : "border-transparent hover:border-border"}`}>
+                  <div className={`text-xs md:text-sm font-medium mb-0.5 md:mb-1 w-6 h-6 md:w-7 md:h-7 flex items-center justify-center rounded-full ${isToday ? "bg-primary text-primary-foreground" : "text-foreground"}`}>{day}</div>
                   <div className="space-y-0.5">
                     {dayEvents.slice(0, 2).map((e) => (
-                      <div key={e.id} className="text-xs px-1.5 py-0.5 rounded truncate font-medium bg-primary/15 text-primary" title={e.title}>{e.title}</div>
+                      <div key={e.id} className="text-[10px] md:text-xs px-1 md:px-1.5 py-0.5 rounded truncate font-medium bg-primary/15 text-primary" title={e.title}>{e.title}</div>
                     ))}
-                    {dayEvents.length > 2 && <div className="text-xs text-muted-foreground px-1">+{dayEvents.length - 2} more</div>}
+                    {dayEvents.length > 2 && <div className="text-[10px] md:text-xs text-muted-foreground px-0.5 md:px-1">+{dayEvents.length - 2}</div>}
                   </div>
                 </div>
               );

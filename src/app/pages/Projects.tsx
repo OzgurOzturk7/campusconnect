@@ -517,12 +517,12 @@ export function Projects() {
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Projects</h1>
-          <p className="text-muted-foreground">Find teammates and collaborate on projects</p>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Projects</h1>
+          <p className="text-muted-foreground text-sm md:text-base">Find teammates and collaborate on projects</p>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
+        <div className="flex flex-col items-start sm:items-end gap-1.5">
           {(() => {
             const atLimit =
               !!limitInfo && !limitInfo.is_admin && (limitInfo.remaining ?? 0) <= 0;
@@ -679,19 +679,19 @@ export function Projects() {
               style={{
                 background: "linear-gradient(135deg, rgba(124,58,237,0.08), rgba(167,139,250,0.04))",
               }}>
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-12 h-12 rounded-xl bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
                     <LayoutDashboard className="w-6 h-6" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="font-bold text-base">Project Workspace</h3>
                     <p className="text-xs text-muted-foreground">Tasks, members, resources, and team chat in one place.</p>
                   </div>
                 </div>
                 <Button
                   size="lg"
-                  className="px-8 py-3 text-base"
+                  className="px-6 sm:px-8 py-3 text-base w-full sm:w-auto"
                   onClick={() => navigate(`/projects/${selectedProject.id}/workspace`)}
                 >
                   Open Workspace <LayoutDashboard className="w-5 h-5" />

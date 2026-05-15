@@ -269,7 +269,7 @@ function TiltCard({ children }: { children: React.ReactNode }) {
 
       {/* Glass card */}
       <div
-        className="relative rounded-3xl px-10 py-11 overflow-hidden"
+        className="relative rounded-3xl px-5 sm:px-10 py-8 sm:py-11 overflow-hidden"
         style={{
           background: "rgba(255,255,255,0.72)",
           backdropFilter: "blur(22px) saturate(180%)",
@@ -456,9 +456,14 @@ export function Login() {
         gsiInitialized = true;
       }
       // Always re-render the button: the DOM node is fresh on each mount.
+      // The Google SDK only accepts a numeric width, not a percentage —
+      // size it relative to the actual viewport so it fits on a 360px
+      // phone (where the glass card content area is ~290px wide) but
+      // still gets the full design width on desktop.
+      const gBtnWidth = Math.max(240, Math.min(360, window.innerWidth - 80));
       window.google.accounts.id.renderButton(googleBtnRef.current, {
         type: "standard", theme: "outline", size: "large",
-        text: "continue_with", shape: "rectangular", logo_alignment: "left", width: 360,
+        text: "continue_with", shape: "rectangular", logo_alignment: "left", width: gBtnWidth,
       });
     };
     if (!script) {
@@ -532,7 +537,7 @@ export function Login() {
 
       {/* ── Right panel ── */}
       <div
-        className="flex-1 flex items-center justify-center p-6 lg:p-10 relative overflow-hidden min-h-screen lg:min-h-0"
+        className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10 pt-24 lg:pt-10 relative overflow-hidden min-h-screen lg:min-h-0"
         style={{
           background: "linear-gradient(160deg, #fefcff 0%, #f5f3ff 100%)",
           borderLeft: "1px solid rgba(124,58,237,0.06)",
@@ -544,13 +549,13 @@ export function Login() {
         </div>
 
         {/* Mobile logo */}
-        <div className="lg:hidden absolute top-8 left-1/2 -translate-x-1/2">
-          <img src="/logo.png" alt="CampusConnect" decoding="async" style={{ height: "44px", objectFit: "contain" }} />
+        <div className="lg:hidden absolute top-4 sm:top-8 left-1/2 -translate-x-1/2 z-10">
+          <img src="/logo.png" alt="CampusConnect" decoding="async" style={{ height: "40px", objectFit: "contain" }} />
         </div>
 
         <TiltCard>
           <h2
-            className="text-4xl font-extrabold mb-1 tracking-tight"
+            className="text-3xl sm:text-4xl font-extrabold mb-1 tracking-tight"
             style={{
               backgroundImage: "linear-gradient(135deg, #7c3aed 0%, #8b5cf6 50%, #a78bfa 100%)",
               WebkitBackgroundClip: "text",

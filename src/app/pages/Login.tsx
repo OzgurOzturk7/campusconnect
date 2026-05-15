@@ -537,7 +537,7 @@ export function Login() {
 
       {/* ── Right panel ── */}
       <div
-        className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10 pt-24 lg:pt-10 relative overflow-hidden min-h-screen lg:min-h-0"
+        className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10 pt-32 lg:pt-10 relative overflow-hidden min-h-screen lg:min-h-0"
         style={{
           background: "linear-gradient(160deg, #fefcff 0%, #f5f3ff 100%)",
           borderLeft: "1px solid rgba(124,58,237,0.06)",
@@ -550,7 +550,7 @@ export function Login() {
 
         {/* Mobile logo */}
         <div className="lg:hidden absolute top-4 sm:top-8 left-1/2 -translate-x-1/2 z-10">
-          <img src="/logo.png" alt="CampusConnect" decoding="async" style={{ height: "40px", objectFit: "contain" }} />
+          <img src="/logo.png" alt="CampusConnect" decoding="async" style={{ height: "72px", objectFit: "contain" }} />
         </div>
 
         <TiltCard>

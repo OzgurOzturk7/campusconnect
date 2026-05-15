@@ -225,9 +225,9 @@ export function Notifications() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
-        <div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-1">Notifications</h1>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 min-w-0">
+        <div className="min-w-0">
+          <h1 className="text-2xl md:text-3xl font-bold mb-1 break-words">Notifications</h1>
           <p className="text-sm text-muted-foreground">
             {unreadCount > 0
               ? `You have ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}.`
@@ -311,7 +311,7 @@ export function Notifications() {
             return (
               <div
                 key={notif.id}
-                className={`group/notif relative flex items-start gap-3 px-5 py-4 transition-colors hover:bg-muted/60 ${
+                className={`group/notif relative flex items-start gap-2 sm:gap-3 px-3 sm:px-5 py-4 transition-colors hover:bg-muted/60 ${
                   !notif.is_read ? "bg-accent/40" : ""
                 } ${isSelected ? "bg-primary/5" : ""}`}
               >
@@ -335,7 +335,7 @@ export function Notifications() {
                 <button
                   type="button"
                   onClick={() => handleNotifClick(notif)}
-                  className="flex-1 min-w-0 flex items-start gap-4 text-left"
+                  className="flex-1 min-w-0 flex items-start gap-3 sm:gap-4 text-left"
                 >
                   <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ${color}`}>
                     <Icon className="w-5 h-5" />

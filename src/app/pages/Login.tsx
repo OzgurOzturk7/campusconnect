@@ -537,7 +537,7 @@ export function Login() {
 
       {/* ── Right panel ── */}
       <div
-        className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10 pt-32 lg:pt-10 relative overflow-hidden min-h-screen lg:min-h-0"
+        className="flex-1 flex items-center justify-center p-4 sm:p-6 lg:p-10 pt-48 lg:pt-10 relative overflow-hidden min-h-screen lg:min-h-0"
         style={{
           background: "linear-gradient(160deg, #fefcff 0%, #f5f3ff 100%)",
           borderLeft: "1px solid rgba(124,58,237,0.06)",
@@ -548,9 +548,16 @@ export function Login() {
           <MorphBlob className="w-full h-full" color="#c4b5fd" dur="14s" />
         </div>
 
-        {/* Mobile logo */}
-        <div className="lg:hidden absolute top-4 sm:top-8 left-1/2 -translate-x-1/2 z-10">
-          <img src="/logo.png" alt="CampusConnect" decoding="async" style={{ height: "72px", objectFit: "contain" }} />
+        {/* Mobile logo — sized generously so it carries the brand on
+            small screens. Horizontally centred via left-1/2 + translate-x. */}
+        <div className="lg:hidden absolute top-6 sm:top-10 left-1/2 -translate-x-1/2 z-10 w-full flex justify-center px-4">
+          <img
+            src="/logo.png"
+            alt="CampusConnect"
+            decoding="async"
+            className="object-contain"
+            style={{ height: "140px", maxWidth: "80vw", width: "auto" }}
+          />
         </div>
 
         <TiltCard>

@@ -196,7 +196,11 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
           </button>
 
           {open && (
-            <div className="absolute right-0 top-full mt-2 w-[380px] max-w-[90vw] bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+            // On phones (<sm) the dropdown is pinned just below the navbar
+            // and spans the viewport with small side gaps so it stays
+            // centred regardless of which icon spawned it. From sm: up
+            // it anchors to the bell icon as before.
+            <div className="fixed sm:absolute left-2 right-2 sm:left-auto sm:right-0 top-16 sm:top-full sm:mt-2 sm:w-[380px] sm:max-w-[90vw] bg-card border border-border rounded-xl shadow-xl overflow-hidden">
               <div className="flex items-center justify-between px-4 py-3 border-b border-border">
                 <div className="flex items-center gap-2">
                   <h3 className="font-semibold text-sm">{t("notifications.title")}</h3>
@@ -276,7 +280,7 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
           </button>
 
           {userMenuOpen && (
-            <div className="absolute right-0 top-full mt-2 w-64 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
+            <div className="fixed sm:absolute left-2 right-2 sm:left-auto sm:right-0 top-16 sm:top-full sm:mt-2 sm:w-64 bg-card border border-border rounded-xl shadow-xl overflow-hidden">
               <div className="px-4 py-3 border-b border-border flex items-center gap-3">
                 <Avatar name={user?.name || "User"} size="sm" />
                 <div className="min-w-0">

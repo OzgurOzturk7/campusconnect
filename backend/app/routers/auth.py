@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Depends, Request
+import logging
+from fastapi import APIRouter, BackgroundTasks, HTTPException, status, Depends, Request
 from app.schemas.auth import (
     LoginRequest, LoginResponse, GoogleLoginRequest,
     UserPublic, UserUpdate, AIAnalysisResponse,
@@ -19,6 +20,8 @@ import secrets
 import string
 from datetime import datetime, timedelta
 
+logger = logging.getLogger(__name__)
+
 
 def _generate_temp_password(length: int = 14) -> str:
     """A reasonably memorable but unguessable temp password — letters + digits.
@@ -37,7 +40,9 @@ ALLOWED_GOOGLE_DOMAIN = "final.edu.tr"
 
 
 @router.post("/login", response_model=LoginResponse)
-@limiter.limit("10/minute")
+# 5/minute is tight enough to make password brute-forcing impractical
+# but loose enough that a typo-prone user isn't locked out.
+@limiter.limit("5/minute")
 def login(request: Request, body: LoginRequest):
     supabase = get_supabase()
 
@@ -263,7 +268,8 @@ def get_me(current_user: dict = Depends(get_current_user)):
 
 
 @router.put("/profile")
-def update_profile(body: UserUpdate, current_user: dict = Depends(get_current_user)):
+@limiter.limit("30/minute")
+def update_profile(request: Request, body: UserUpdate, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     update_data = {k: v for k, v in body.model_dump().items() if v is not None}
     if not update_data:
@@ -473,9 +479,27 @@ def invite_user(
     return {"ok": True, "user_id": new_id, "email": email}
 
 
+def _send_password_reset_email_background(to: str, name: str, action_link: str) -> None:
+    """Wrapper used by BackgroundTasks. Logs but never raises — there is
+    nothing the caller can do with a failure once the response is on its
+    way to the user, and forgot-password is intentionally non-enumerable
+    so we don't surface delivery status either way.
+    """
+    try:
+        subject, html, text = password_reset_notice(
+            recipient_name=name or "",
+            reset_url=action_link,
+        )
+        send_email(to=to, subject=subject, html=html, text=text)
+    except EmailError as e:
+        logger.warning("forgot_password background email failed: %s", e)
+    except Exception:
+        logger.exception("forgot_password background email crashed")
+
+
 @router.post("/forgot-password")
 @limiter.limit("3/minute")
-def forgot_password(request: Request, body: ForgotPasswordRequest):
+def forgot_password(request: Request, body: ForgotPasswordRequest, background_tasks: BackgroundTasks):
     """Trigger a password-reset email via *our own* email pipeline.
 
     Why not just `supabase.auth.reset_password_for_email()`? That uses
@@ -545,17 +569,18 @@ def forgot_password(request: Request, body: ForgotPasswordRequest):
         print("FORGOT PASSWORD: generate_link returned no action_link")
         return {"ok": True}
 
-    # Send via our own pipeline (SMTP or Resend depending on env).
-    subject, html, text = password_reset_notice(
-        recipient_name=user_row.get("name") or "",
-        reset_url=action_link,
+    # Queue the actual email send for after the response is flushed.
+    # The response is already "ok: True" regardless of delivery outcome
+    # (anti-enumeration), so the user doesn't gain anything by waiting
+    # for the SMTP round-trip to complete. Moving it to a background
+    # task means a slow SMTP server can't stretch the request to 5+
+    # seconds and make the UI look frozen.
+    background_tasks.add_task(
+        _send_password_reset_email_background,
+        email,
+        user_row.get("name") or "",
+        action_link,
     )
-    try:
-        send_email(to=email, subject=subject, html=html, text=text)
-    except EmailError as e:
-        print("FORGOT PASSWORD EMAIL FAILED:", e)
-    except Exception as e:
-        print("FORGOT PASSWORD EMAIL UNEXPECTED ERROR:", e)
 
     return {"ok": True}
 
@@ -608,7 +633,10 @@ def score_club_match(club: dict, user_skills: list, user_courses: list, user_dep
 
 
 @router.post("/ai-analysis", response_model=AIAnalysisResponse)
-async def ai_profile_analysis(current_user: dict = Depends(get_current_user)):
+# AI calls hit the OpenAI API which is metered — tight cap keeps cost
+# predictable even if a client refresh-loops the endpoint.
+@limiter.limit("5/hour")
+async def ai_profile_analysis(request: Request, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
 
     # 24h cache check

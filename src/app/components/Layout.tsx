@@ -14,8 +14,8 @@ export function Layout() {
           mobileOpen={mobileNavOpen}
           onMobileClose={() => setMobileNavOpen(false)}
         />
-        <main className="flex-1 ml-0 md:ml-64 mt-16 p-4 md:p-8">
-          <div className="max-w-7xl mx-auto">
+        <main className="flex-1 min-w-0 ml-0 md:ml-64 mt-16 p-4 md:p-8 overflow-x-hidden">
+          <div className="max-w-7xl mx-auto min-w-0">
             <Outlet />
           </div>
         </main>

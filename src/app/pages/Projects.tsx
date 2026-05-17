@@ -449,7 +449,7 @@ export function Projects() {
       {/* Reject reason modal */}
       {rejectModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-md shadow-xl">
+          <div className="bg-card rounded-2xl border border-border p-5 md:p-6 w-full max-w-md shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-4">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                 <X className="w-5 h-5 text-red-500" />
@@ -472,7 +472,7 @@ export function Projects() {
                 className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
               />
               <p className="text-xs text-muted-foreground mt-1.5">
-                Please provide a reason — this helps the applicant understand and improve.
+                Please provide a reason. This helps the applicant understand and improve.
               </p>
             </div>
             <div className="flex gap-3">
@@ -498,7 +498,7 @@ export function Projects() {
       {/* Delete confirm */}
       {deleteConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm shadow-xl">
+          <div className="bg-card rounded-2xl border border-border p-5 md:p-6 w-full max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
                 <Trash2 className="w-5 h-5 text-red-500" />
@@ -517,12 +517,12 @@ export function Projects() {
       )}
 
       {/* Header */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Projects</h1>
-          <p className="text-muted-foreground">Find teammates and collaborate on projects</p>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">Projects</h1>
+          <p className="text-muted-foreground text-sm md:text-base">Find teammates and collaborate on projects</p>
         </div>
-        <div className="flex flex-col items-end gap-1.5">
+        <div className="flex flex-col items-start sm:items-end gap-1.5">
           {(() => {
             const atLimit =
               !!limitInfo && !limitInfo.is_admin && (limitInfo.remaining ?? 0) <= 0;
@@ -679,19 +679,19 @@ export function Projects() {
               style={{
                 background: "linear-gradient(135deg, rgba(124,58,237,0.08), rgba(167,139,250,0.04))",
               }}>
-              <div className="flex items-center justify-between gap-4 flex-wrap">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-primary/15 text-primary flex items-center justify-center">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-12 h-12 rounded-xl bg-primary/15 text-primary flex items-center justify-center flex-shrink-0">
                     <LayoutDashboard className="w-6 h-6" />
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <h3 className="font-bold text-base">Project Workspace</h3>
                     <p className="text-xs text-muted-foreground">Tasks, members, resources, and team chat in one place.</p>
                   </div>
                 </div>
                 <Button
                   size="lg"
-                  className="px-8 py-3 text-base"
+                  className="px-6 sm:px-8 py-3 text-base w-full sm:w-auto"
                   onClick={() => navigate(`/projects/${selectedProject.id}/workspace`)}
                 >
                   Open Workspace <LayoutDashboard className="w-5 h-5" />
@@ -780,7 +780,7 @@ export function Projects() {
             {/* Apply section — for non-owners */}
             {selectedProject.owner_id !== user?.user_id && (
               <div className="border-t border-border pt-4">
-                {myApplicationForProject ? (
+                {myApplicationForProject && myApplicationForProject.status !== "rejected" ? (
                   <div className="space-y-3">
                     <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${APP_STATUS_COLORS[myApplicationForProject.status]}`}>
                       <AlertCircle className="w-5 h-5 flex-shrink-0" />
@@ -789,10 +789,27 @@ export function Projects() {
                         <p className="text-xs opacity-80">
                           {myApplicationForProject.status === "pending" && "The project owner will review your application and notify you."}
                           {myApplicationForProject.status === "accepted" && "Congratulations! You've been accepted to the team."}
-                          {myApplicationForProject.status === "rejected" && "Your application was not accepted this time."}
                           {myApplicationForProject.role && ` · Role: ${myApplicationForProject.role}`}
                         </p>
                       </div>
+                    </div>
+                  </div>
+                ) : myApplicationForProject?.status === "rejected" && selectedProject.status === "open" ? (
+                  // Previously rejected — show the banner AND a fresh
+                  // Apply button so the user can try again with a new
+                  // pitch. Backend wipes the old row on re-apply.
+                  <div className="space-y-3">
+                    <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${APP_STATUS_COLORS.rejected}`}>
+                      <AlertCircle className="w-5 h-5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-semibold">Previous application was not accepted</p>
+                        <p className="text-xs opacity-80">You can apply again with an updated pitch.</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <Button onClick={() => setShowApplyModal(true)}>
+                        <Briefcase className="w-4 h-4" /> Apply Again
+                      </Button>
                     </div>
                   </div>
                 ) : selectedProject.status === "open" ? (
@@ -1042,7 +1059,7 @@ export function Projects() {
       {/* Create/Edit Modal */}
       {(showCreateModal || editingProject) && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl border border-border p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-card rounded-xl border border-border p-5 md:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h2 className="text-xl font-bold">{editingProject ? "Edit Project" : "Post a Project"}</h2>
               <button onClick={() => { setShowCreateModal(false); setEditingProject(null); }}
@@ -1104,7 +1121,7 @@ export function Projects() {
                     ) : duration ? (
                       <p className="text-xs text-muted-foreground -mt-2">
                         <Clock className="w-3.5 h-3.5 inline mr-1" />
-                        Duration: <span className="font-medium text-foreground">{duration}</span> (auto-calculated)
+                        Duration: <span className="font-medium text-foreground">{duration}</span>
                       </p>
                     ) : null}
                   </>
@@ -1148,7 +1165,7 @@ export function Projects() {
       {/* Apply Modal */}
       {showApplyModal && selectedProject && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl border border-border p-6 w-full max-w-md">
+          <div className="bg-card rounded-xl border border-border p-5 md:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Send Join Request</h2>
               <button onClick={() => setShowApplyModal(false)} className="text-muted-foreground hover:text-foreground">

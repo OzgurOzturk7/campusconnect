@@ -206,17 +206,17 @@ export function Profile() {
       )}
 
       {/* ── Header card ── */}
-      <Card className="p-8">
-        <div className="flex items-start gap-6">
+      <Card className="p-5 md:p-8">
+        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 sm:gap-6 text-center sm:text-left">
           {/* Always render initials on the profile page — keeps the brand
               identity consistent and avoids broken-image flashes when a
               Google avatar URL goes stale. */}
           <Avatar name={profile.name} size="xl" />
-          <div className="flex-1">
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className="text-3xl font-bold mb-1">{profile.name}</h1>
-                <div className="flex items-center gap-4 text-muted-foreground mb-4 flex-wrap">
+          <div className="flex-1 w-full min-w-0">
+            <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+              <div className="min-w-0">
+                <h1 className="text-2xl md:text-3xl font-bold mb-1 break-words">{profile.name}</h1>
+                <div className="flex items-center gap-4 text-muted-foreground mb-4 flex-wrap justify-center sm:justify-start">
                   {(profile.department || profile.year) && (
                     <div className="flex items-center gap-1">
                       <GraduationCap className="w-4 h-4" />
@@ -227,7 +227,7 @@ export function Profile() {
                     </div>
                   )}
                 </div>
-                <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-4 flex-wrap justify-center sm:justify-start">
                   {profile.github_url && (
                     <a
                       href={profile.github_url}
@@ -256,7 +256,7 @@ export function Profile() {
                   </div>
                 </div>
               </div>
-              <Button variant="outline" onClick={() => setIsEditing(true)}>
+              <Button variant="outline" onClick={() => setIsEditing(true)} className="md:flex-shrink-0">
                 <Edit className="w-4 h-4" />
                 Edit Profile
               </Button>
@@ -505,7 +505,7 @@ export function Profile() {
       {/* ── Leave Club Confirm Modal ── */}
       {leaveConfirm && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm shadow-xl">
+          <div className="bg-card rounded-2xl border border-border p-5 md:p-6 w-full max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                 <LogOut className="w-5 h-5 text-red-500" />
@@ -530,7 +530,7 @@ export function Profile() {
       {/* ── Edit Modal ── */}
       {isEditing && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-xl border border-border p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-card rounded-xl border border-border p-5 md:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold">Edit Profile</h2>
               <button onClick={() => setIsEditing(false)} className="text-muted-foreground hover:text-foreground">

@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useSearchParams } from "react-router";
+import { useSearchParams } from "react-router";
 import {
   User as UserIcon,
   Lock,
@@ -89,10 +89,11 @@ export function Settings() {
 function ProfileTab() {
   const { t } = useTranslation("settings");
   const { user } = useAuth();
-  const navigate = useNavigate();
 
-  // The big profile editor lives on /profile. Settings just shows the
-  // primitives + a deep link, to avoid forking two sources of truth.
+  // Display-only summary of the current account. Editing happens on the
+  // dedicated /profile page; we intentionally don't surface that as a
+  // button here — Settings is purely informational so the user isn't
+  // confused about where the "real" form lives.
   return (
     <Card className="p-6 space-y-4">
       <div>
@@ -107,12 +108,6 @@ function ProfileTab() {
           value={user?.email || ""}
           hint={t("profile.email_help")}
         />
-      </div>
-
-      <div className="pt-2">
-        <Button variant="outline" onClick={() => navigate("/profile")}>
-          {t("profile.save")} →
-        </Button>
       </div>
     </Card>
   );

@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Request
+from app.core.ratelimit import limiter
 from app.schemas.projects import (
     ProjectPostCreate, ProjectPostUpdate,
     ApplicationCreate, ApplicationStatusUpdate
@@ -9,6 +10,7 @@ from app.core.security import get_current_user
 from datetime import date, datetime, timezone
 import logging
 import os
+import re
 import time
 import uuid
 
@@ -270,7 +272,8 @@ def _upload_with_retry(bucket, path: str, body: bytes, content_type: str, *, att
 
 
 @router.post("/upload-cv")
-async def upload_cv(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+@limiter.limit("10/minute")
+async def upload_cv(request: Request, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     """Upload a CV file (PDF or Word) for use with a project application.
 
     Failure modes:
@@ -302,7 +305,15 @@ async def upload_cv(file: UploadFile = File(...), current_user: dict = Depends(g
             detail=f"File too large. Maximum size is {MAX_CV_BYTES // (1024*1024)} MB.",
         )
 
-    safe_name = (file.filename or "cv").replace("/", "_").replace("\\", "_").strip()[:200] or "cv"
+    # Supabase Storage object keys must match a restricted character set —
+    # non-ASCII characters like em-dash (—) in "Brief 12 — Parking Lot.pdf"
+    # cause the upload to fail with an opaque 500. We keep the original
+    # filename available for the response (display) but write to storage
+    # under a strictly ASCII path: [A-Za-z0-9._-], everything else → '_'.
+    raw_name = (file.filename or "cv").strip()
+    display_name = raw_name[:200] or "cv"
+    base = raw_name.replace("/", "_").replace("\\", "_")
+    safe_name = re.sub(r"[^A-Za-z0-9._-]+", "_", base).strip("._-")[:120] or "cv"
     object_path = f"{current_user['id']}/{uuid.uuid4().hex}_{safe_name}"
 
     bucket = supabase.storage.from_(CV_BUCKET)
@@ -342,7 +353,7 @@ async def upload_cv(file: UploadFile = File(...), current_user: dict = Depends(g
         "upload_cv: ok user=%s bucket=%s path=%s size=%d type=%s",
         current_user.get("id"), CV_BUCKET, object_path, len(contents), content_type,
     )
-    return {"url": url, "name": safe_name}
+    return {"url": url, "name": display_name}
 
 
 @router.get("/suggested")
@@ -359,11 +370,20 @@ def suggested_projects(current_user: dict = Depends(get_current_user)):
 
     applied = supabase.table("project_applications").select("project_id") \
         .eq("applicant_id", current_user["id"]).execute()
-    applied_ids = {a["project_id"] for a in (applied.data or [])}
+    applied_ids = [a["project_id"] for a in (applied.data or [])]
 
-    result = supabase.table("project_posts").select("*") \
-        .eq("status", "open").neq("owner_id", current_user["id"]).execute()
-    open_posts = [p for p in (result.data or []) if p["id"] not in applied_ids]
+    # Push the "exclude projects I've already applied to" filter down to
+    # the database instead of fetching every open post and filtering in
+    # Python. With many open projects, the old version transferred the
+    # full table on every request.
+    query = supabase.table("project_posts").select("*") \
+        .eq("status", "open").neq("owner_id", current_user["id"])
+    if applied_ids:
+        # PostgREST's `not.in.(...)` operator takes a comma-separated list
+        # wrapped in parens.
+        query = query.not_.in_("id", applied_ids)
+    result = query.execute()
+    open_posts = result.data or []
 
     if not open_posts:
         return []
@@ -504,7 +524,11 @@ def get_project(project_id: str, current_user: dict = Depends(get_current_user))
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_project(body: ProjectPostCreate, current_user: dict = Depends(get_current_user)):
+# Already capped by the monthly limit (3 per non-admin), but rate
+# limiting also prevents a script from chewing through the cap in one
+# burst and notifying every applicant.
+@limiter.limit("5/minute")
+def create_project(request: Request, body: ProjectPostCreate, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
 
     # Server-authoritative monthly publish cap. Admins are exempt.
@@ -585,7 +609,10 @@ def delete_project(project_id: str, current_user: dict = Depends(get_current_use
 
 
 @router.post("/{project_id}/apply", status_code=status.HTTP_201_CREATED)
-def apply_to_project(project_id: str, body: ApplicationCreate, current_user: dict = Depends(get_current_user)):
+# Applications spawn notifications; cap to one realistic-paced submit
+# per minute per IP to keep owners from getting spammed.
+@limiter.limit("10/minute")
+def apply_to_project(request: Request, project_id: str, body: ApplicationCreate, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     project = supabase.table("project_posts").select("*").eq("id", project_id).single().execute()
     if not project.data:
@@ -595,10 +622,36 @@ def apply_to_project(project_id: str, body: ApplicationCreate, current_user: dic
     if project.data["owner_id"] == current_user["id"]:
         raise HTTPException(status_code=400, detail="Cannot apply to your own project")
 
-    existing = supabase.table("project_applications").select("id") \
+    # A user may have prior application rows for this project. Re-apply rules:
+    #   - pending        → block (their request is still under review)
+    #   - accepted       → only block if they're still in the workspace; if
+    #                      the owner has since removed them, treat the old
+    #                      row as stale and let them re-apply.
+    #   - rejected /     → allow re-apply; wipe the stale row so the unique
+    #     anything else    "one application per (project, applicant)" shape
+    #                      we want stays clean.
+    existing = supabase.table("project_applications").select("id, status") \
         .eq("project_id", project_id).eq("applicant_id", current_user["id"]).execute()
     if existing.data:
-        raise HTTPException(status_code=400, detail="Already applied to this project")
+        statuses = {row.get("status") for row in existing.data}
+        if "pending" in statuses:
+            raise HTTPException(status_code=400, detail="You already have a pending application for this project.")
+        if "accepted" in statuses:
+            ws = supabase.table("workspaces").select("id") \
+                .eq("project_id", project_id).maybe_single().execute()
+            is_member = False
+            if ws and ws.data:
+                mem = supabase.table("workspace_members").select("user_id") \
+                    .eq("workspace_id", ws.data["id"]) \
+                    .eq("user_id", current_user["id"]) \
+                    .maybe_single().execute()
+                is_member = bool(mem and mem.data)
+            if is_member:
+                raise HTTPException(status_code=400, detail="You are already a member of this project.")
+        # Either purely rejected, or accepted-but-removed. Clear all old rows
+        # so the insert below creates a fresh pending application.
+        supabase.table("project_applications").delete() \
+            .eq("project_id", project_id).eq("applicant_id", current_user["id"]).execute()
 
     result = supabase.table("project_applications").insert({
         "project_id": project_id,

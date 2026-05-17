@@ -1,8 +1,19 @@
-from fastapi import APIRouter, Depends
+from typing import Optional, List
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from pydantic import BaseModel
 from app.core.supabase import get_supabase, get_supabase_admin
 from app.core.security import get_current_user
+from app.core.ratelimit import limiter
 
 router = APIRouter()
+
+
+class NotificationDeleteBody(BaseModel):
+    # When `ids` is omitted or empty the endpoint deletes ALL of the
+    # caller's notifications. When it's a list, only those rows are
+    # deleted (and only when they belong to the caller — RLS is
+    # enforced explicitly in the WHERE clause).
+    ids: Optional[List[str]] = None
 
 
 @router.get("/")
@@ -33,6 +44,67 @@ def mark_all_read(current_user: dict = Depends(get_current_user)):
     return {"success": True}
 
 
+@router.delete("/{notification_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_notification(notification_id: str, current_user: dict = Depends(get_current_user)):
+    """Hard-delete a single notification belonging to the caller."""
+    supabase = get_supabase_admin()
+    # supabase-py's delete() returns an empty data array when the table
+    # doesn't have REPLICA IDENTITY FULL, so we can't infer success from
+    # `res.data`. Instead, verify ownership with a select first; if the
+    # row doesn't exist or belongs to someone else, return 404. Then
+    # perform the delete unconditionally.
+    existing = (
+        supabase.table("notifications")
+        .select("id")
+        .eq("id", notification_id)
+        .eq("user_id", current_user["id"])
+        .maybe_single()
+        .execute()
+    )
+    if not existing or not existing.data:
+        raise HTTPException(status_code=404, detail="Notification not found")
+
+    supabase.table("notifications").delete() \
+        .eq("id", notification_id).eq("user_id", current_user["id"]).execute()
+
+
+@router.post("/delete")
+@limiter.limit("30/minute")
+def delete_notifications(request: Request, body: NotificationDeleteBody, current_user: dict = Depends(get_current_user)):
+    """Bulk delete. POST (not DELETE) because some HTTP clients refuse
+    to send a body with DELETE.
+
+    - `ids` empty/missing → wipe everything for this user (clear all).
+    - `ids` provided      → delete just those rows, scoped to the user.
+
+    Returns the actual count of rows that were the caller's and got
+    deleted. Counting via a pre-select is necessary because supabase-py's
+    delete() returns an empty data array when REPLICA IDENTITY is
+    default — we can't infer the count from the delete response itself.
+    """
+    supabase = get_supabase_admin()
+
+    # Count first — scoped to the caller's rows so foreign IDs the
+    # client may have included don't inflate the result.
+    count_q = (
+        supabase.table("notifications")
+        .select("id", count="exact")
+        .eq("user_id", current_user["id"])
+    )
+    if body.ids:
+        count_q = count_q.in_("id", body.ids)
+    count_res = count_q.execute()
+    matched = count_res.count or 0
+
+    # Now perform the delete (same WHERE clause).
+    del_q = supabase.table("notifications").delete().eq("user_id", current_user["id"])
+    if body.ids:
+        del_q = del_q.in_("id", body.ids)
+    del_q.execute()
+
+    return {"deleted": matched}
+
+
 @router.get("/unread-count")
 def unread_count(current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
@@ -43,4 +115,7 @@ def unread_count(current_user: dict = Depends(get_current_user)):
         .eq("is_read", False)
         .execute()
     )
-    return {"count": result.count}
+    # PostgREST occasionally returns count=None when no rows match; the
+    # frontend treats null as "unknown" and skips updating the badge,
+    # so coerce to 0 here.
+    return {"count": result.count or 0}

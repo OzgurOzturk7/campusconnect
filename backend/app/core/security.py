@@ -45,9 +45,13 @@ async def get_current_user(
         )
 
     supabase = get_supabase_admin()
-    result = supabase.table("users").select("*").eq("id", user_id).single().execute()
+    # `.single()` raises PostgrestAPIError on zero rows, which the global
+    # error middleware then surfaces as a 500. `.maybe_single()` returns
+    # None instead, so we can convert the "JWT references a deleted user"
+    # case into a clean 401 here.
+    result = supabase.table("users").select("*").eq("id", user_id).maybe_single().execute()
 
-    if not result.data:
+    if not result or not result.data:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",

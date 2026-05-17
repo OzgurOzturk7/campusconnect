@@ -8,7 +8,7 @@ from app.core.config import settings
 from app.core.supabase import get_supabase_admin, reset_supabase_clients
 from app.core.ratelimit import limiter
 from app.schemas.notifications import send_notification
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 import asyncio
 import logging
 
@@ -103,7 +103,12 @@ async def send_event_reminders():
     while True:
         try:
             supabase = get_supabase_admin()
-            now = datetime.utcnow()
+            # Use timezone-aware UTC throughout. Comparing naive vs aware
+            # ISO strings was producing the wrong window on UTC-shifted
+            # hosts and the strftime line below silently treated stored
+            # event timestamps as local time, which made the "starts at
+            # X" line in reminder bodies off by hours.
+            now = datetime.now(timezone.utc)
             window_start = (now + timedelta(hours=24)).isoformat()
             window_end = (now + timedelta(hours=25)).isoformat()
 
@@ -118,8 +123,12 @@ async def send_event_reminders():
                 attendees = supabase.table("event_attendees").select("user_id") \
                     .eq("event_id", event["id"]).execute()
 
-                event_time = datetime.fromisoformat(event["event_date"].replace("Z", ""))
-                formatted_time = event_time.strftime("%b %d at %H:%M")
+                # Postgres returns timestamptz as ISO-8601 with "Z";
+                # mapping it to "+00:00" keeps the value timezone-aware
+                # across all 3.x versions of fromisoformat().
+                raw = event["event_date"].replace("Z", "+00:00")
+                event_time = datetime.fromisoformat(raw)
+                formatted_time = event_time.strftime("%b %d at %H:%M UTC")
 
                 for att in (attendees.data or []):
                     # Check if already notified

@@ -3,7 +3,7 @@ import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import {
   Bell, Briefcase, Calendar, MessageSquare, Users,
-  CheckCheck, ChevronLeft, ChevronRight, Inbox,
+  CheckCheck, ChevronLeft, ChevronRight, Inbox, Trash2, X,
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useNavigate } from "react-router";
@@ -97,6 +97,9 @@ export function Notifications() {
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
   const [currentPage, setCurrentPage] = useState(1);
+  // IDs the user has checked for bulk deletion. Stored as a Set so the
+  // O(1) lookups in the render path stay cheap on long lists.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -131,6 +134,73 @@ export function Notifications() {
     window.dispatchEvent(new Event("notifications-updated"));
   }
 
+  function toggleSelect(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function clearSelection() {
+    setSelectedIds(new Set());
+  }
+
+  async function deleteOne(id: string) {
+    // Optimistic remove first so the row disappears immediately.
+    const prev = notifications;
+    setNotifications((p) => p.filter((n) => n.id !== id));
+    setSelectedIds((s) => {
+      if (!s.has(id)) return s;
+      const next = new Set(s);
+      next.delete(id);
+      return next;
+    });
+    try {
+      await apiFetch(`/api/notifications/${id}`, { method: "DELETE" });
+      window.dispatchEvent(new Event("notifications-updated"));
+    } catch {
+      // Restore on failure so the user isn't silently stuck with a
+      // mismatched view.
+      setNotifications(prev);
+    }
+  }
+
+  async function deleteSelected() {
+    if (selectedIds.size === 0) return;
+    const ids = Array.from(selectedIds);
+    const prev = notifications;
+    setNotifications((p) => p.filter((n) => !selectedIds.has(n.id)));
+    setSelectedIds(new Set());
+    try {
+      await apiFetch("/api/notifications/delete", {
+        method: "POST",
+        body: JSON.stringify({ ids }),
+      });
+      window.dispatchEvent(new Event("notifications-updated"));
+    } catch {
+      setNotifications(prev);
+    }
+  }
+
+  async function clearAll() {
+    if (notifications.length === 0) return;
+    if (!window.confirm("Delete all notifications? This cannot be undone.")) return;
+    const prev = notifications;
+    setNotifications([]);
+    setSelectedIds(new Set());
+    try {
+      await apiFetch("/api/notifications/delete", {
+        method: "POST",
+        body: JSON.stringify({}),
+      });
+      window.dispatchEvent(new Event("notifications-updated"));
+    } catch {
+      setNotifications(prev);
+    }
+  }
+
   function handleFilterChange(newFilter: "all" | "unread") {
     setFilter(newFilter);
     setCurrentPage(1);
@@ -155,20 +225,46 @@ export function Notifications() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-end justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="text-3xl font-bold mb-1">Notifications</h1>
+      <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 min-w-0">
+        <div className="min-w-0">
+          <h1 className="text-2xl md:text-3xl font-bold mb-1 break-words">Notifications</h1>
           <p className="text-sm text-muted-foreground">
             {unreadCount > 0
               ? `You have ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}.`
               : "You are all caught up."}
           </p>
         </div>
-        <Button variant="outline" onClick={markAllRead} disabled={unreadCount === 0}>
-          <CheckCheck className="w-4 h-4" />
-          Mark all as read
-        </Button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <Button variant="outline" onClick={markAllRead} disabled={unreadCount === 0}>
+            <CheckCheck className="w-4 h-4" />
+            Mark all as read
+          </Button>
+          <Button variant="outline" onClick={clearAll} disabled={notifications.length === 0}>
+            <Trash2 className="w-4 h-4" />
+            Clear all
+          </Button>
+        </div>
       </div>
+
+      {/* Selection action bar — only when items are checked. Lets the
+          user delete a chosen subset rather than wiping everything. */}
+      {selectedIds.size > 0 && (
+        <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
+          <span className="text-sm">
+            <span className="font-semibold">{selectedIds.size}</span> selected
+          </span>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={clearSelection}>
+              <X className="w-3.5 h-3.5" />
+              Cancel
+            </Button>
+            <Button variant="primary" size="sm" onClick={deleteSelected}>
+              <Trash2 className="w-3.5 h-3.5" />
+              Delete selected
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Filter tabs */}
       <div className="flex items-center gap-1 p-1 bg-muted rounded-lg w-fit">
@@ -211,33 +307,70 @@ export function Notifications() {
             const Icon = iconMap[notif.type] || Bell;
             const color = colorMap[notif.type] || colorMap.system;
             const label = labelMap[notif.type] || "System";
+            const isSelected = selectedIds.has(notif.id);
             return (
-              <button
+              <div
                 key={notif.id}
-                onClick={() => handleNotifClick(notif)}
-                className={`w-full text-left px-5 py-4 flex items-start gap-4 transition-colors hover:bg-muted/60 ${
+                className={`group/notif relative flex items-start gap-2 sm:gap-3 px-3 sm:px-5 py-4 transition-colors hover:bg-muted/60 ${
                   !notif.is_read ? "bg-accent/40" : ""
-                }`}
+                } ${isSelected ? "bg-primary/5" : ""}`}
               >
-                <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ${color}`}>
-                  <Icon className="w-5 h-5" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-start justify-between gap-3 mb-0.5">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <h3 className="font-semibold text-sm truncate">{notif.title}</h3>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded flex-shrink-0">
-                        {label}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <span className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo(notif.created_at)}</span>
-                      {!notif.is_read && <span className="w-2 h-2 bg-primary rounded-full" />}
-                    </div>
+                {/* Selection checkbox — click is independent of opening
+                    the link, so users can build up a multi-item delete. */}
+                <label
+                  className="flex-shrink-0 flex items-center pt-3 cursor-pointer"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <input
+                    type="checkbox"
+                    checked={isSelected}
+                    onChange={() => toggleSelect(notif.id)}
+                    className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30 cursor-pointer"
+                    aria-label={`Select notification: ${notif.title}`}
+                  />
+                </label>
+
+                {/* Clickable area — opens link + marks read. Rendered as
+                    a button so keyboard users get the same affordance. */}
+                <button
+                  type="button"
+                  onClick={() => handleNotifClick(notif)}
+                  className="flex-1 min-w-0 flex items-start gap-3 sm:gap-4 text-left"
+                >
+                  <div className={`w-11 h-11 rounded-full flex items-center justify-center flex-shrink-0 ring-1 ${color}`}>
+                    <Icon className="w-5 h-5" />
                   </div>
-                  <p className="text-sm text-muted-foreground line-clamp-2">{notif.body}</p>
-                </div>
-              </button>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-start justify-between gap-3 mb-0.5">
+                      <div className="flex items-center gap-2 min-w-0">
+                        <h3 className="font-semibold text-sm truncate">{notif.title}</h3>
+                        <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted px-1.5 py-0.5 rounded flex-shrink-0">
+                          {label}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo(notif.created_at)}</span>
+                        {!notif.is_read && <span className="w-2 h-2 bg-primary rounded-full" />}
+                      </div>
+                    </div>
+                    {/* No line-clamp here on purpose: long rejection
+                        reasons need to be readable in full. */}
+                    <p className="text-sm text-muted-foreground whitespace-pre-wrap break-words">{notif.body}</p>
+                  </div>
+                </button>
+
+                {/* Per-item delete — appears on hover, always reachable
+                    via keyboard. */}
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); deleteOne(notif.id); }}
+                  aria-label="Delete notification"
+                  title="Delete"
+                  className="flex-shrink-0 self-start mt-1 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-100 md:opacity-0 md:group-hover/notif:opacity-100 focus:opacity-100 transition-opacity"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
             );
           })}
         </Card>

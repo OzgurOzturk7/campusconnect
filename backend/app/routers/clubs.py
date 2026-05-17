@@ -1,3 +1,4 @@
+import re
 from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Request
 from app.schemas.clubs import ClubCreate, ClubUpdate, MembershipStatusUpdate, ClubRequestCreate, ClubRequestReview, AnnouncementCreate
 from app.schemas.notifications import send_notification
@@ -57,9 +58,18 @@ def require_club_manager(supabase, club_id: str, current_user: dict) -> dict:
 @router.get("/")
 def list_clubs(current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
-    result = supabase.table("clubs").select("*, club_memberships(count)").order("created_at", desc=True).execute()
-    all_clubs = result.data or []
-    clubs = [c for c in all_clubs if c.get("status") in ("active", None, "")]
+    # Filter active clubs at the database layer. The previous version
+    # fetched every row (including rejected/pending) then discarded most
+    # in Python. We still need a defensive Python filter for legacy rows
+    # whose `status` is NULL or "" — those should still show up.
+    result = (
+        supabase.table("clubs")
+        .select("*, club_memberships(count)")
+        .or_("status.eq.active,status.is.null,status.eq.")
+        .order("created_at", desc=True)
+        .execute()
+    )
+    clubs = result.data or []
     # Extract member count from joined data
     for club in clubs:
         memberships = club.pop("club_memberships", [])
@@ -233,7 +243,9 @@ def delete_club(club_id: str, current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/{club_id}/join", status_code=status.HTTP_201_CREATED)
-def join_club(club_id: str, current_user: dict = Depends(get_current_user)):
+# 20/minute is comfortable for genuine browsing; blocks click-spam.
+@limiter.limit("20/minute")
+def join_club(request: Request, club_id: str, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     club = get_club_or_404(supabase, club_id)
     existing = supabase.table("club_memberships").select("id, status") \
@@ -352,7 +364,10 @@ def get_announcements(club_id: str, current_user: dict = Depends(get_current_use
 
 
 @router.post("/{club_id}/announcements", status_code=status.HTTP_201_CREATED)
-def create_announcement(club_id: str, body: AnnouncementCreate,
+# Announcements fan out to every member as a notification — 10/min is
+# generous for legitimate posting, prevents spam-blast.
+@limiter.limit("10/minute")
+def create_announcement(request: Request, club_id: str, body: AnnouncementCreate,
                         current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     club = require_club_manager(supabase, club_id, current_user)
@@ -379,13 +394,46 @@ def delete_announcement(club_id: str, announcement_id: str,
     supabase.table("club_announcements").delete().eq("id", announcement_id).execute()
 
 
+# Upload size + MIME guards. Without these the endpoints below would
+# happily accept a 1 GB binary file from any club manager — both a
+# storage-cost and a DoS surface.
+MAX_COVER_BYTES = 8 * 1024 * 1024     # 8 MB — generous for any photo
+MAX_VIDEO_BYTES = 100 * 1024 * 1024   # 100 MB — short intro clip
+ALLOWED_IMAGE_MIMES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+ALLOWED_VIDEO_MIMES = {"video/mp4", "video/webm", "video/quicktime"}
+SAFE_EXT_PATTERN = re.compile(r"^[A-Za-z0-9]{1,8}$")
+
+
+def _validated_ext(filename: str, fallback: str) -> str:
+    """Strip a clean extension off `filename`. Falls back to a known-safe
+    default so a missing/exotic extension can't yield `cover.` or
+    `cover.PHP`-style storage keys."""
+    if "." in (filename or ""):
+        candidate = filename.rsplit(".", 1)[-1].lower()
+        if SAFE_EXT_PATTERN.match(candidate):
+            return candidate
+    return fallback
+
+
 @router.post("/{club_id}/upload-cover")
-async def upload_cover(club_id: str, file: UploadFile = File(...),
+@limiter.limit("10/minute")
+async def upload_cover(request: Request, club_id: str, file: UploadFile = File(...),
                        current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     require_club_manager(supabase, club_id, current_user)
+
+    if (file.content_type or "").lower() not in ALLOWED_IMAGE_MIMES:
+        raise HTTPException(status_code=415, detail="Cover must be a JPG, PNG, WebP or GIF image.")
     file_content = await file.read()
-    ext = file.filename.split(".")[-1] if "." in file.filename else "jpg"
+    if not file_content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(file_content) > MAX_COVER_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Cover image too large. Max {MAX_COVER_BYTES // (1024 * 1024)} MB.",
+        )
+
+    ext = _validated_ext(file.filename or "", "jpg")
     file_path = f"{club_id}/cover.{ext}"
     try:
         supabase.storage.from_("club-covers").remove([file_path])
@@ -400,11 +448,24 @@ async def upload_cover(club_id: str, file: UploadFile = File(...),
 
 
 @router.post("/{club_id}/upload-video")
-async def upload_club_video(club_id: str, file: UploadFile = File(...),
+# Video uploads are up to 100 MB; 5/min cap is a hard ceiling.
+@limiter.limit("5/minute")
+async def upload_club_video(request: Request, club_id: str, file: UploadFile = File(...),
                             current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     require_club_manager(supabase, club_id, current_user)
+
+    if (file.content_type or "").lower() not in ALLOWED_VIDEO_MIMES:
+        raise HTTPException(status_code=415, detail="Intro video must be MP4, WebM, or MOV.")
     file_content = await file.read()
+    if not file_content:
+        raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+    if len(file_content) > MAX_VIDEO_BYTES:
+        raise HTTPException(
+            status_code=413,
+            detail=f"Video too large. Max {MAX_VIDEO_BYTES // (1024 * 1024)} MB.",
+        )
+
     file_path = f"{club_id}/intro.mp4"
     try:
         supabase.storage.from_("club-videos").remove([file_path])

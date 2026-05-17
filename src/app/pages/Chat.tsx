@@ -59,6 +59,7 @@ interface ChatSummary {
   unread_count: number;
   is_muted: boolean;
   my_role: "admin" | "member";
+  pinned_at?: string | null;
 }
 
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
@@ -102,7 +103,9 @@ function chatDisplayAvatar(chat: ChatSummary, currentUserId: string): { name: st
     const other = chat.members.find((m) => m.id !== currentUserId);
     return { name: other?.name || "?", url: other?.avatar_url };
   }
-  return { name: chat.title || "Group", url: chat.avatar_url };
+  // Group / project chats: always show initials of the group name.
+  // No image upload — keeps the look consistent and avoids storage cost.
+  return { name: chat.title || "Group" };
 }
 
 // ================================================================
@@ -150,11 +153,41 @@ export function Chat() {
   const messagesChannelRef = useRef<RealtimeChannel | null>(null);
   const typingChannelRef = useRef<RealtimeChannel | null>(null);
   const reactionsChannelRef = useRef<RealtimeChannel | null>(null);
+  const membersChannelRef = useRef<RealtimeChannel | null>(null);
   const typingTimeoutRef = useRef<number | null>(null);
   const mentionSearchTimeoutRef = useRef<number | null>(null);
 
   // Initial load
   useEffect(() => { fetchChats(); }, []);
+
+  // Global membership subscription: when *I* get added to a chat or
+  // removed from one (by any admin, anywhere), my sidebar list must
+  // update without a manual refresh. Filtered by user_id so we don't
+  // get noise from every membership change on the platform.
+  useEffect(() => {
+    if (!user?.user_id) return;
+    const ch = supabase.channel(`my-chat-memberships-${user.user_id}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "chat_members", filter: `user_id=eq.${user.user_id}` },
+        (payload) => {
+          fetchChats();
+          // If the row that just disappeared is the chat I'm currently
+          // viewing, kick me out of it — I'm no longer a member.
+          if (payload.eventType === "DELETE") {
+            const oldRow = payload.old as { chat_id?: string } | null;
+            if (oldRow?.chat_id && oldRow.chat_id === activeChatIdRef.current) {
+              setActiveChatId(null);
+            }
+          }
+        })
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [user?.user_id]);
+
+  // Keep a ref in sync with activeChatId so the subscription callback
+  // above always sees the latest value without re-subscribing.
+  const activeChatIdRef = useRef<string | null>(null);
+  useEffect(() => { activeChatIdRef.current = activeChatId; }, [activeChatId]);
 
   // Deep-link: ?chatId=<id> navigates directly into a chat once list is loaded
   useEffect(() => {
@@ -221,6 +254,22 @@ export function Chat() {
       setMessages(data || []);
     } catch (e) { console.error(e); }
     finally { setIsLoadingMessages(false); }
+  }
+
+  async function toggleChatPin(chatId: string) {
+    // Optimistic flip — the API call is fire-and-forget; on failure we
+    // re-fetch to recover the correct state.
+    setChats((prev) => prev.map((c) =>
+      c.id === chatId ? { ...c, pinned_at: c.pinned_at ? null : new Date().toISOString() } : c
+    ));
+    try {
+      await apiFetch(`/api/chats/${chatId}/pin`, { method: "PATCH", body: JSON.stringify({}) });
+      // Re-sort the list with the authoritative server state on the next
+      // tick so anything we got wrong is corrected.
+      fetchChats();
+    } catch {
+      fetchChats();
+    }
   }
 
   async function markRead(chatId: string) {
@@ -295,6 +344,13 @@ export function Chat() {
     reactionsChannelRef.current = rxCh;
 
     // 3) Typing (broadcast)
+    //
+    // Each "typing" broadcast spawns a 3s timer that removes the user
+    // from the list. The previous version created a fresh timer on every
+    // event without clearing the old one, so a chat with 100 rapid
+    // typings would leak 100 timers all racing to remove the same user.
+    // We track the latest timer per user id and clear before scheduling.
+    const typingTimers = new Map<string, number>();
     const typingCh = supabase.channel(`typing-${chatId}`, { config: { broadcast: { self: false } } })
       .on("broadcast", { event: "typing" }, (msg: any) => {
         const { user_id, name } = msg.payload || {};
@@ -303,18 +359,41 @@ export function Chat() {
           const without = prev.filter((u) => u.id !== user_id);
           return [...without, { id: user_id, name }];
         });
-        // auto-remove after 3s
-        window.setTimeout(() => {
+        const prevTimer = typingTimers.get(user_id);
+        if (prevTimer) window.clearTimeout(prevTimer);
+        const t = window.setTimeout(() => {
           setTypingUsers((prev) => prev.filter((u) => u.id !== user_id));
+          typingTimers.delete(user_id);
         }, 3000);
+        typingTimers.set(user_id, t);
       })
       .subscribe();
     typingChannelRef.current = typingCh;
+
+    // 4) Membership changes (someone added/removed by admin) — refresh
+    // the open chat's member list so the right-hand member panel stays
+    // in sync without a page reload.
+    const membersCh = supabase.channel(`chat-members-${chatId}`)
+      .on("postgres_changes",
+        { event: "*", schema: "public", table: "chat_members", filter: `chat_id=eq.${chatId}` },
+        () => {
+          // Lightweight: refetch the chat (which includes the members
+          // list) and the sidebar list (member counts/badges).
+          loadChat(chatId);
+          fetchChats();
+        })
+      .subscribe();
+    membersChannelRef.current = membersCh;
 
     return () => {
       supabase.removeChannel(msgsCh);
       supabase.removeChannel(rxCh);
       supabase.removeChannel(typingCh);
+      supabase.removeChannel(membersCh);
+      // Cancel any pending typing-indicator timers so they don't fire
+      // after the channel is torn down.
+      typingTimers.forEach((t) => window.clearTimeout(t));
+      typingTimers.clear();
     };
   }
 
@@ -782,49 +861,68 @@ export function Chat() {
                   : c.last_message?.attachment_type === "file" ? "📎 File"
                   : c.last_message?.attachment_type === "audio" ? "🎤 Audio"
                   : "");
+              const isPinned = !!c.pinned_at;
               return (
-                <button
-                  key={c.id}
-                  onClick={() => setActiveChatId(c.id)}
-                  className={`w-full px-3 py-3 flex items-start gap-3 text-left border-b border-border/40 transition-colors ${
-                    isActive ? "bg-accent" : "hover:bg-muted/60"
-                  }`}
-                >
-                  <div className="relative flex-shrink-0">
-                    {c.type === "project" ? (
-                      <div className="w-12 h-12 rounded-full bg-primary/15 text-primary flex items-center justify-center">
-                        <Hash className="w-5 h-5" />
-                      </div>
-                    ) : c.type === "group" ? (
-                      <div className="w-12 h-12 rounded-full bg-secondary/15 text-secondary flex items-center justify-center">
-                        <UsersIcon className="w-5 h-5" />
-                      </div>
-                    ) : (
-                      <Avatar name={av.name} src={av.url} size="md" />
-                    )}
-                    {c.is_muted && (
-                      <BellOff className="absolute -bottom-1 -right-1 w-4 h-4 p-0.5 rounded-full bg-card text-muted-foreground border border-border" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-baseline justify-between gap-2">
-                      <span className={`truncate ${c.unread_count > 0 ? "font-bold" : "font-semibold"}`}>{title}</span>
-                      <span className="text-xs text-muted-foreground flex-shrink-0">
-                        {c.last_message ? timeAgo(c.last_message.created_at) : ""}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`text-xs truncate flex-1 ${c.unread_count > 0 ? "text-foreground font-medium" : "text-muted-foreground"}`}>
-                        {lastBody || <em className="opacity-60">No messages yet</em>}
-                      </span>
-                      {c.unread_count > 0 && (
-                        <span className="bg-primary text-primary-foreground text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
-                          {c.unread_count > 9 ? "9+" : c.unread_count}
-                        </span>
+                <div key={c.id} className="relative group/row">
+                  <button
+                    onClick={() => setActiveChatId(c.id)}
+                    className={`w-full px-3 py-3 flex items-start gap-3 text-left border-b border-border/40 transition-colors ${
+                      isActive ? "bg-accent" : "hover:bg-muted/60"
+                    }`}
+                  >
+                    <div className="relative flex-shrink-0">
+                      {c.type === "project" ? (
+                        <div className="w-12 h-12 rounded-full bg-primary/15 text-primary flex items-center justify-center">
+                          <Hash className="w-5 h-5" />
+                        </div>
+                      ) : (
+                        // Group + Direct: show the standard Avatar. For
+                        // groups, `av.url` is intentionally undefined
+                        // (see chatDisplayAvatar) so it renders the
+                        // group-name initials on the primary gradient.
+                        <Avatar name={av.name} src={av.url} size="md" />
+                      )}
+                      {c.is_muted && (
+                        <BellOff className="absolute -bottom-1 -right-1 w-4 h-4 p-0.5 rounded-full bg-card text-muted-foreground border border-border" />
                       )}
                     </div>
-                  </div>
-                </button>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-baseline justify-between gap-2">
+                        <span className={`truncate flex items-center gap-1.5 ${c.unread_count > 0 ? "font-bold" : "font-semibold"}`}>
+                          {isPinned && <Pin className="w-3 h-3 text-primary flex-shrink-0 fill-current" />}
+                          <span className="truncate">{title}</span>
+                        </span>
+                        <span className="text-xs text-muted-foreground flex-shrink-0">
+                          {c.last_message ? timeAgo(c.last_message.created_at) : ""}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs truncate flex-1 ${c.unread_count > 0 ? "text-foreground font-medium" : "text-muted-foreground"}`}>
+                          {lastBody || <em className="opacity-60">No messages yet</em>}
+                        </span>
+                        {c.unread_count > 0 && (
+                          <span className="bg-primary text-primary-foreground text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
+                            {c.unread_count > 9 ? "9+" : c.unread_count}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                  {/* Pin toggle — visible on row hover (always visible
+                      when pinned, so the user can unpin in one click). */}
+                  <button
+                    type="button"
+                    onClick={(e) => { e.stopPropagation(); toggleChatPin(c.id); }}
+                    title={isPinned ? "Unpin chat" : "Pin chat"}
+                    className={`absolute top-2 right-2 p-1.5 rounded-md transition-opacity ${
+                      isPinned
+                        ? "opacity-100 text-primary hover:bg-primary/10"
+                        : "opacity-100 md:opacity-0 md:group-hover/row:opacity-100 text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
+                  >
+                    <Pin className={`w-3.5 h-3.5 ${isPinned ? "fill-current" : ""}`} />
+                  </button>
+                </div>
               );
             })
           )}
@@ -875,27 +973,52 @@ export function Chat() {
                   </div>
                 </div>
               </div>
-              <button onClick={() => setShowInChatSearch((v) => !v)} className="p-2 rounded-lg hover:bg-muted" title="Search in chat">
+              {/* Secondary actions: hide on phones to keep the header
+                  from overflowing. They're still accessible from sm:
+                  up; on mobile the user can long-press a message to
+                  pin/search/etc. */}
+              <button onClick={() => setShowInChatSearch((v) => !v)} className="hidden sm:flex p-2 rounded-lg hover:bg-muted" title="Search in chat">
                 <Search className="w-5 h-5" />
               </button>
-              <button onClick={() => { setShowPinned((v) => !v); setShowFiles(false); }} className="p-2 rounded-lg hover:bg-muted" title="Pinned messages">
+              <button onClick={() => { setShowPinned((v) => !v); setShowFiles(false); }} className="hidden sm:flex p-2 rounded-lg hover:bg-muted" title="Pinned messages">
                 <Pin className={`w-5 h-5 ${pinnedMessages.length > 0 ? "text-primary" : ""}`} />
               </button>
-              <button onClick={() => { setShowFiles((v) => !v); setShowPinned(false); }} className="p-2 rounded-lg hover:bg-muted" title="Files & media">
+              <button onClick={() => { setShowFiles((v) => !v); setShowPinned(false); }} className="hidden sm:flex p-2 rounded-lg hover:bg-muted" title="Files & media">
                 <Folder className="w-5 h-5" />
               </button>
-              <button onClick={toggleMute} className="p-2 rounded-lg hover:bg-muted" title={activeChat.is_muted ? "Unmute" : "Mute"}>
+              <button onClick={toggleMute} className="p-1.5 sm:p-2 rounded-lg hover:bg-muted" title={activeChat.is_muted ? "Unmute" : "Mute"}>
                 {activeChat.is_muted ? <BellOff className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
               </button>
 
-              {/* Three-dots menu: leave / hide / delete */}
-              {activeChat.type !== "project" && (
-                <div className="relative" onClick={(e) => e.stopPropagation()}>
-                  <button onClick={() => setShowChatMenu((v) => !v)} className="p-2 rounded-lg hover:bg-muted" title="More">
-                    <MoreVertical className="w-5 h-5" />
-                  </button>
-                  {showChatMenu && (
-                    <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-xl py-1 z-50 min-w-[200px]">
+              {/* Three-dots menu: leave / hide / delete (+ secondary
+                  actions on mobile where the header buttons are hidden). */}
+              <div className="relative" onClick={(e) => e.stopPropagation()}>
+                <button onClick={() => setShowChatMenu((v) => !v)} className="p-1.5 sm:p-2 rounded-lg hover:bg-muted" title="More">
+                  <MoreVertical className="w-5 h-5" />
+                </button>
+                {showChatMenu && (
+                  <div className="absolute right-0 top-full mt-1 bg-card border border-border rounded-xl shadow-xl py-1 z-50 min-w-[200px]">
+                    {/* Mobile-only mirrors of the header icons */}
+                    <button
+                      onClick={() => { setShowChatMenu(false); setShowInChatSearch((v) => !v); }}
+                      className="sm:hidden w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted text-left transition-colors"
+                    >
+                      <Search className="w-4 h-4" /> Search in chat
+                    </button>
+                    <button
+                      onClick={() => { setShowChatMenu(false); setShowPinned((v) => !v); setShowFiles(false); }}
+                      className="sm:hidden w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted text-left transition-colors"
+                    >
+                      <Pin className="w-4 h-4" /> Pinned messages
+                    </button>
+                    <button
+                      onClick={() => { setShowChatMenu(false); setShowFiles((v) => !v); setShowPinned(false); }}
+                      className="sm:hidden w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted text-left transition-colors border-b border-border"
+                    >
+                      <Folder className="w-4 h-4" /> Files &amp; media
+                    </button>
+
+                    {activeChat.type !== "project" && (
                       <button
                         onClick={() => { setShowChatMenu(false); setConfirmDelete({ kind: "leave" }); }}
                         className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted text-left transition-colors"
@@ -903,20 +1026,20 @@ export function Chat() {
                         <LogOut className="w-4 h-4" />
                         {activeChat.type === "direct" ? "Delete chat" : "Leave group"}
                       </button>
-                      {activeChat.type === "group" &&
-                        (activeChat.my_role === "admin" || user?.role === "admin") && (
-                        <button
-                          onClick={() => { setShowChatMenu(false); setConfirmDelete({ kind: "full" }); }}
-                          className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-destructive/10 text-destructive text-left transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                          Delete entire group
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
+                    )}
+                    {activeChat.type === "group" &&
+                      (activeChat.my_role === "admin" || user?.role === "admin") && (
+                      <button
+                        onClick={() => { setShowChatMenu(false); setConfirmDelete({ kind: "full" }); }}
+                        className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-destructive/10 text-destructive text-left transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        Delete entire group
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
             </header>
 
             {/* In-chat search bar */}
@@ -1289,7 +1412,7 @@ export function Chat() {
       {/* Confirm delete / leave modal */}
       {confirmDelete && activeChat && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-card rounded-2xl border border-border p-6 w-full max-w-sm shadow-xl">
+          <div className="bg-card rounded-2xl border border-border p-5 md:p-6 w-full max-w-sm shadow-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center gap-3 mb-3">
               <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
                 {confirmDelete.kind === "full" ? <Trash2 className="w-5 h-5 text-destructive" /> : <LogOut className="w-5 h-5 text-destructive" />}

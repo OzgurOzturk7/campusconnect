@@ -260,7 +260,7 @@ export function Workspace() {
   ] as const;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 min-w-0">
       {/* Toast */}
       {toast && (
         <div className={`fixed top-6 right-6 z-[100] flex items-center gap-3 px-5 py-3.5 rounded-xl shadow-lg text-sm font-medium ${
@@ -473,14 +473,18 @@ function OverviewTab({ workspace }: { workspace: WorkspaceData }) {
           <h3 className="font-bold mb-4 flex items-center gap-2">
             <CheckSquare className="w-4 h-4 text-primary" /> Task Progress
           </h3>
-          <div className="flex gap-3 mb-4 flex-wrap">
+          {/* Stats grid — 2 columns on phones (so 4 boxes fit snugly in
+              a 2×2), 4 columns from sm: up. Previous flex-wrap could
+              overflow on 360px because `min-w-20` * 4 + gaps exceeded
+              the card's inner width. */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
             {[
               { key: "todo", label: "To Do", color: "bg-muted text-muted-foreground" },
               { key: "in_progress", label: "In Progress", color: "bg-blue-100 text-blue-700" },
               { key: "review", label: "Review", color: "bg-amber-100 text-amber-700" },
               { key: "done", label: "Done", color: "bg-green-100 text-green-700" },
             ].map(({ key, label, color }) => (
-              <div key={key} className={`flex-1 min-w-20 rounded-xl p-3 text-center ${color}`}>
+              <div key={key} className={`rounded-xl p-3 text-center ${color}`}>
                 <p className="text-2xl font-bold">{tc[key] || 0}</p>
                 <p className="text-xs font-medium mt-0.5">{label}</p>
               </div>
@@ -625,6 +629,17 @@ function ChatBridgeTab({
 }
 
 // ── Tasks Tab ──────────────────────────────────────────────────
+
+// "YYYY-MM-DD" in the user's local timezone — used as the `min`
+// attribute on task due-date inputs so the native picker won't let
+// you pick a past day. Backend re-validates the same rule.
+function todayISO(): string {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 const DEFAULT_FORM = {
   title: "",
@@ -907,6 +922,7 @@ function TasksTab({
                   <input
                     type="date"
                     value={form.due_date}
+                    min={todayISO()}
                     onChange={(e) => setForm({ ...form, due_date: e.target.value })}
                     className="w-full text-xs bg-muted px-2 py-1.5 rounded-lg border border-border focus:outline-none"
                   />
@@ -1110,6 +1126,7 @@ function TaskDetailModal({
             <input
               type="date"
               value={dueDate}
+              min={todayISO()}
               onChange={(e) => {
                 const val = e.target.value;
                 setDueDate(val);

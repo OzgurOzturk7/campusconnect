@@ -1,8 +1,9 @@
 from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel
 from app.core.supabase import get_supabase, get_supabase_admin
 from app.core.security import get_current_user
+from app.core.ratelimit import limiter
 
 router = APIRouter()
 
@@ -68,19 +69,40 @@ def delete_notification(notification_id: str, current_user: dict = Depends(get_c
 
 
 @router.post("/delete")
-def delete_notifications(body: NotificationDeleteBody, current_user: dict = Depends(get_current_user)):
+@limiter.limit("30/minute")
+def delete_notifications(request: Request, body: NotificationDeleteBody, current_user: dict = Depends(get_current_user)):
     """Bulk delete. POST (not DELETE) because some HTTP clients refuse
     to send a body with DELETE.
 
     - `ids` empty/missing → wipe everything for this user (clear all).
     - `ids` provided      → delete just those rows, scoped to the user.
+
+    Returns the actual count of rows that were the caller's and got
+    deleted. Counting via a pre-select is necessary because supabase-py's
+    delete() returns an empty data array when REPLICA IDENTITY is
+    default — we can't infer the count from the delete response itself.
     """
     supabase = get_supabase_admin()
-    q = supabase.table("notifications").delete().eq("user_id", current_user["id"])
+
+    # Count first — scoped to the caller's rows so foreign IDs the
+    # client may have included don't inflate the result.
+    count_q = (
+        supabase.table("notifications")
+        .select("id", count="exact")
+        .eq("user_id", current_user["id"])
+    )
     if body.ids:
-        q = q.in_("id", body.ids)
-    res = q.execute()
-    return {"deleted": len(res.data or [])}
+        count_q = count_q.in_("id", body.ids)
+    count_res = count_q.execute()
+    matched = count_res.count or 0
+
+    # Now perform the delete (same WHERE clause).
+    del_q = supabase.table("notifications").delete().eq("user_id", current_user["id"])
+    if body.ids:
+        del_q = del_q.in_("id", body.ids)
+    del_q.execute()
+
+    return {"deleted": matched}
 
 
 @router.get("/unread-count")

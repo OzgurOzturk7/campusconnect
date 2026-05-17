@@ -243,7 +243,9 @@ def delete_club(club_id: str, current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/{club_id}/join", status_code=status.HTTP_201_CREATED)
-def join_club(club_id: str, current_user: dict = Depends(get_current_user)):
+# 20/minute is comfortable for genuine browsing; blocks click-spam.
+@limiter.limit("20/minute")
+def join_club(request: Request, club_id: str, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     club = get_club_or_404(supabase, club_id)
     existing = supabase.table("club_memberships").select("id, status") \
@@ -362,7 +364,10 @@ def get_announcements(club_id: str, current_user: dict = Depends(get_current_use
 
 
 @router.post("/{club_id}/announcements", status_code=status.HTTP_201_CREATED)
-def create_announcement(club_id: str, body: AnnouncementCreate,
+# Announcements fan out to every member as a notification — 10/min is
+# generous for legitimate posting, prevents spam-blast.
+@limiter.limit("10/minute")
+def create_announcement(request: Request, club_id: str, body: AnnouncementCreate,
                         current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     club = require_club_manager(supabase, club_id, current_user)
@@ -411,7 +416,8 @@ def _validated_ext(filename: str, fallback: str) -> str:
 
 
 @router.post("/{club_id}/upload-cover")
-async def upload_cover(club_id: str, file: UploadFile = File(...),
+@limiter.limit("10/minute")
+async def upload_cover(request: Request, club_id: str, file: UploadFile = File(...),
                        current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     require_club_manager(supabase, club_id, current_user)
@@ -442,7 +448,9 @@ async def upload_cover(club_id: str, file: UploadFile = File(...),
 
 
 @router.post("/{club_id}/upload-video")
-async def upload_club_video(club_id: str, file: UploadFile = File(...),
+# Video uploads are up to 100 MB; 5/min cap is a hard ceiling.
+@limiter.limit("5/minute")
+async def upload_club_video(request: Request, club_id: str, file: UploadFile = File(...),
                             current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     require_club_manager(supabase, club_id, current_user)

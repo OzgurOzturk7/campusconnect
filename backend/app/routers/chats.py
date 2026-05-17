@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Query
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Query, Request
 from typing import Optional
 from app.schemas.chats import (
     ChatCreate, ChatUpdate, MessageCreate, MessageEdit,
@@ -7,6 +7,7 @@ from app.schemas.chats import (
 from app.schemas.notifications import send_notification
 from app.core.supabase import get_supabase_admin
 from app.core.security import get_current_user
+from app.core.ratelimit import limiter
 from datetime import datetime
 import uuid
 import mimetypes
@@ -182,8 +183,30 @@ def list_my_chats(current_user: dict = Depends(get_current_user)):
     return out
 
 
+def _find_existing_direct_chat(supabase, user_a: str, user_b: str):
+    """Return the existing direct chat row between two users, or None.
+
+    Pulled out of create_chat so we can call it twice — once at the
+    start (the optimistic happy path) and once after a failed insert
+    (the race recovery path). Same SELECT logic both times.
+    """
+    a_chats = supabase.table("chat_members").select("chat_id").eq("user_id", user_a).execute()
+    a_ids = [r["chat_id"] for r in (a_chats.data or [])]
+    if not a_ids:
+        return None
+    b_in_same = supabase.table("chat_members").select("chat_id") \
+        .eq("user_id", user_b).in_("chat_id", a_ids).execute()
+    for r in (b_in_same.data or []):
+        cid = r["chat_id"]
+        ct = supabase.table("chats").select("*").eq("id", cid).maybe_single().execute()
+        if ct and ct.data and ct.data.get("type") == "direct":
+            return ct.data
+    return None
+
+
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_chat(body: ChatCreate, current_user: dict = Depends(get_current_user)):
+@limiter.limit("20/minute")
+def create_chat(request: Request, body: ChatCreate, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     if body.type not in ("direct", "group"):
         raise HTTPException(status_code=400, detail="Type must be 'direct' or 'group'")
@@ -196,17 +219,66 @@ def create_chat(body: ChatCreate, current_user: dict = Depends(get_current_user)
         if len(member_ids) != 1:
             raise HTTPException(status_code=400, detail="Direct chats need exactly one other member")
         other_id = member_ids[0]
-        my_chats = supabase.table("chat_members").select("chat_id").eq("user_id", current_user["id"]).execute()
-        my_ids = [r["chat_id"] for r in (my_chats.data or [])]
-        if my_ids:
-            other_chats = supabase.table("chat_members").select("chat_id") \
-                .eq("user_id", other_id).in_("chat_id", my_ids).execute()
-            for r in (other_chats.data or []):
-                cid = r["chat_id"]
-                ct = supabase.table("chats").select("type").eq("id", cid).single().execute()
-                if ct.data and ct.data["type"] == "direct":
-                    return supabase.table("chats").select("*").eq("id", cid).single().execute().data
 
+        # Optimistic happy path: return the existing chat if one is
+        # already open between these two users.
+        existing = _find_existing_direct_chat(supabase, current_user["id"], other_id)
+        if existing:
+            return existing
+
+        # No existing chat — try to create one. If another concurrent
+        # request created one in the meantime, the second INSERT will
+        # technically succeed (no DB-level unique index because the
+        # participants live in chat_members, not chats), so we follow
+        # up the insert with a defensive look-up and clean up our own
+        # row if a duplicate is detected.
+        new_chat = supabase.table("chats").insert({
+            "type": body.type,
+            "title": body.title,
+            "created_by": current_user["id"],
+        }).execute().data[0]
+
+        rows = [{"chat_id": new_chat["id"], "user_id": current_user["id"], "role": "admin"},
+                {"chat_id": new_chat["id"], "user_id": other_id, "role": "member"}]
+        supabase.table("chat_members").insert(rows).execute()
+
+        # Race-recovery look-up. If two requests landed at nearly the
+        # same time, both went through insert and we now have two
+        # direct chats. Pick the lexicographically smaller chat id
+        # (deterministic, stable across both racing requests) and drop
+        # the other. Both racing callers end up returning the same
+        # winning chat id.
+        a_chats = supabase.table("chat_members").select("chat_id") \
+            .eq("user_id", current_user["id"]).execute()
+        a_ids = [r["chat_id"] for r in (a_chats.data or [])]
+        b_in_same = supabase.table("chat_members").select("chat_id") \
+            .eq("user_id", other_id).in_("chat_id", a_ids).execute()
+        candidate_ids = []
+        for r in (b_in_same.data or []):
+            ct = supabase.table("chats").select("id, type, created_at") \
+                .eq("id", r["chat_id"]).maybe_single().execute()
+            if ct and ct.data and ct.data.get("type") == "direct":
+                candidate_ids.append(ct.data["id"])
+        if len(candidate_ids) > 1:
+            # Determine winner deterministically (smallest id wins).
+            winner = min(candidate_ids)
+            losers = [cid for cid in candidate_ids if cid != winner]
+            # Best-effort cleanup; we keep messages by leaving the
+            # losing chats alone if they already have any. In practice
+            # both racing inserts happen within milliseconds of each
+            # other so neither side has messages yet.
+            for loser in losers:
+                msg_count = supabase.table("messages").select("id", count="exact") \
+                    .eq("chat_id", loser).limit(1).execute()
+                if (msg_count.count or 0) == 0:
+                    supabase.table("chat_members").delete().eq("chat_id", loser).execute()
+                    supabase.table("chats").delete().eq("id", loser).execute()
+            win_row = supabase.table("chats").select("*").eq("id", winner).single().execute()
+            return win_row.data
+
+        return new_chat
+
+    # Group chat — straightforward.
     new_chat = supabase.table("chats").insert({
         "type": body.type,
         "title": body.title,
@@ -435,7 +507,10 @@ def list_messages(
 
 
 @router.post("/{chat_id}/messages", status_code=status.HTTP_201_CREATED)
-def send_message(chat_id: str, body: MessageCreate, current_user: dict = Depends(get_current_user)):
+# 60/minute is one message per second on average — plenty for normal
+# conversation, hard cap on bot-style flooding.
+@limiter.limit("60/minute")
+def send_message(request: Request, chat_id: str, body: MessageCreate, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     _ensure_member(supabase, chat_id, current_user["id"])
 
@@ -589,7 +664,10 @@ def search_messages(chat_id: str, q: str = Query(..., min_length=1), current_use
 # MEDIA UPLOAD
 # ============================================================
 @router.post("/{chat_id}/upload")
-async def upload_attachment(chat_id: str, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+# Uploads are 25 MB max each — 20/min still allows half a gigabyte
+# per minute, but stops a runaway client from hammering storage.
+@limiter.limit("20/minute")
+async def upload_attachment(request: Request, chat_id: str, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     _ensure_member(supabase, chat_id, current_user["id"])
 

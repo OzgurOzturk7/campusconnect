@@ -1,5 +1,6 @@
 import re
-from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Request
+from app.core.ratelimit import limiter
 from app.schemas.events import EventCreate, EventUpdate
 from app.schemas.notifications import send_notification
 from app.core.supabase import get_supabase_admin
@@ -66,7 +67,8 @@ def get_event(event_id: str, current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_event(body: EventCreate, current_user: dict = Depends(get_current_user)):
+@limiter.limit("10/minute")
+def create_event(request: Request, body: EventCreate, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
 
     if body.is_school_wide and current_user["role"] != "admin":
@@ -200,7 +202,9 @@ def _is_event_manager(supabase, event_row: dict, current_user: dict) -> bool:
 
 
 @router.post("/{event_id}/attend", status_code=status.HTTP_201_CREATED)
-def attend_event(event_id: str, current_user: dict = Depends(get_current_user)):
+# RSVP toggling spam: 30/minute is well above human pace.
+@limiter.limit("30/minute")
+def attend_event(request: Request, event_id: str, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     event = supabase.table("events").select("*").eq("id", event_id).single().execute()
     if not event.data:
@@ -365,7 +369,8 @@ _SAFE_EXT_PATTERN = re.compile(r"^[A-Za-z0-9]{1,8}$")
 
 
 @router.post("/{event_id}/upload-cover")
-async def upload_event_cover(event_id: str, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+@limiter.limit("10/minute")
+async def upload_event_cover(request: Request, event_id: str, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     event = supabase.table("events").select("created_by").eq("id", event_id).single().execute()
     if not event.data:

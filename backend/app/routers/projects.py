@@ -1,4 +1,5 @@
-from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File
+from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File, Request
+from app.core.ratelimit import limiter
 from app.schemas.projects import (
     ProjectPostCreate, ProjectPostUpdate,
     ApplicationCreate, ApplicationStatusUpdate
@@ -271,7 +272,8 @@ def _upload_with_retry(bucket, path: str, body: bytes, content_type: str, *, att
 
 
 @router.post("/upload-cv")
-async def upload_cv(file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+@limiter.limit("10/minute")
+async def upload_cv(request: Request, file: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     """Upload a CV file (PDF or Word) for use with a project application.
 
     Failure modes:
@@ -522,7 +524,11 @@ def get_project(project_id: str, current_user: dict = Depends(get_current_user))
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_project(body: ProjectPostCreate, current_user: dict = Depends(get_current_user)):
+# Already capped by the monthly limit (3 per non-admin), but rate
+# limiting also prevents a script from chewing through the cap in one
+# burst and notifying every applicant.
+@limiter.limit("5/minute")
+def create_project(request: Request, body: ProjectPostCreate, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
 
     # Server-authoritative monthly publish cap. Admins are exempt.
@@ -603,7 +609,10 @@ def delete_project(project_id: str, current_user: dict = Depends(get_current_use
 
 
 @router.post("/{project_id}/apply", status_code=status.HTTP_201_CREATED)
-def apply_to_project(project_id: str, body: ApplicationCreate, current_user: dict = Depends(get_current_user)):
+# Applications spawn notifications; cap to one realistic-paced submit
+# per minute per IP to keep owners from getting spammed.
+@limiter.limit("10/minute")
+def apply_to_project(request: Request, project_id: str, body: ApplicationCreate, current_user: dict = Depends(get_current_user)):
     supabase = get_supabase_admin()
     project = supabase.table("project_posts").select("*").eq("id", project_id).single().execute()
     if not project.data:

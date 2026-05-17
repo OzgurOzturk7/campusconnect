@@ -1,6 +1,7 @@
 from datetime import date
 import logging
-from fastapi import APIRouter, HTTPException, status, Depends
+from fastapi import APIRouter, HTTPException, status, Depends, Request
+from app.core.ratelimit import limiter
 from app.schemas.workspaces import (
     WorkspaceStageUpdate, TaskCreate, TaskUpdate,
     TaskCommentCreate, ResourceCreate,
@@ -223,7 +224,9 @@ def list_tasks(workspace_id: str, current_user: dict = Depends(get_current_user)
 
 
 @router.post("/{workspace_id}/tasks", status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 def create_task(
+    request: Request,
     workspace_id: str, body: TaskCreate,
     current_user: dict = Depends(get_current_user),
 ):
@@ -395,7 +398,9 @@ def list_task_comments(
 
 
 @router.post("/{workspace_id}/tasks/{task_id}/comments", status_code=status.HTTP_201_CREATED)
+@limiter.limit("30/minute")
 def add_task_comment(
+    request: Request,
     workspace_id: str, task_id: str, body: TaskCommentCreate,
     current_user: dict = Depends(get_current_user),
 ):
@@ -537,7 +542,9 @@ def list_resources(workspace_id: str, current_user: dict = Depends(get_current_u
 
 
 @router.post("/{workspace_id}/resources", status_code=status.HTTP_201_CREATED)
+@limiter.limit("20/minute")
 def add_resource(
+    request: Request,
     workspace_id: str, body: ResourceCreate,
     current_user: dict = Depends(get_current_user),
 ):

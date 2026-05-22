@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Link, useParams, useLocation } from "react-router";
 import { apiFetch } from "../lib/api";
+import { renderRichText } from "../lib/richText";
 import { useAuth } from "../context/AuthContext";
 import { getStoredToken } from "../context/AuthContext";
 
@@ -823,7 +824,7 @@ export function ClubDetail() {
                         </button>
                       )}
                     </div>
-                    <p className="text-muted-foreground text-sm leading-relaxed">{ann.content}</p>
+                    <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap break-words">{renderRichText(ann.content)}</p>
                     <p className="text-xs text-muted-foreground mt-3">
                       {new Date(ann.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
                     </p>

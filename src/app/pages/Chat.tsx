@@ -8,6 +8,7 @@ import {
 import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
 import { apiFetch } from "../lib/api";
+import { renderRichText } from "../lib/richText";
 import { useAuth, getStoredToken } from "../context/AuthContext";
 import { useToast } from "../context/ToastContext";
 import { useConfirm } from "../context/ConfirmContext";
@@ -122,6 +123,8 @@ export function Chat() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [input, setInput] = useState("");
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [highlightedId, setHighlightedId] = useState<string | null>(null);
+  const highlightTimer = useRef<number | null>(null);
   const [chatListSearch, setChatListSearch] = useState("");
   const [inChatSearch, setInChatSearch] = useState("");
   const [showInChatSearch, setShowInChatSearch] = useState(false);
@@ -609,6 +612,17 @@ export function Chat() {
     if (pendingPreviewUrl) URL.revokeObjectURL(pendingPreviewUrl);
     setPendingFile(null);
     setPendingPreviewUrl(null);
+  }
+
+  // Jump to the original message a reply points at + briefly highlight it.
+  // No-op when the target isn't currently loaded (e.g. an older message).
+  function scrollToMessage(id: string) {
+    const el = document.getElementById(`msg-${id}`);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "center" });
+    setHighlightedId(id);
+    if (highlightTimer.current) window.clearTimeout(highlightTimer.current);
+    highlightTimer.current = window.setTimeout(() => setHighlightedId(null), 1600);
   }
 
   async function uploadAndSend(file: File, body: string | null, replyId?: string) {
@@ -1146,7 +1160,7 @@ export function Chat() {
                       const isReadByOthers = mine && otherMembers.length > 0 ? Boolean(allOthersRead) : false;
 
                       return (
-                        <div key={m.id} className={`group flex gap-2 ${mine ? "justify-end" : "justify-start"} ${sameSenderAsPrev ? "mt-0.5" : "mt-3"}`}>
+                        <div key={m.id} id={`msg-${m.id}`} className={`group flex gap-2 ${mine ? "justify-end" : "justify-start"} ${sameSenderAsPrev ? "mt-0.5" : "mt-3"}`}>
                           {!mine && !sameSenderAsPrev && (
                             <Avatar name={m.sender?.name || "?"} src={m.sender?.avatar_url} size="sm" />
                           )}
@@ -1158,17 +1172,25 @@ export function Chat() {
                             )}
 
                             {/* Bubble */}
-                            <div className={`relative rounded-2xl px-3 py-2 break-words ${
+                            <div className={`relative rounded-2xl px-3 py-2 break-words transition-shadow ${
                               mine ? "bg-primary text-primary-foreground rounded-tr-sm" : "bg-muted text-foreground rounded-tl-sm"
-                            } ${m.deleted_at ? "italic opacity-60" : ""}`}>
-                              {/* Reply preview */}
+                            } ${m.deleted_at ? "italic opacity-60" : ""} ${
+                              highlightedId === m.id ? "ring-2 ring-primary ring-offset-2 ring-offset-background" : ""
+                            }`}>
+                              {/* Reply preview — click to jump to the original */}
                               {replyMsg && !m.deleted_at && (
-                                <div className={`text-xs rounded-md px-2 py-1 mb-1 border-l-2 ${
-                                  mine ? "bg-primary-foreground/15 border-primary-foreground/40" : "bg-card border-primary"
-                                }`}>
+                                <button
+                                  type="button"
+                                  onClick={() => scrollToMessage(replyMsg.id)}
+                                  className={`block w-full text-start text-xs rounded-md px-2 py-1 mb-1 border-l-2 transition-colors cursor-pointer ${
+                                    mine
+                                      ? "bg-primary-foreground/15 border-primary-foreground/40 hover:bg-primary-foreground/25"
+                                      : "bg-card border-primary hover:bg-muted"
+                                  }`}
+                                >
                                   <div className="font-semibold opacity-80">{replyMsg.sender?.name || "Unknown"}</div>
                                   <div className="opacity-80 line-clamp-1">{replyMsg.body || "[attachment]"}</div>
-                                </div>
+                                </button>
                               )}
 
                               {m.deleted_at ? (
@@ -1195,7 +1217,7 @@ export function Chat() {
                                   {m.attachment_url && m.attachment_type === "audio" && (
                                     <audio src={m.attachment_url} controls className="mb-1" />
                                   )}
-                                  {m.body && <div className="text-sm whitespace-pre-wrap">{m.body}</div>}
+                                  {m.body && <div className="text-sm whitespace-pre-wrap break-words">{renderRichText(m.body)}</div>}
                                 </>
                               )}
 

@@ -25,7 +25,9 @@
     "loadMore": "Load more"
   },
   "search": {
-    "placeholder": "Search students, clubs, projects..."
+    "placeholder": "Search students, clubs, projects...",
+    "users": "People",
+    "noResults": "No results found"
   },
   "badges": {
     "admin": "Admin",

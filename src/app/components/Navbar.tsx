@@ -1,4 +1,4 @@
-import { Bell, LogOut, Briefcase, Calendar, Users, MessageSquare, CheckCheck, User as UserIcon, Menu, Settings as SettingsIcon } from "lucide-react";
+import { Bell, LogOut, Briefcase, Calendar, Users, MessageSquare, CheckCheck, User as UserIcon, Menu, Settings as SettingsIcon, Search, Loader2, X } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Avatar } from "./Avatar";
@@ -15,6 +15,13 @@ interface Notification {
   link?: string;
   is_read: boolean;
   created_at: string;
+}
+
+interface SearchResults {
+  clubs: { id: string; name: string; category?: string }[];
+  events: { id: string; title: string }[];
+  projects: { id: string; title: string }[];
+  users: { id: string; name: string; avatar_url?: string; department?: string }[];
 }
 
 const iconMap: Record<string, React.ElementType> = {
@@ -60,6 +67,40 @@ interface NavbarProps {
   onMenuClick?: () => void;
 }
 
+/** One labelled group of search results (Clubs / Events / Projects / People). */
+function SearchGroup<T extends { id: string }>({
+  title,
+  icon: Icon,
+  items,
+  render,
+  onPick,
+}: {
+  title: string;
+  icon: React.ElementType;
+  items: T[];
+  render: (item: T) => string;
+  onPick: (item: T) => void;
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div className="py-1 border-b border-border last:border-0">
+      <div className="px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {title}
+      </div>
+      {items.map((item) => (
+        <button
+          key={item.id}
+          onClick={() => onPick(item)}
+          className="w-full text-start px-4 py-2 flex items-center gap-3 hover:bg-muted transition-colors"
+        >
+          <Icon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <span className="text-sm truncate">{render(item)}</span>
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function Navbar({ onMenuClick }: NavbarProps = {}) {
   const { user, logout } = useAuth();
   const { t } = useTranslation("common");
@@ -72,6 +113,11 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
   const [loadingNotifs, setLoadingNotifs] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
   const userMenuRef = useRef<HTMLDivElement>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<SearchResults | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -109,6 +155,48 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
     };
   }, [userMenuOpen]);
 
+
+  // Debounced global search across clubs / events / projects / users.
+  useEffect(() => {
+    const q = searchQuery.trim();
+    if (q.length < 2) {
+      setSearchResults(null);
+      setSearchOpen(false);
+      setSearchLoading(false);
+      return;
+    }
+    setSearchLoading(true);
+    const handle = setTimeout(async () => {
+      try {
+        const data = await apiFetch(`/api/search?q=${encodeURIComponent(q)}`);
+        setSearchResults(data);
+        setSearchOpen(true);
+      } catch {
+        // silent — search is best-effort
+      } finally {
+        setSearchLoading(false);
+      }
+    }, 250);
+    return () => clearTimeout(handle);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (!searchOpen) return;
+    const handleClick = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [searchOpen]);
+
+  function handleSearchNavigate(path: string) {
+    setSearchOpen(false);
+    setSearchQuery("");
+    setSearchResults(null);
+    navigate(path);
+  }
 
   async function fetchNotifications() {
     try {
@@ -172,7 +260,48 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
         />
       </Link>
 
-      <div className="flex-1" />
+      <div ref={searchRef} className="relative flex-1 max-w-xl mx-2 md:mx-4">
+        <div
+          className={`flex items-center gap-2 bg-muted rounded-lg px-3 h-9 border transition-colors ${
+            searchOpen ? "border-primary/40" : "border-transparent"
+          }`}
+        >
+          <Search className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onFocus={() => { if (searchResults) setSearchOpen(true); }}
+            placeholder={t("search.placeholder")}
+            aria-label={t("search.placeholder")}
+            className="flex-1 min-w-0 bg-transparent text-sm focus:outline-none"
+          />
+          {searchLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground flex-shrink-0" />}
+          {searchQuery && !searchLoading && (
+            <button
+              onClick={() => setSearchQuery("")}
+              aria-label={t("actions.close")}
+              className="flex-shrink-0 text-muted-foreground hover:text-foreground"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          )}
+        </div>
+
+        {searchOpen && searchResults && (
+          <div className="absolute top-full mt-2 left-0 right-0 bg-card border border-border rounded-xl shadow-xl overflow-hidden max-h-[70vh] overflow-y-auto z-50">
+            {searchResults.clubs.length + searchResults.events.length + searchResults.projects.length + searchResults.users.length === 0 ? (
+              <div className="px-4 py-8 text-center text-sm text-muted-foreground">{t("search.noResults")}</div>
+            ) : (
+              <>
+                <SearchGroup title={t("nav.clubs")} icon={Users} items={searchResults.clubs} render={(c) => c.name} onPick={(c) => handleSearchNavigate(`/clubs/${c.id}`)} />
+                <SearchGroup title={t("nav.events")} icon={Calendar} items={searchResults.events} render={(e) => e.title} onPick={() => handleSearchNavigate(`/events`)} />
+                <SearchGroup title={t("nav.projects")} icon={Briefcase} items={searchResults.projects} render={(p) => p.title} onPick={() => handleSearchNavigate(`/projects`)} />
+                <SearchGroup title={t("search.users")} icon={UserIcon} items={searchResults.users} render={(u) => u.name} onPick={() => handleSearchNavigate(`/chats`)} />
+              </>
+            )}
+          </div>
+        )}
+      </div>
 
       <div className="ml-auto flex items-center gap-2 md:gap-3">
         {user?.role === "admin" && (

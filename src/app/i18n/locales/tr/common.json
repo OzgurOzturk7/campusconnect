@@ -25,7 +25,9 @@
     "loadMore": "Daha fazla"
   },
   "search": {
-    "placeholder": "Öğrenci, kulüp, proje ara..."
+    "placeholder": "Öğrenci, kulüp, proje ara...",
+    "users": "Kişiler",
+    "noResults": "Sonuç bulunamadı"
   },
   "badges": {
     "admin": "Yönetici",

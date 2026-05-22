@@ -4,6 +4,7 @@ from app.schemas.auth import (
     LoginRequest, LoginResponse, GoogleLoginRequest,
     UserPublic, UserUpdate, AIAnalysisResponse,
     ChangePasswordRequest, ForgotPasswordRequest, InviteUserRequest,
+    AllowedDomainCreate, AllowedDomainUpdate,
 )
 from app.core.supabase import get_supabase, get_supabase_admin
 from app.core.security import create_access_token, get_current_user, require_admin
@@ -36,7 +37,33 @@ def _generate_temp_password(length: int = 14) -> str:
 
 router = APIRouter()
 
-ALLOWED_GOOGLE_DOMAIN = "final.edu.tr"
+
+def get_active_allowed_domains(admin) -> list[str]:
+    """Active invite/login email domains.
+
+    Reads the admin-managed `allowed_email_domains` table and falls back
+    to the INVITE_ALLOWED_DOMAINS env value when the table has no active
+    rows — so emptying the list in the admin UI can never lock everyone
+    out of invites and Google sign-in.
+    """
+    domains: list[str] = []
+    try:
+        res = (
+            admin.table("allowed_email_domains")
+            .select("domain")
+            .eq("is_active", True)
+            .execute()
+        )
+        domains = [(r["domain"] or "").lower().lstrip("@").strip() for r in (res.data or [])]
+        domains = [d for d in domains if d]
+    except Exception as e:
+        print("ALLOWED DOMAINS FETCH ERROR:", e)
+    if not domains:
+        domains = [
+            d.lower().lstrip("@").strip()
+            for d in (settings.INVITE_ALLOWED_DOMAINS or ["final.edu.tr"])
+        ]
+    return domains
 
 
 @router.post("/login", response_model=LoginResponse)
@@ -106,7 +133,8 @@ def google_login(request: Request, body: GoogleLoginRequest):
         credential. That way the user can sign in from any device, even
         ones without their Google session.
 
-    Only @final.edu.tr accounts pass the Google domain gate.
+    Only emails on the admin-configured allowed-domains list pass the
+    Google domain gate (falls back to the env default when unset).
     """
     google_client_id = settings.GOOGLE_CLIENT_ID or os.getenv("GOOGLE_CLIENT_ID", "")
     if not google_client_id:
@@ -138,17 +166,21 @@ def google_login(request: Request, body: GoogleLoginRequest):
     if not email or not email_verified:
         raise HTTPException(status_code=401, detail="Email not verified by Google")
 
-    # Domain restriction — both `hd` claim and email suffix.
-    if hd != ALLOWED_GOOGLE_DOMAIN and not email.endswith(f"@{ALLOWED_GOOGLE_DOMAIN}"):
+    supabase = get_supabase_admin()
+
+    # Domain restriction — admin-configurable list, matched against both
+    # the Google `hd` claim and the email suffix.
+    allowed = get_active_allowed_domains(supabase)
+    hd_norm = (hd or "").lower()
+    if hd_norm not in allowed and not any(email.endswith(f"@{d}") for d in allowed):
+        rendered = " or ".join(f"@{d}" for d in allowed)
         raise HTTPException(
             status_code=403,
-            detail=f"Only @{ALLOWED_GOOGLE_DOMAIN} accounts are allowed.",
+            detail=f"Only {rendered} accounts are allowed.",
         )
 
     name = info.get("name") or email.split("@")[0]
     avatar_url = info.get("picture")
-
-    supabase = get_supabase_admin()
 
     # ---- Existing user? Just log them in. ----
     try:
@@ -386,7 +418,8 @@ def invite_user(
          the auth + profile rows so the admin can retry safely.
     """
     email = body.email.lower().strip()
-    allowed = [d.lower().lstrip("@") for d in (settings.INVITE_ALLOWED_DOMAINS or ["final.edu.tr"])]
+    admin = get_supabase_admin()
+    allowed = get_active_allowed_domains(admin)
     if not any(email.endswith(f"@{d}") for d in allowed):
         # Build a friendly message: "@final.edu.tr" or "@final.edu.tr or @gmail.com"
         rendered = " or ".join(f"@{d}" for d in allowed)
@@ -394,8 +427,6 @@ def invite_user(
             status_code=400,
             detail=f"Only {rendered} emails can be invited.",
         )
-
-    admin = get_supabase_admin()
 
     # Reject if someone with this email already exists in our profile table.
     try:
@@ -477,6 +508,80 @@ def invite_user(
         )
 
     return {"ok": True, "user_id": new_id, "email": email}
+
+
+# ---- Admin: manage the invite/login allowed-domain whitelist ----
+
+@router.get("/allowed-domains")
+def list_allowed_domains(current_user: dict = Depends(require_admin)):
+    """All configured domains (active + inactive), oldest first."""
+    admin = get_supabase_admin()
+    try:
+        res = (
+            admin.table("allowed_email_domains")
+            .select("*")
+            .order("created_at", desc=False)
+            .execute()
+        )
+        return res.data or []
+    except Exception as e:
+        print("LIST DOMAINS ERROR:", e)
+        raise HTTPException(status_code=500, detail="Couldn't load domains.")
+
+
+@router.post("/allowed-domains", status_code=status.HTTP_201_CREATED)
+def add_allowed_domain(body: AllowedDomainCreate, current_user: dict = Depends(require_admin)):
+    domain = body.domain.lower().strip().lstrip("@")
+    # Minimal sanity check — a real domain has a dot and no @ or whitespace.
+    if "@" in domain or any(c.isspace() for c in domain) or "." not in domain:
+        raise HTTPException(status_code=400, detail="Enter a valid domain like 'example.com'.")
+    admin = get_supabase_admin()
+    try:
+        res = admin.table("allowed_email_domains").insert({
+            "domain": domain,
+            "is_active": True,
+            "created_by": current_user["id"],
+        }).execute()
+    except Exception as e:
+        msg = str(e).lower()
+        if "duplicate" in msg or "unique" in msg or "23505" in msg:
+            raise HTTPException(status_code=409, detail="That domain is already in the list.")
+        print("ADD DOMAIN ERROR:", e)
+        raise HTTPException(status_code=500, detail="Couldn't add the domain.")
+    return res.data[0]
+
+
+@router.patch("/allowed-domains/{domain_id}")
+def toggle_allowed_domain(
+    domain_id: str,
+    body: AllowedDomainUpdate,
+    current_user: dict = Depends(require_admin),
+):
+    admin = get_supabase_admin()
+    try:
+        res = (
+            admin.table("allowed_email_domains")
+            .update({"is_active": body.is_active})
+            .eq("id", domain_id)
+            .execute()
+        )
+    except Exception as e:
+        print("TOGGLE DOMAIN ERROR:", e)
+        raise HTTPException(status_code=500, detail="Couldn't update the domain.")
+    if not res.data:
+        raise HTTPException(status_code=404, detail="Domain not found.")
+    return res.data[0]
+
+
+@router.delete("/allowed-domains/{domain_id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_allowed_domain(domain_id: str, current_user: dict = Depends(require_admin)):
+    admin = get_supabase_admin()
+    try:
+        admin.table("allowed_email_domains").delete().eq("id", domain_id).execute()
+    except Exception as e:
+        print("DELETE DOMAIN ERROR:", e)
+        raise HTTPException(status_code=500, detail="Couldn't delete the domain.")
+    return None
 
 
 def _send_password_reset_email_background(to: str, name: str, action_link: str) -> None:

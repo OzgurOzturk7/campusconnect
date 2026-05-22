@@ -6,7 +6,8 @@
     "profile": "Profile",
     "password": "Password",
     "appearance": "Appearance",
-    "language": "Language"
+    "language": "Language",
+    "domains": "Domains"
   },
 
   "profile": {
@@ -44,5 +45,22 @@
     "title": "Language",
     "description": "Change the language used across the interface.",
     "saved": "Language updated"
+  },
+
+  "domains": {
+    "title": "Allowed domains",
+    "description": "Manage which email domains can be invited and sign in. While the list is empty, the .env default applies.",
+    "add_placeholder": "example.edu",
+    "add_button": "Add",
+    "active": "Active",
+    "inactive": "Inactive",
+    "empty": "No domains added yet.",
+    "added": "Domain added",
+    "removed": "Domain removed",
+    "updated": "Updated",
+    "delete_title": "Remove this domain?",
+    "delete_body": "{{domain}} will no longer be accepted for invites and sign-in.",
+    "delete_confirm": "Remove",
+    "loading": "Loading…"
   }
 }

@@ -6,7 +6,8 @@
     "profile": "Profil",
     "password": "Şifre",
     "appearance": "Görünüm",
-    "language": "Dil"
+    "language": "Dil",
+    "domains": "Alan adları"
   },
 
   "profile": {
@@ -44,5 +45,22 @@
     "title": "Dil",
     "description": "Arayüzde kullanılan dili değiştirin.",
     "saved": "Dil güncellendi"
+  },
+
+  "domains": {
+    "title": "İzin verilen alan adları",
+    "description": "Davet ve girişe izin verilen e-posta alan adlarını yönetin. Liste boşken .env'deki varsayılan geçerli olur.",
+    "add_placeholder": "ornek.edu.tr",
+    "add_button": "Ekle",
+    "active": "Aktif",
+    "inactive": "Pasif",
+    "empty": "Henüz alan adı eklenmedi.",
+    "added": "Alan adı eklendi",
+    "removed": "Alan adı silindi",
+    "updated": "Güncellendi",
+    "delete_title": "Alan adı silinsin mi?",
+    "delete_body": "{{domain}} davet ve giriş için artık kabul edilmeyecek.",
+    "delete_confirm": "Sil",
+    "loading": "Yükleniyor…"
   }
 }

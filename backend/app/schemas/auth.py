@@ -92,3 +92,13 @@ class InviteUserRequest(BaseModel):
     email: EmailStr
     name: str = Field(..., min_length=1, max_length=100)
     role: str = Field(default="student", pattern="^(student|admin)$")
+
+
+class AllowedDomainCreate(BaseModel):
+    """Admin adds an email domain to the invite/login whitelist."""
+    domain: str = Field(..., min_length=3, max_length=253)
+
+
+class AllowedDomainUpdate(BaseModel):
+    """Admin toggles a domain active/inactive."""
+    is_active: bool

@@ -12,6 +12,9 @@ import {
   CheckCircle2,
   Loader2,
   AlertCircle,
+  AtSign,
+  Plus,
+  Trash2,
 } from "lucide-react";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
@@ -19,11 +22,19 @@ import { useAuth } from "../context/AuthContext";
 import { useTheme } from "../context/ThemeContext";
 import { useLanguage } from "../context/LanguageContext";
 import { useToast } from "../context/ToastContext";
+import { useConfirm } from "../context/ConfirmContext";
 import { apiFetch } from "../lib/api";
 import { SUPPORTED_LANGS, type Lang } from "../lib/i18n";
 import { toUserError } from "../lib/errors";
 
-type TabKey = "profile" | "password" | "appearance" | "language";
+type TabKey = "profile" | "password" | "appearance" | "language" | "domains";
+
+interface AllowedDomain {
+  id: string;
+  domain: string;
+  is_active: boolean;
+  created_at?: string;
+}
 
 const TABS: { key: TabKey; icon: typeof UserIcon }[] = [
   { key: "profile", icon: UserIcon },
@@ -34,10 +45,20 @@ const TABS: { key: TabKey; icon: typeof UserIcon }[] = [
 
 export function Settings() {
   const { t } = useTranslation("settings");
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
   const [params, setParams] = useSearchParams();
   // Tab persists in the URL so refresh / bookmarks land back on the same one.
-  const activeTab = ((params.get("tab") as TabKey) || "profile") as TabKey;
+  const requestedTab = ((params.get("tab") as TabKey) || "profile") as TabKey;
+  // Non-admins can't land on the admin-only domains tab via a typed URL.
+  const activeTab: TabKey =
+    requestedTab === "domains" && !isAdmin ? "profile" : requestedTab;
   const setTab = (key: TabKey) => setParams({ tab: key }, { replace: true });
+
+  // Domain management is admin-only; append its tab when applicable.
+  const tabs = isAdmin
+    ? [...TABS, { key: "domains" as TabKey, icon: AtSign }]
+    : TABS;
 
   return (
     <div className="space-y-6">
@@ -52,7 +73,7 @@ export function Settings() {
           className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible -mx-1 px-1"
           aria-label="Settings sections"
         >
-          {TABS.map(({ key, icon: Icon }) => {
+          {tabs.map(({ key, icon: Icon }) => {
             const isActive = activeTab === key;
             return (
               <button
@@ -77,6 +98,7 @@ export function Settings() {
           {activeTab === "password" && <PasswordTab />}
           {activeTab === "appearance" && <AppearanceTab />}
           {activeTab === "language" && <LanguageTab />}
+          {activeTab === "domains" && isAdmin && <DomainsTab />}
         </div>
       </div>
     </div>
@@ -383,6 +405,170 @@ function LanguageTab() {
           );
         })}
       </div>
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Allowed domains — admin only
+// ---------------------------------------------------------------------------
+function DomainsTab() {
+  const { t } = useTranslation("settings");
+  const { success: toastOk, error: toastError } = useToast();
+  const { confirm } = useConfirm();
+  const [domains, setDomains] = useState<AllowedDomain[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [newDomain, setNewDomain] = useState("");
+  const [adding, setAdding] = useState(false);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const data = await apiFetch("/api/auth/allowed-domains");
+        if (alive) setDomains(data || []);
+      } catch (e: unknown) {
+        if (alive) toastError(toUserError(e));
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [toastError]);
+
+  async function onAdd(e: FormEvent) {
+    e.preventDefault();
+    const domain = newDomain.trim();
+    if (!domain) return;
+    setAdding(true);
+    try {
+      const created = await apiFetch("/api/auth/allowed-domains", {
+        method: "POST",
+        body: JSON.stringify({ domain }),
+      });
+      setDomains((prev) => [...prev, created]);
+      setNewDomain("");
+      toastOk(t("domains.added"));
+    } catch (e: unknown) {
+      toastError(toUserError(e));
+    } finally {
+      setAdding(false);
+    }
+  }
+
+  async function onToggle(d: AllowedDomain) {
+    setBusyId(d.id);
+    try {
+      const updated = await apiFetch(`/api/auth/allowed-domains/${d.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ is_active: !d.is_active }),
+      });
+      setDomains((prev) => prev.map((x) => (x.id === d.id ? updated : x)));
+      toastOk(t("domains.updated"));
+    } catch (e: unknown) {
+      toastError(toUserError(e));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function onRemove(d: AllowedDomain) {
+    const ok = await confirm({
+      title: t("domains.delete_title"),
+      description: t("domains.delete_body", { domain: d.domain }),
+      confirmLabel: t("domains.delete_confirm"),
+      tone: "danger",
+    });
+    if (!ok) return;
+    setBusyId(d.id);
+    try {
+      await apiFetch(`/api/auth/allowed-domains/${d.id}`, { method: "DELETE" });
+      setDomains((prev) => prev.filter((x) => x.id !== d.id));
+      toastOk(t("domains.removed"));
+    } catch (e: unknown) {
+      toastError(toUserError(e));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  return (
+    <Card className="p-6 space-y-5">
+      <div>
+        <h2 className="text-lg font-semibold">{t("domains.title")}</h2>
+        <p className="text-sm text-muted-foreground mt-0.5">{t("domains.description")}</p>
+      </div>
+
+      <form onSubmit={onAdd} className="flex gap-2 max-w-md">
+        <div className="relative flex-1">
+          <AtSign className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+          <input
+            type="text"
+            value={newDomain}
+            onChange={(e) => setNewDomain(e.target.value)}
+            placeholder={t("domains.add_placeholder")}
+            autoComplete="off"
+            className="w-full ps-9 pe-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        <Button type="submit" disabled={adding || !newDomain.trim()}>
+          {adding ? (
+            <Loader2 className="w-4 h-4 animate-spin" />
+          ) : (
+            <span className="flex items-center gap-1.5">
+              <Plus className="w-4 h-4" />
+              {t("domains.add_button")}
+            </span>
+          )}
+        </Button>
+      </form>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" /> {t("domains.loading")}
+        </div>
+      ) : domains.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t("domains.empty")}</p>
+      ) : (
+        <ul className="divide-y divide-border rounded-lg border border-border max-w-md">
+          {domains.map((d) => (
+            <li key={d.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium truncate">@{d.domain}</p>
+                <span
+                  className={`inline-block mt-0.5 text-xs ${
+                    d.is_active
+                      ? "text-green-600 dark:text-green-400"
+                      : "text-muted-foreground"
+                  }`}
+                >
+                  {d.is_active ? t("domains.active") : t("domains.inactive")}
+                </span>
+              </div>
+              <div className="flex items-center gap-2 flex-shrink-0">
+                <button
+                  onClick={() => onToggle(d)}
+                  disabled={busyId === d.id}
+                  className="px-2.5 py-1.5 text-xs font-medium rounded-md border border-border hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  {d.is_active ? t("domains.inactive") : t("domains.active")}
+                </button>
+                <button
+                  onClick={() => onRemove(d)}
+                  disabled={busyId === d.id}
+                  aria-label={t("domains.delete_confirm")}
+                  className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted transition-colors disabled:opacity-50"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
     </Card>
   );
 }

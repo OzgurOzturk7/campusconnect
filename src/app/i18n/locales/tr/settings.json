@@ -49,7 +49,6 @@
 
   "domains": {
     "title": "İzin verilen alan adları",
-    "description": "Davet ve girişe izin verilen e-posta alan adlarını yönetin. Liste boşken .env'deki varsayılan geçerli olur.",
     "add_placeholder": "ornek.edu.tr",
     "add_button": "Ekle",
     "active": "Aktif",

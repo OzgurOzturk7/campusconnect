@@ -49,7 +49,6 @@
 
   "domains": {
     "title": "Allowed domains",
-    "description": "Manage which email domains can be invited and sign in. While the list is empty, the .env default applies.",
     "add_placeholder": "example.edu",
     "add_button": "Add",
     "active": "Active",

@@ -499,19 +499,18 @@ function DomainsTab() {
     <Card className="p-6 space-y-5">
       <div>
         <h2 className="text-lg font-semibold">{t("domains.title")}</h2>
-        <p className="text-sm text-muted-foreground mt-0.5">{t("domains.description")}</p>
       </div>
 
       <form onSubmit={onAdd} className="flex gap-2 max-w-md">
-        <div className="relative flex-1">
-          <AtSign className="absolute start-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+        <div className="flex-1 flex items-center gap-2 bg-muted border border-border rounded-lg px-3 focus-within:ring-2 focus-within:ring-primary">
+          <AtSign className="w-4 h-4 text-muted-foreground flex-shrink-0" />
           <input
             type="text"
             value={newDomain}
             onChange={(e) => setNewDomain(e.target.value)}
             placeholder={t("domains.add_placeholder")}
             autoComplete="off"
-            className="w-full ps-9 pe-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
+            className="flex-1 min-w-0 bg-transparent py-2.5 text-sm focus:outline-none"
           />
         </div>
         <Button type="submit" disabled={adding || !newDomain.trim()}>

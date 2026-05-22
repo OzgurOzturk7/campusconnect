@@ -208,7 +208,7 @@ export function Dashboard() {
                   <Card key={event.id} className="overflow-hidden hover:shadow-lg transition-shadow flex flex-col">
                     <div className="relative h-40 flex-shrink-0">
                       {event.cover_url ? (
-                        <img src={event.cover_url} alt={event.title} className="w-full h-full object-cover" />
+                        <img src={event.cover_url} alt={event.title} loading="lazy" className="w-full h-full object-cover" />
                       ) : (
                         <div className={`w-full h-full flex items-center justify-center ${
                           event.is_school_wide ? "bg-primary/10"

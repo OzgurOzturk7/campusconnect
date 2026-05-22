@@ -488,7 +488,7 @@ export function ClubDetail() {
       <Card className="overflow-hidden">
         <div className="relative h-48 bg-gradient-to-br from-primary to-secondary">
           {club.cover_url ? (
-            <img src={club.cover_url} alt={club.name} className="w-full h-full object-cover" />
+            <img src={club.cover_url} alt={club.name} loading="lazy" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex items-center justify-center">
               <span className="text-white text-7xl font-bold opacity-20">{club.name[0]}</span>
@@ -747,7 +747,7 @@ export function ClubDetail() {
                   return (
                     <Card key={event.id} className={`overflow-hidden ${isPast ? "opacity-70" : ""}`}>
                       {event.cover_url && (
-                        <img src={event.cover_url} alt={event.title} className="w-full h-40 object-cover" />
+                        <img src={event.cover_url} alt={event.title} loading="lazy" className="w-full h-40 object-cover" />
                       )}
                       <div className="p-5">
                         <div className="flex items-start justify-between mb-2">

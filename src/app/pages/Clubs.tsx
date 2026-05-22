@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
+import { EmptyState } from "../components/EmptyState";
 import {
   Users, Search, Plus, X, Loader2, Filter,
   CheckCircle, Clock, Check, Trash2
@@ -593,8 +594,8 @@ export function Clubs() {
 
           {/* Club cards */}
           {filtered.length === 0 ? (
-            <Card className="p-12 text-center">
-              <p className="text-muted-foreground">No clubs found matching your filters.</p>
+            <Card className="p-4">
+              <EmptyState icon={Search} title="No clubs found matching your filters." />
             </Card>
           ) : (
             <>
@@ -612,7 +613,7 @@ export function Clubs() {
                       {/* Cover */}
                       <div className="relative h-36 flex-shrink-0">
                         {club.cover_url ? (
-                          <img src={club.cover_url} alt={club.name} className="w-full h-full object-cover" />
+                          <img src={club.cover_url} alt={club.name} loading="lazy" className="w-full h-full object-cover" />
                         ) : (
                           <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
                             <span className="text-white text-5xl font-bold opacity-25">{club.name[0]}</span>

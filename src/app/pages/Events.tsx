@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Avatar } from "../components/Avatar";
+import { EmptyState } from "../components/EmptyState";
 import {
   Calendar, MapPin, Users, Clock, Search,
   Plus, X, Loader2, ChevronLeft, ChevronRight,
@@ -423,7 +424,9 @@ export function Events() {
       {/* List View */}
       {viewMode === "list" && (
         filtered.length === 0 ? (
-          <Card className="p-12 text-center"><p className="text-muted-foreground">No events found.</p></Card>
+          <Card className="p-4">
+            <EmptyState icon={Calendar} title="No events found." />
+          </Card>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {filtered.map((event) => {
@@ -437,7 +440,7 @@ export function Events() {
                   {/* Cover */}
                   <div className="relative h-40 flex-shrink-0">
                     {event.cover_url ? (
-                      <img src={event.cover_url} alt={event.title} className="w-full h-full object-cover" />
+                      <img src={event.cover_url} alt={event.title} loading="lazy" className="w-full h-full object-cover" />
                     ) : (
                       <div className={`w-full h-full flex items-center justify-center ${
                         event.is_school_wide ? "bg-gradient-to-br from-primary to-blue-700"

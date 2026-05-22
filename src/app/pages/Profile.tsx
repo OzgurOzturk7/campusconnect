@@ -443,7 +443,7 @@ export function Profile() {
                 <Card key={club.id} className="overflow-hidden hover:shadow-md transition-shadow flex flex-col">
                   <div className="relative h-28 flex-shrink-0">
                     {club.cover_url ? (
-                      <img src={club.cover_url} alt={club.name} className="w-full h-full object-cover" />
+                      <img src={club.cover_url} alt={club.name} loading="lazy" className="w-full h-full object-cover" />
                     ) : (
                       <div className={`w-full h-full bg-gradient-to-br ${gradient} flex items-center justify-center`}>
                         <span className="text-white text-4xl font-bold opacity-25">{club.name[0]}</span>

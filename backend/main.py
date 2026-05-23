@@ -185,4 +185,15 @@ def root():
 
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    """Liveness check plus a cheap DB reachability probe, so a monitor can
+    tell 'process up' from 'process up but Supabase unreachable'."""
+    db_ok = True
+    try:
+        get_supabase_admin().table("users").select("id").limit(1).execute()
+    except Exception as e:
+        logger.warning(f"Health check DB probe failed: {e}")
+        db_ok = False
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "database": "ok" if db_ok else "unreachable",
+    }

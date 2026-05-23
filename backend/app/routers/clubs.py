@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, status, Depends, UploadFile, File,
 from app.schemas.clubs import ClubCreate, ClubUpdate, MembershipStatusUpdate, ClubRequestCreate, ClubRequestReview, AnnouncementCreate
 from app.schemas.notifications import send_notification
 from app.core.supabase import get_supabase_admin
-from app.core.security import get_current_user
+from app.core.security import get_current_user, require_admin
 from app.core.ratelimit import limiter
 from pydantic import BaseModel
 
@@ -86,9 +86,7 @@ def my_memberships(current_user: dict = Depends(get_current_user)):
 
 
 @router.get("/admin-requests")
-def list_club_requests(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+def list_club_requests(current_user: dict = Depends(require_admin)):
     supabase = get_supabase_admin()
     result = supabase.table("club_requests").select("*").order("created_at", desc=True).execute()
     return result.data or []
@@ -116,9 +114,7 @@ def get_club(club_id: str, current_user: dict = Depends(get_current_user)):
 
 
 @router.post("/", status_code=status.HTTP_201_CREATED)
-def create_club(body: ClubCreate, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Only admins can create clubs directly")
+def create_club(body: ClubCreate, current_user: dict = Depends(require_admin)):
     supabase = get_supabase_admin()
     result = supabase.table("clubs").insert({
         "name": body.name, "description": body.description,
@@ -173,9 +169,7 @@ def request_club(request: Request, body: ClubRequestCreate, current_user: dict =
 
 
 @router.patch("/review-request/{request_id}")
-def review_club_request(request_id: str, body: ClubRequestReview, current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != "admin":
-        raise HTTPException(status_code=403, detail="Admin only")
+def review_club_request(request_id: str, body: ClubRequestReview, current_user: dict = Depends(require_admin)):
     if body.status not in ("approved", "rejected"):
         raise HTTPException(status_code=400, detail="Status must be approved or rejected")
     # Rejection without a reason is bad UX — the requester deserves to know

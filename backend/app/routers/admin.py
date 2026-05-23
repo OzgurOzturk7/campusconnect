@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends
 from app.core.security import require_admin
 from app.core.supabase import get_supabase_admin
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -18,7 +21,7 @@ def admin_stats(current_user: dict = Depends(require_admin)):
                 q = q.eq(key, value)
             return q.execute().count or 0
         except Exception as e:
-            print(f"ADMIN STATS ERROR ({table}):", e)
+            logger.error(f"ADMIN STATS ERROR ({table}): {e}")
             return 0
 
     return {

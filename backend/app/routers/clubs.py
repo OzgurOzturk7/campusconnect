@@ -6,6 +6,9 @@ from app.core.supabase import get_supabase_admin
 from app.core.security import get_current_user, require_admin
 from app.core.ratelimit import limiter
 from pydantic import BaseModel
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -45,7 +48,7 @@ def notify_platform_admins(supabase, *, type: str, title: str, body: str, link: 
         for a in (admins.data or []):
             send_notification(user_id=a["id"], type=type, title=title, body=body, link=link)
     except Exception as e:
-        print("notify_platform_admins error:", e)
+        logger.error(f"notify_platform_admins error: {e}")
 
 
 def require_club_manager(supabase, club_id: str, current_user: dict) -> dict:

@@ -58,7 +58,7 @@ def get_active_allowed_domains(admin) -> list[str]:
         domains = [(r["domain"] or "").lower().lstrip("@").strip() for r in (res.data or [])]
         domains = [d for d in domains if d]
     except Exception as e:
-        print("ALLOWED DOMAINS FETCH ERROR:", e)
+        logger.error(f"ALLOWED DOMAINS FETCH ERROR: {e}")
     if not domains:
         domains = [
             d.lower().lstrip("@").strip()
@@ -79,7 +79,7 @@ def login(request: Request, body: LoginRequest):
             {"email": body.email, "password": body.password}
         )
     except Exception as e:
-        print("AUTH ERROR:", e)
+        logger.error(f"AUTH ERROR: {e}")
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid email or password")
 
     if not auth_response.user:
@@ -96,7 +96,7 @@ def login(request: Request, body: LoginRequest):
             .execute()
         )
     except Exception as e:
-        print("DB ERROR:", e)
+        logger.error(f"DB ERROR: {e}")
         raise HTTPException(status_code=500, detail="Database error")
 
     if not result or not result.data:
@@ -146,7 +146,7 @@ def google_login(request: Request, body: GoogleLoginRequest):
         from google.oauth2 import id_token
         from google.auth.transport import requests as g_requests
     except ImportError as e:
-        print("GOOGLE AUTH IMPORT ERROR:", e)
+        logger.error(f"GOOGLE AUTH IMPORT ERROR: {e}")
         raise HTTPException(status_code=500, detail=f"google-auth import failed: {e}")
 
     try:
@@ -157,8 +157,8 @@ def google_login(request: Request, body: GoogleLoginRequest):
             clock_skew_in_seconds=10,
         )
     except Exception as e:
-        print("GOOGLE TOKEN VERIFY ERROR:", repr(e))
-        print("USING CLIENT ID:", google_client_id)
+        logger.error(f"GOOGLE TOKEN VERIFY ERROR: {repr(e)}")
+        logger.error(f"USING CLIENT ID: {google_client_id}")
         raise HTTPException(status_code=401, detail=f"Invalid Google credential: {e}")
 
     email = (info.get("email") or "").lower()
@@ -194,7 +194,7 @@ def google_login(request: Request, body: GoogleLoginRequest):
             .execute()
         )
     except Exception as e:
-        print("DB ERROR:", e)
+        logger.error(f"DB ERROR: {e}")
         raise HTTPException(status_code=500, detail="Database error")
 
     user = result.data if result and result.data else None
@@ -234,7 +234,7 @@ def google_login(request: Request, body: GoogleLoginRequest):
     except Exception as e:
         # If the auth row already exists (orphaned from a half-failed
         # earlier attempt) recover by reading it back instead of giving up.
-        print("GOOGLE INVITE AUTH CREATE ERROR:", repr(e))
+        logger.error(f"GOOGLE INVITE AUTH CREATE ERROR: {repr(e)}")
         try:
             listed = supabase.auth.admin.list_users()
             match = next((u for u in (listed or []) if (getattr(u, "email", "") or "").lower() == email), None)
@@ -260,7 +260,7 @@ def google_login(request: Request, body: GoogleLoginRequest):
             insert_payload["avatar_url"] = avatar_url
         supabase.table("users").insert(insert_payload).execute()
     except Exception as e:
-        print("GOOGLE INVITE PROFILE INSERT ERROR:", repr(e))
+        logger.error(f"GOOGLE INVITE PROFILE INSERT ERROR: {repr(e)}")
         try:
             supabase.auth.admin.delete_user(new_id)
         except Exception:
@@ -281,15 +281,14 @@ def google_login(request: Request, body: GoogleLoginRequest):
         send_email(to=email, subject=subject, html=html, text=text)
     except EmailError as e:
         email_failed = True
-        print("GOOGLE INVITE EMAIL FAILED:", e)
+        logger.error(f"GOOGLE INVITE EMAIL FAILED: {e}")
     except Exception as e:
         email_failed = True
-        print("GOOGLE INVITE EMAIL UNEXPECTED ERROR:", e)
+        logger.error(f"GOOGLE INVITE EMAIL UNEXPECTED ERROR: {e}")
     if email_failed and settings.DEBUG:
-        print(
-            f"\n*** DEV ONLY *** GOOGLE-INVITE temp password for {email}: {temp_password}"
-            "\n*** REMOVE DEBUG=true BEFORE PRODUCTION ***\n",
-            flush=True,
+        logger.warning(
+            f"*** DEV ONLY *** GOOGLE-INVITE temp password for {email}: {temp_password}"
+            " - REMOVE DEBUG=true BEFORE PRODUCTION"
         )
 
     # No JWT. Frontend renders the 'check your inbox' view.
@@ -318,7 +317,7 @@ def update_profile(request: Request, body: UserUpdate, current_user: dict = Depe
     except Exception as e:
         # Surface the real reason — column type mismatch, length overflow,
         # RLS policy, etc. Without this the user just sees a bare 500.
-        print("UPDATE PROFILE ERROR:", repr(e), "data=", update_data)
+        logger.error(f"UPDATE PROFILE ERROR: {repr(e)} data={update_data}")
         msg = str(e)
         # Translate a couple of common Postgres failure codes into 400s
         # with operator-friendly copy.
@@ -385,7 +384,7 @@ def change_password(
             current_user["id"], {"password": body.new_password}
         )
     except Exception as e:
-        print("PASSWORD UPDATE ERROR:", e)
+        logger.error(f"PASSWORD UPDATE ERROR: {e}")
         raise HTTPException(status_code=500, detail="Couldn't update password. Try again.")
 
     # Onboarding: once they've picked a real password the temp-password
@@ -395,7 +394,7 @@ def change_password(
             .eq("id", current_user["id"]).execute()
     except Exception as e:
         # Non-fatal — password is updated, the flag is a UX hint.
-        print("CLEAR must_change_password FAILED:", e)
+        logger.error(f"CLEAR must_change_password FAILED: {e}")
 
     log_audit("password_change", user_id=current_user["id"], ip=client_ip(request))
     return {"ok": True}
@@ -435,7 +434,7 @@ def invite_user(
     try:
         existing = admin.table("users").select("id").eq("email", email).maybe_single().execute()
     except Exception as e:
-        print("INVITE EXISTING CHECK ERROR:", e)
+        logger.error(f"INVITE EXISTING CHECK ERROR: {e}")
         existing = None
     if existing and existing.data:
         raise HTTPException(status_code=409, detail="A user with this email already exists.")
@@ -452,7 +451,7 @@ def invite_user(
         })
         new_id = auth_user.user.id
     except Exception as e:
-        print("INVITE AUTH CREATE ERROR:", repr(e))
+        logger.error(f"INVITE AUTH CREATE ERROR: {repr(e)}")
         raise HTTPException(status_code=500, detail="Couldn't create the account. Try again.")
 
     # 2) Profile row — flagged so onboarding kicks in.
@@ -465,7 +464,7 @@ def invite_user(
             "must_change_password": True,
         }).execute()
     except Exception as e:
-        print("INVITE PROFILE INSERT ERROR:", repr(e))
+        logger.error(f"INVITE PROFILE INSERT ERROR: {repr(e)}")
         # Roll back the auth user so an admin can retry without hitting
         # the "email already exists" check above.
         try:
@@ -487,20 +486,19 @@ def invite_user(
         send_email(to=email, subject=subject, html=html, text=text)
     except EmailError as e:
         email_failed = True
-        print("INVITE EMAIL FAILED:", e)
+        logger.error(f"INVITE EMAIL FAILED: {e}")
     except Exception as e:
         email_failed = True
-        print("INVITE EMAIL UNEXPECTED ERROR:", e)
+        logger.error(f"INVITE EMAIL UNEXPECTED ERROR: {e}")
 
     if email_failed:
         # In dev, print the temp password to the server log so the operator
         # can finish testing the onboarding flow even when SMTP isn't wired
         # up yet. Strictly gated on DEBUG so this never leaks in production.
         if settings.DEBUG:
-            print(
-                f"\n*** DEV ONLY *** INVITE temp password for {email}: {temp_password}"
-                "\n*** REMOVE DEBUG=true BEFORE PRODUCTION ***\n",
-                flush=True,
+            logger.warning(
+                f"*** DEV ONLY *** INVITE temp password for {email}: {temp_password}"
+                " - REMOVE DEBUG=true BEFORE PRODUCTION"
             )
         # Surface to the admin so they know to act.
         raise HTTPException(
@@ -535,7 +533,7 @@ def list_allowed_domains(current_user: dict = Depends(require_admin)):
         )
         return res.data or []
     except Exception as e:
-        print("LIST DOMAINS ERROR:", e)
+        logger.error(f"LIST DOMAINS ERROR: {e}")
         raise HTTPException(status_code=500, detail="Couldn't load domains.")
 
 
@@ -556,7 +554,7 @@ def add_allowed_domain(body: AllowedDomainCreate, current_user: dict = Depends(r
         msg = str(e).lower()
         if "duplicate" in msg or "unique" in msg or "23505" in msg:
             raise HTTPException(status_code=409, detail="That domain is already in the list.")
-        print("ADD DOMAIN ERROR:", e)
+        logger.error(f"ADD DOMAIN ERROR: {e}")
         raise HTTPException(status_code=500, detail="Couldn't add the domain.")
     return res.data[0]
 
@@ -576,7 +574,7 @@ def toggle_allowed_domain(
             .execute()
         )
     except Exception as e:
-        print("TOGGLE DOMAIN ERROR:", e)
+        logger.error(f"TOGGLE DOMAIN ERROR: {e}")
         raise HTTPException(status_code=500, detail="Couldn't update the domain.")
     if not res.data:
         raise HTTPException(status_code=404, detail="Domain not found.")
@@ -589,7 +587,7 @@ def delete_allowed_domain(domain_id: str, current_user: dict = Depends(require_a
     try:
         admin.table("allowed_email_domains").delete().eq("id", domain_id).execute()
     except Exception as e:
-        print("DELETE DOMAIN ERROR:", e)
+        logger.error(f"DELETE DOMAIN ERROR: {e}")
         raise HTTPException(status_code=500, detail="Couldn't delete the domain.")
     return None
 
@@ -648,7 +646,7 @@ def forgot_password(request: Request, body: ForgotPasswordRequest, background_ta
         )
         user_row = result.data if result and result.data else None
     except Exception as e:
-        print("FORGOT PASSWORD LOOKUP ERROR:", e)
+        logger.error(f"FORGOT PASSWORD LOOKUP ERROR: {e}")
         return {"ok": True}
 
     if not user_row:
@@ -677,11 +675,11 @@ def forgot_password(request: Request, body: ForgotPasswordRequest, background_ta
                 or (link_res.get("properties") or {}).get("action_link")
             )
     except Exception as e:
-        print("FORGOT PASSWORD GENERATE LINK ERROR:", e)
+        logger.error(f"FORGOT PASSWORD GENERATE LINK ERROR: {e}")
         return {"ok": True}
 
     if not action_link:
-        print("FORGOT PASSWORD: generate_link returned no action_link")
+        logger.warning("FORGOT PASSWORD: generate_link returned no action_link")
         return {"ok": True}
 
     # Queue the actual email send for after the response is flushed.
@@ -718,7 +716,7 @@ def search_users(q: str, current_user: dict = Depends(get_current_user)):
         )
         return result.data or []
     except Exception as e:
-        print("USER SEARCH ERROR:", e)
+        logger.error(f"USER SEARCH ERROR: {e}")
         raise HTTPException(status_code=500, detail="Search failed")
 
 
@@ -770,14 +768,14 @@ async def ai_profile_analysis(request: Request, current_user: dict = Depends(get
         clubs_result = supabase.table("clubs").select("id, name, category, description").execute()
         real_clubs = clubs_result.data or []
     except Exception as e:
-        print("Clubs fetch error:", e)
+        logger.error(f"Clubs fetch error: {e}")
         real_clubs = []
 
     try:
         events_result = supabase.table("events").select("id, title, description").execute()
         real_events = events_result.data or []
     except Exception as e:
-        print("Events fetch error:", e)
+        logger.error(f"Events fetch error: {e}")
         real_events = []
 
     # Profile summary
@@ -856,7 +854,7 @@ Max 3 clubs and 3 events. Use exact names from the lists."""
                 club_suggestions = parsed.get("club_suggestions", [])
                 event_suggestions = parsed.get("event_suggestions", [])
         except Exception as e:
-            print("OpenAI error:", e)
+            logger.error(f"OpenAI error: {e}")
 
     # Fallback: skill-based matching with scoring
     if not club_suggestions and real_clubs:
@@ -902,6 +900,6 @@ Max 3 clubs and 3 events. Use exact names from the lists."""
             "ai_analysis_updated_at": datetime.utcnow().isoformat(),
         }).eq("id", current_user["id"]).execute()
     except Exception as e:
-        print("Cache save error:", e)
+        logger.error(f"Cache save error: {e}")
 
     return result

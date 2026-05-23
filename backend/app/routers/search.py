@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends
 from app.core.security import get_current_user
 from app.core.supabase import get_supabase_admin
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -25,7 +28,7 @@ def global_search(q: str = "", current_user: dict = Depends(get_current_user)):
         try:
             return fn() or []
         except Exception as e:
-            print("SEARCH ERROR:", e)
+            logger.error(f"SEARCH ERROR: {e}")
             return []
 
     clubs = _safe(lambda: admin.table("clubs")

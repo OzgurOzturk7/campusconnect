@@ -11,6 +11,9 @@ from app.core.ratelimit import limiter
 from datetime import datetime
 import uuid
 import mimetypes
+import logging
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -563,7 +566,7 @@ def send_message(request: Request, chat_id: str, body: MessageCreate, current_us
                         )
         except Exception as e:
             # Don't fail the send if the notification pass blew up.
-            print("MENTION NOTIFICATION ERROR:", e)
+            logger.error(f"MENTION NOTIFICATION ERROR: {e}")
 
     return _hydrate_message(supabase, msg)
 
@@ -701,7 +704,7 @@ async def upload_attachment(request: Request, chat_id: str, file: UploadFile = F
         signed = supabase.storage.from_(CHAT_BUCKET).create_signed_url(object_path, 60 * 60 * 24 * 7)
         url = signed.get("signedURL") or signed.get("signed_url") or signed.get("signedUrl")
     except Exception as e:
-        print("SIGN URL ERROR:", e)
+        logger.error(f"SIGN URL ERROR: {e}")
         raise HTTPException(status_code=500, detail="Could not generate signed URL")
 
     return {

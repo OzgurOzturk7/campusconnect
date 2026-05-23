@@ -6,6 +6,9 @@ a failure here must never block or break the action that triggered it.
 """
 from typing import Optional
 from app.core.supabase import get_supabase_admin
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 def log_audit(
@@ -27,7 +30,7 @@ def log_audit(
         }).execute()
     except Exception as e:
         # Never let auditing break the real request.
-        print(f"AUDIT LOG ERROR ({event_type}):", e)
+        logger.error(f"AUDIT LOG ERROR ({event_type}): {e}")
 
 
 def client_ip(request) -> Optional[str]:

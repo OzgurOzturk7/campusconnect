@@ -430,7 +430,7 @@ Return ONLY a JSON array of project ids ordered by relevance (most relevant firs
                 if reranked:
                     return reranked
         except Exception as e:
-            print("AI suggestion error:", e)
+            logger.error(f"AI suggestion error: {e}")
 
     return top_posts[:3]
 
@@ -561,13 +561,13 @@ def create_project(request: Request, body: ProjectPostCreate, current_user: dict
     try:
         _get_or_create_project_chat(supabase, project["id"], project["title"], current_user["id"])
     except Exception as e:
-        print("PROJECT CHAT CREATE ERROR:", e)
+        logger.error(f"PROJECT CHAT CREATE ERROR: {e}")
 
     # Auto-create the workspace with the owner as owner
     try:
         _get_or_create_workspace(supabase, project["id"], current_user["id"])
     except Exception as e:
-        print("WORKSPACE CREATE ERROR:", e)
+        logger.error(f"WORKSPACE CREATE ERROR: {e}")
 
     return project
 
@@ -592,7 +592,7 @@ def update_project(project_id: str, body: ProjectPostUpdate, current_user: dict 
         try:
             supabase.table("chats").update({"title": update_data["title"]}).eq("project_id", project_id).execute()
         except Exception as e:
-            print("PROJECT CHAT TITLE SYNC ERROR:", e)
+            logger.error(f"PROJECT CHAT TITLE SYNC ERROR: {e}")
 
     return result.data[0]
 
@@ -747,7 +747,7 @@ def update_application_status(
             _get_or_create_project_chat(supabase, project_id, project.data["title"], project.data["owner_id"])
             _add_to_project_chat(supabase, project_id, application.data["applicant_id"])
         except Exception as e:
-            print("PROJECT CHAT MEMBER ADD ERROR:", e)
+            logger.error(f"PROJECT CHAT MEMBER ADD ERROR: {e}")
         # Auto-add to workspace
         try:
             ws = _get_or_create_workspace(supabase, project_id, project.data["owner_id"])
@@ -757,6 +757,6 @@ def update_application_status(
                 metadata={"role": application.data.get("role", "member")},
             )
         except Exception as e:
-            print("WORKSPACE MEMBER ADD ERROR:", e)
+            logger.error(f"WORKSPACE MEMBER ADD ERROR: {e}")
 
     return result.data[0]

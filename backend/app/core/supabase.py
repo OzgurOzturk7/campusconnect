@@ -14,6 +14,9 @@ cost is paid once per process.
 from supabase import create_client, Client
 from app.core.config import settings
 import httpx
+import logging
+
+logger = logging.getLogger(__name__)
 
 _supabase: Client | None = None
 _supabase_admin: Client | None = None
@@ -33,7 +36,7 @@ def _force_http1(client: Client) -> Client:
         )
         client.postgrest.session = new  # type: ignore[attr-defined]
     except Exception as e:
-        print(f"[supabase] could not force HTTP/1.1, falling back to defaults: {e}")
+        logger.warning(f"[supabase] could not force HTTP/1.1, falling back to defaults: {e}")
     return client
 
 

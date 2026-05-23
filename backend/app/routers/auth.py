@@ -8,6 +8,7 @@ from app.schemas.auth import (
 )
 from app.core.supabase import get_supabase, get_supabase_admin
 from app.core.security import create_access_token, get_current_user, require_admin
+from app.core.audit import log_audit, client_ip
 from app.core.config import settings
 from app.core.ratelimit import limiter
 from app.services.email import send_email, EmailError
@@ -103,6 +104,7 @@ def login(request: Request, body: LoginRequest):
 
     user = result.data
     token = create_access_token(data={"sub": user["id"], "role": user["role"], "email": user["email"]})
+    log_audit("login", user_id=user["id"], ip=client_ip(request))
 
     return LoginResponse(
         access_token=token,
@@ -395,6 +397,7 @@ def change_password(
         # Non-fatal — password is updated, the flag is a UX hint.
         print("CLEAR must_change_password FAILED:", e)
 
+    log_audit("password_change", user_id=current_user["id"], ip=client_ip(request))
     return {"ok": True}
 
 
@@ -507,6 +510,13 @@ def invite_user(
                    "or send a password reset manually.",
         )
 
+    log_audit(
+        "invite",
+        user_id=new_id,
+        actor_id=current_user.get("id"),
+        detail=f"email={email}; role={body.role}",
+        ip=client_ip(request),
+    )
     return {"ok": True, "user_id": new_id, "email": email}
 
 

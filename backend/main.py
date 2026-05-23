@@ -86,6 +86,24 @@ async def supabase_retry_middleware(request: Request, call_next):
             headers=_cors_headers(request),
         )
 
+
+@app.middleware("http")
+async def security_headers_middleware(request: Request, call_next):
+    """Defence-in-depth headers on every response. Uses setdefault so it
+    never clobbers a header a route set deliberately. HSTS is production-only
+    (no point on plain-HTTP localhost) and gated on DEBUG."""
+    response = await call_next(request)
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("X-Frame-Options", "DENY")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    if not settings.DEBUG:
+        response.headers.setdefault(
+            "Strict-Transport-Security", "max-age=31536000; includeSubDomains"
+        )
+    return response
+
+
 app.include_router(auth.router, prefix="/api/auth", tags=["Authentication"])
 app.include_router(projects.router, prefix="/api/projects", tags=["Projects"])
 app.include_router(notifications.router, prefix="/api/notifications", tags=["Notifications"])

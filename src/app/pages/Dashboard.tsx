@@ -1,8 +1,8 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, type ElementType } from "react";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
-import { Calendar, MapPin, Users, Bell, Clock, CalendarPlus } from "lucide-react";
+import { Calendar, MapPin, Users, Bell, Clock, CalendarPlus, Briefcase, Building2 } from "lucide-react";
 import { Link, useNavigate } from "react-router";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
@@ -44,6 +44,14 @@ interface Stats {
   eventsRsvpd: number;
 }
 
+interface AdminStats {
+  users: number;
+  clubs: number;
+  events: number;
+  projects: number;
+  pending_requests: number;
+}
+
 function timeAgo(dateStr: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
@@ -67,6 +75,30 @@ function buildGoogleCalendarUrl(event: Event): string {
   return `https://calendar.google.com/calendar/render?${params.toString()}`;
 }
 
+function AdminStatCard({
+  label,
+  value,
+  icon: Icon,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  icon: ElementType;
+  highlight?: boolean;
+}) {
+  return (
+    <Card className={`p-4 ${highlight ? "border-primary/40" : ""}`}>
+      <div className="flex items-center justify-between">
+        <div>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-2xl font-bold mt-0.5">{value}</p>
+        </div>
+        <Icon className={`w-7 h-7 flex-shrink-0 ${highlight ? "text-primary" : "text-muted-foreground"}`} />
+      </div>
+    </Card>
+  );
+}
+
 export function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -74,6 +106,7 @@ export function Dashboard() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [stats, setStats] = useState<Stats>({ clubsJoined: 0, eventsRsvpd: 0 });
+  const [adminStats, setAdminStats] = useState<AdminStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -108,6 +141,15 @@ export function Dashboard() {
         clubsJoined: myClubs.length,
         eventsRsvpd: eventsData.length,
       });
+
+      if (user?.role === "admin") {
+        try {
+          const adminData = await apiFetch("/api/admin/stats");
+          setAdminStats(adminData);
+        } catch {
+          // silent — admin overview is non-critical
+        }
+      }
     } catch (err) {
       console.error("Failed to load dashboard", err);
     } finally {
@@ -159,6 +201,27 @@ export function Dashboard() {
           Here's what's happening in your campus community today.
         </p>
       </div>
+
+      {/* Admin-only platform overview */}
+      {user?.role === "admin" && adminStats && (
+        <div>
+          <h2 className="text-lg font-bold mb-3">Platform Overview</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
+            <AdminStatCard label="Users" value={adminStats.users} icon={Users} />
+            <AdminStatCard label="Clubs" value={adminStats.clubs} icon={Building2} />
+            <AdminStatCard label="Events" value={adminStats.events} icon={Calendar} />
+            <AdminStatCard label="Projects" value={adminStats.projects} icon={Briefcase} />
+            <Link to="/clubs?tab=requests" className="block">
+              <AdminStatCard
+                label="Pending"
+                value={adminStats.pending_requests}
+                icon={Clock}
+                highlight={adminStats.pending_requests > 0}
+              />
+            </Link>
+          </div>
+        </div>
+      )}
 
       {/* Stats — two-up always so the second card is visible above the fold
           on phones too, just narrower. */}

@@ -3,7 +3,7 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi.errors import RateLimitExceeded
 from slowapi import _rate_limit_exceeded_handler
-from app.routers import auth, projects, notifications, clubs, events, chats, workspaces, search
+from app.routers import auth, projects, notifications, clubs, events, chats, workspaces, search, admin
 from app.core.config import settings
 from app.core.supabase import get_supabase_admin, reset_supabase_clients
 from app.core.ratelimit import limiter
@@ -94,6 +94,7 @@ app.include_router(events.router, prefix="/api/events", tags=["Events"])
 app.include_router(chats.router, prefix="/api/chats", tags=["Chats"])
 app.include_router(workspaces.router, prefix="/api/workspaces", tags=["Workspaces"])
 app.include_router(search.router, prefix="/api/search", tags=["Search"])
+app.include_router(admin.router, prefix="/api/admin", tags=["Admin"])
 
 
 async def send_event_reminders():

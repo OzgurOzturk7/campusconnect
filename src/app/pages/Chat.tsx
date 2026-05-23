@@ -3,7 +3,7 @@ import { useLocation } from "react-router";
 import {
   Search, Send, Paperclip, Smile, Reply as ReplyIcon, X, Plus, Loader2,
   Bell, BellOff, Pin, Trash2, Check, CheckCheck, Users as UsersIcon,
-  FileText, MessageCircle, ArrowLeft, Hash, Folder, MoreVertical, LogOut,
+  FileText, MessageCircle, ArrowLeft, Hash, Folder, MoreVertical, LogOut, Flag,
 } from "lucide-react";
 import { Avatar } from "../components/Avatar";
 import { Button } from "../components/Button";
@@ -112,7 +112,7 @@ function chatDisplayAvatar(chat: ChatSummary, currentUserId: string): { name: st
 // ================================================================
 export function Chat() {
   const { user } = useAuth();
-  const { error: toastError } = useToast();
+  const { error: toastError, success: toastSuccess } = useToast();
   const { confirm: confirmDialog } = useConfirm();
   const location = useLocation();
   const [chats, setChats] = useState<ChatSummary[]>([]);
@@ -123,6 +123,9 @@ export function Chat() {
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [input, setInput] = useState("");
   const [replyTo, setReplyTo] = useState<ChatMessage | null>(null);
+  const [reportingMsg, setReportingMsg] = useState<ChatMessage | null>(null);
+  const [reportReason, setReportReason] = useState("");
+  const [reportSubmitting, setReportSubmitting] = useState(false);
   const [highlightedId, setHighlightedId] = useState<string | null>(null);
   const highlightTimer = useRef<number | null>(null);
   const [chatListSearch, setChatListSearch] = useState("");
@@ -691,6 +694,31 @@ export function Chat() {
   }
 
   // ----------- Pin / mute / delete -----------
+  async function submitReport() {
+    if (!reportingMsg || !reportReason.trim()) return;
+    setReportSubmitting(true);
+    try {
+      await apiFetch("/api/reports", {
+        method: "POST",
+        body: JSON.stringify({
+          content_type: "message",
+          content_id: reportingMsg.id,
+          reason: reportReason.trim(),
+          content_preview: reportingMsg.body || null,
+          reported_user_id: reportingMsg.sender_id,
+          chat_id: activeChatId,
+        }),
+      });
+      toastSuccess("Report submitted. Thanks for flagging it.");
+      setReportingMsg(null);
+      setReportReason("");
+    } catch (e: unknown) {
+      toastError(e instanceof Error ? e.message : "Couldn't submit the report");
+    } finally {
+      setReportSubmitting(false);
+    }
+  }
+
   async function togglePin(msg: ChatMessage) {
     if (!activeChatId) return;
     // Optimistic toggle
@@ -1258,6 +1286,9 @@ export function Chat() {
                                 <button onClick={() => setEmojiPickerFor(emojiPickerFor === m.id ? null : m.id)} className="p-1 rounded hover:bg-muted" title="React"><Smile className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => setReplyTo(m)} className="p-1 rounded hover:bg-muted" title="Reply"><ReplyIcon className="w-3.5 h-3.5" /></button>
                                 <button onClick={() => togglePin(m)} className="p-1 rounded hover:bg-muted" title={m.is_pinned ? "Unpin" : "Pin"}><Pin className="w-3.5 h-3.5" /></button>
+                                {!mine && (
+                                  <button onClick={() => { setReportReason(""); setReportingMsg(m); }} className="p-1 rounded hover:bg-muted" title="Report"><Flag className="w-3.5 h-3.5" /></button>
+                                )}
                                 {(mine || activeChat.my_role === "admin") && (
                                   <button onClick={() => deleteMessage(m)} className="p-1 rounded hover:bg-muted text-destructive" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
                                 )}
@@ -1460,6 +1491,40 @@ export function Chat() {
                 onClick={() => confirmDelete.kind === "full" ? fullDeleteChat() : leaveOrHideChat()}
               >
                 {confirmDelete.kind === "full" ? "Delete forever" : (activeChat.type === "direct" ? "Delete" : "Leave")}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Report message modal */}
+      {reportingMsg && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <div className="bg-card rounded-2xl border border-border p-5 md:p-6 w-full max-w-sm shadow-xl">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
+                <Flag className="w-5 h-5 text-destructive" />
+              </div>
+              <h3 className="font-bold text-base">Report message</h3>
+            </div>
+            <p className="text-xs text-muted-foreground mb-3 line-clamp-2 bg-muted rounded-lg px-3 py-2">
+              {reportingMsg.body || "[attachment]"}
+            </p>
+            <textarea
+              value={reportReason}
+              onChange={(e) => setReportReason(e.target.value)}
+              placeholder="Why are you reporting this message?"
+              rows={3}
+              className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+            />
+            <div className="flex gap-3 mt-4">
+              <Button variant="outline" className="flex-1" onClick={() => setReportingMsg(null)}>Cancel</Button>
+              <Button
+                className="flex-1"
+                disabled={reportSubmitting || !reportReason.trim()}
+                onClick={submitReport}
+              >
+                {reportSubmitting ? "Reporting…" : "Report"}
               </Button>
             </div>
           </div>

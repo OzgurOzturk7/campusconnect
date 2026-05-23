@@ -7,7 +7,8 @@
     "password": "Password",
     "appearance": "Appearance",
     "language": "Language",
-    "domains": "Domains"
+    "domains": "Domains",
+    "reports": "Reports"
   },
 
   "profile": {
@@ -61,5 +62,18 @@
     "delete_body": "{{domain}} will no longer be accepted for invites and sign-in.",
     "delete_confirm": "Remove",
     "loading": "Loading…"
+  },
+
+  "reports": {
+    "title": "Content reports",
+    "loading": "Loading…",
+    "empty": "No reports yet.",
+    "reported": "Reported",
+    "reporter": "Reporter",
+    "review": "Mark reviewed",
+    "dismiss": "Dismiss",
+    "status_pending": "Pending",
+    "status_reviewed": "Reviewed",
+    "status_dismissed": "Dismissed"
   }
 }

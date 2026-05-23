@@ -7,7 +7,8 @@
     "password": "Şifre",
     "appearance": "Görünüm",
     "language": "Dil",
-    "domains": "Alan adları"
+    "domains": "Alan adları",
+    "reports": "Raporlar"
   },
 
   "profile": {
@@ -61,5 +62,18 @@
     "delete_body": "{{domain}} davet ve giriş için artık kabul edilmeyecek.",
     "delete_confirm": "Sil",
     "loading": "Yükleniyor…"
+  },
+
+  "reports": {
+    "title": "İçerik raporları",
+    "loading": "Yükleniyor…",
+    "empty": "Henüz rapor yok.",
+    "reported": "Bildirilen",
+    "reporter": "Raporlayan",
+    "review": "İncelendi olarak işaretle",
+    "dismiss": "Yoksay",
+    "status_pending": "Bekliyor",
+    "status_reviewed": "İncelendi",
+    "status_dismissed": "Yoksayıldı"
   }
 }

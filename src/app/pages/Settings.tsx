@@ -15,6 +15,8 @@ import {
   AtSign,
   Plus,
   Trash2,
+  Flag,
+  X,
 } from "lucide-react";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
@@ -27,13 +29,25 @@ import { apiFetch } from "../lib/api";
 import { SUPPORTED_LANGS, type Lang } from "../lib/i18n";
 import { toUserError } from "../lib/errors";
 
-type TabKey = "profile" | "password" | "appearance" | "language" | "domains";
+type TabKey = "profile" | "password" | "appearance" | "language" | "domains" | "reports";
 
 interface AllowedDomain {
   id: string;
   domain: string;
   is_active: boolean;
   created_at?: string;
+}
+
+interface ContentReport {
+  id: string;
+  content_type: string;
+  content_id: string;
+  content_preview?: string;
+  reason: string;
+  status: "pending" | "reviewed" | "dismissed";
+  created_at: string;
+  reporter_name?: string;
+  reported_user_name?: string;
 }
 
 const TABS: { key: TabKey; icon: typeof UserIcon }[] = [
@@ -52,12 +66,18 @@ export function Settings() {
   const requestedTab = ((params.get("tab") as TabKey) || "profile") as TabKey;
   // Non-admins can't land on the admin-only domains tab via a typed URL.
   const activeTab: TabKey =
-    requestedTab === "domains" && !isAdmin ? "profile" : requestedTab;
+    (requestedTab === "domains" || requestedTab === "reports") && !isAdmin
+      ? "profile"
+      : requestedTab;
   const setTab = (key: TabKey) => setParams({ tab: key }, { replace: true });
 
-  // Domain management is admin-only; append its tab when applicable.
+  // Domain management + reports are admin-only; append their tabs.
   const tabs = isAdmin
-    ? [...TABS, { key: "domains" as TabKey, icon: AtSign }]
+    ? [
+        ...TABS,
+        { key: "domains" as TabKey, icon: AtSign },
+        { key: "reports" as TabKey, icon: Flag },
+      ]
     : TABS;
 
   return (
@@ -99,6 +119,7 @@ export function Settings() {
           {activeTab === "appearance" && <AppearanceTab />}
           {activeTab === "language" && <LanguageTab />}
           {activeTab === "domains" && isAdmin && <DomainsTab />}
+          {activeTab === "reports" && isAdmin && <ReportsTab />}
         </div>
       </div>
     </div>
@@ -563,6 +584,122 @@ function DomainsTab() {
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Content reports — admin only
+// ---------------------------------------------------------------------------
+function ReportsTab() {
+  const { t } = useTranslation("settings");
+  const { error: toastError } = useToast();
+  const [reports, setReports] = useState<ContentReport[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      try {
+        const data = await apiFetch("/api/reports");
+        if (alive) setReports(data || []);
+      } catch (e: unknown) {
+        if (alive) toastError(toUserError(e));
+      } finally {
+        if (alive) setLoading(false);
+      }
+    })();
+    return () => {
+      alive = false;
+    };
+  }, [toastError]);
+
+  async function setStatus(r: ContentReport, status: "reviewed" | "dismissed") {
+    setBusyId(r.id);
+    try {
+      const updated = await apiFetch(`/api/reports/${r.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status }),
+      });
+      setReports((prev) => prev.map((x) => (x.id === r.id ? { ...x, ...updated } : x)));
+    } catch (e: unknown) {
+      toastError(toUserError(e));
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const statusStyle: Record<string, string> = {
+    pending: "text-amber-600 dark:text-amber-400",
+    reviewed: "text-green-600 dark:text-green-400",
+    dismissed: "text-muted-foreground",
+  };
+
+  return (
+    <Card className="p-6 space-y-5">
+      <div>
+        <h2 className="text-lg font-semibold">{t("reports.title")}</h2>
+      </div>
+
+      {loading ? (
+        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="w-4 h-4 animate-spin" /> {t("reports.loading")}
+        </div>
+      ) : reports.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t("reports.empty")}</p>
+      ) : (
+        <ul className="space-y-3">
+          {reports.map((r) => (
+            <li key={r.id} className="border border-border rounded-lg p-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground">
+                    {t("reports.reported")}:{" "}
+                    <span className="font-medium text-foreground">{r.reported_user_name || "—"}</span>
+                    {"  ·  "}
+                    {t("reports.reporter")}:{" "}
+                    <span className="font-medium text-foreground">{r.reporter_name || "—"}</span>
+                  </p>
+                  {r.content_preview && (
+                    <p className="text-sm mt-1.5 bg-muted rounded-md px-3 py-2 line-clamp-3">
+                      {r.content_preview}
+                    </p>
+                  )}
+                  <p className="text-sm mt-1.5 text-foreground/90">{r.reason}</p>
+                  <span
+                    className={`inline-block mt-1.5 text-xs font-medium ${statusStyle[r.status] || ""}`}
+                  >
+                    {t(`reports.status_${r.status}`)}
+                  </span>
+                </div>
+                {r.status === "pending" && (
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button
+                      onClick={() => setStatus(r, "reviewed")}
+                      disabled={busyId === r.id}
+                      title={t("reports.review")}
+                      aria-label={t("reports.review")}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-green-600 hover:bg-muted transition-colors disabled:opacity-50"
+                    >
+                      <Check className="w-4 h-4" />
+                    </button>
+                    <button
+                      onClick={() => setStatus(r, "dismissed")}
+                      disabled={busyId === r.id}
+                      title={t("reports.dismiss")}
+                      aria-label={t("reports.dismiss")}
+                      className="p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-muted transition-colors disabled:opacity-50"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                )}
               </div>
             </li>
           ))}

@@ -7,7 +7,8 @@
     "password": "كلمة المرور",
     "appearance": "المظهر",
     "language": "اللغة",
-    "domains": "النطاقات"
+    "domains": "النطاقات",
+    "reports": "البلاغات"
   },
 
   "profile": {
@@ -61,5 +62,18 @@
     "delete_body": "لن يُقبل {{domain}} بعد الآن للدعوات وتسجيل الدخول.",
     "delete_confirm": "حذف",
     "loading": "جارٍ التحميل…"
+  },
+
+  "reports": {
+    "title": "بلاغات المحتوى",
+    "loading": "جارٍ التحميل…",
+    "empty": "لا توجد بلاغات بعد.",
+    "reported": "المُبلَّغ عنه",
+    "reporter": "المُبلِّغ",
+    "review": "وضع علامة تمت المراجعة",
+    "dismiss": "تجاهل",
+    "status_pending": "قيد الانتظار",
+    "status_reviewed": "تمت المراجعة",
+    "status_dismissed": "تم التجاهل"
   }
 }

@@ -7,7 +7,8 @@
     "password": "Пароль",
     "appearance": "Внешний вид",
     "language": "Язык",
-    "domains": "Домены"
+    "domains": "Домены",
+    "reports": "Жалобы"
   },
 
   "profile": {
@@ -61,5 +62,18 @@
     "delete_body": "{{domain}} больше не будет приниматься для приглашений и входа.",
     "delete_confirm": "Удалить",
     "loading": "Загрузка…"
+  },
+
+  "reports": {
+    "title": "Жалобы на контент",
+    "loading": "Загрузка…",
+    "empty": "Жалоб пока нет.",
+    "reported": "На кого",
+    "reporter": "Кто пожаловался",
+    "review": "Отметить проверенной",
+    "dismiss": "Отклонить",
+    "status_pending": "Ожидает",
+    "status_reviewed": "Проверено",
+    "status_dismissed": "Отклонено"
   }
 }

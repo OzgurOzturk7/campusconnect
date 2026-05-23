@@ -32,7 +32,7 @@ interface AuthContextType {
   logout: () => void;
   /** Clear the must_change_password flag after the onboarding password
    *  change succeeds — keeps the local cache in sync with the DB. */
-  markPasswordChanged: () => void;
+  markPasswordChanged: (newToken?: string) => void;
   isAdmin: boolean;
   isStudent: boolean;
 }
@@ -160,17 +160,25 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(null);
   };
 
-  const markPasswordChanged = () => {
+  const markPasswordChanged = (newToken?: string) => {
     setUser((prev) => {
       if (!prev) return prev;
-      const updated = { ...prev, must_change_password: false };
+      const updated = {
+        ...prev,
+        must_change_password: false,
+        ...(newToken ? { access_token: newToken } : {}),
+      };
       // Mirror into whichever storage already holds this user — we don't
-      // know if they logged in with "remember me" or not.
+      // know if they logged in with "remember me" or not. When a fresh
+      // token is supplied (session invalidation on password change), swap
+      // the stored token too so THIS device isn't logged out.
       if (localStorage.getItem(USER_KEY)) {
         localStorage.setItem(USER_KEY, JSON.stringify(updated));
+        if (newToken) localStorage.setItem(TOKEN_KEY, newToken);
       }
       if (sessionStorage.getItem(USER_KEY)) {
         sessionStorage.setItem(USER_KEY, JSON.stringify(updated));
+        if (newToken) sessionStorage.setItem(TOKEN_KEY, newToken);
       }
       return updated;
     });

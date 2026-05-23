@@ -184,6 +184,7 @@ function ReadonlyField({
 function PasswordTab() {
   const { t } = useTranslation("settings");
   const { success: toastOk, error: toastError } = useToast();
+  const { markPasswordChanged } = useAuth();
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -220,10 +221,13 @@ function PasswordTab() {
     }
     setSubmitting(true);
     try {
-      await apiFetch("/api/auth/change-password", {
+      const res = await apiFetch("/api/auth/change-password", {
         method: "POST",
         body: JSON.stringify({ current_password: current, new_password: next }),
       });
+      // Password change invalidates older sessions server-side; persist the
+      // fresh token so this device stays signed in.
+      if (res?.access_token) markPasswordChanged(res.access_token);
       toastOk(t("password.updated"));
       setCurrent("");
       setNext("");

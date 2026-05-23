@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
@@ -11,10 +11,12 @@ security = HTTPBearer()
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
     to_encode = data.copy()
-    expire = datetime.utcnow() + (
+    now = datetime.now(timezone.utc)
+    expire = now + (
         expires_delta or timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     )
-    to_encode.update({"exp": expire})
+    # `iat` lets us reject tokens minted before a password change.
+    to_encode.update({"exp": expire, "iat": now})
     return jwt.encode(to_encode, settings.JWT_SECRET, algorithm=settings.JWT_ALGORITHM)
 
 
@@ -56,6 +58,28 @@ async def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
         )
+
+    # Session invalidation: reject tokens minted before the user's last
+    # password change. Skipped unless BOTH values are present — existing
+    # tokens (no `iat`) and users who never changed their password
+    # (token_valid_after IS NULL) are unaffected. A parse hiccup falls
+    # through to "allow" rather than locking everyone out.
+    token_valid_after = result.data.get("token_valid_after")
+    iat = payload.get("iat")
+    if token_valid_after and iat:
+        try:
+            tva = datetime.fromisoformat(str(token_valid_after).replace("Z", "+00:00"))
+            issued = datetime.fromtimestamp(int(iat), tz=timezone.utc)
+            if issued < tva:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Session expired. Please sign in again.",
+                )
+        except HTTPException:
+            raise
+        except Exception:
+            pass
+
     return result.data
 
 

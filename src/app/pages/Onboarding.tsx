@@ -40,11 +40,14 @@ export function Onboarding() {
     }
     setSubmitting(true);
     try {
-      await apiFetch("/api/auth/change-password", {
+      const res = await apiFetch("/api/auth/change-password", {
         method: "POST",
         body: JSON.stringify({ current_password: current, new_password: next }),
       });
-      markPasswordChanged();
+      // Persist the fresh token: the password change invalidates the
+      // temp-password session server-side, so without this the user would
+      // be bounced to /login right after onboarding.
+      markPasswordChanged(res?.access_token);
       navigate("/", { replace: true });
     } catch (e: unknown) {
       const ue = toUserError(e);

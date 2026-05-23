@@ -20,7 +20,7 @@ import os
 import json
 import secrets
 import string
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -389,15 +389,26 @@ def change_password(
 
     # Onboarding: once they've picked a real password the temp-password
     # flag is gone. Idempotent — fine to set when it was already False.
+    # Clear the temp-password flag and stamp token_valid_after, which makes
+    # every session minted before now (other devices, stolen tokens) fail
+    # auth. Back-dating 5s avoids a rounding race with the fresh token's iat
+    # (JWT iat is whole-second).
+    invalidate_before = (datetime.now(timezone.utc) - timedelta(seconds=5)).isoformat()
     try:
-        admin.table("users").update({"must_change_password": False}) \
-            .eq("id", current_user["id"]).execute()
+        admin.table("users").update({
+            "must_change_password": False,
+            "token_valid_after": invalidate_before,
+        }).eq("id", current_user["id"]).execute()
     except Exception as e:
         # Non-fatal — password is updated, the flag is a UX hint.
-        logger.error(f"CLEAR must_change_password FAILED: {e}")
+        logger.error(f"CLEAR must_change_password / token_valid_after FAILED: {e}")
 
+    # Mint a fresh token so THIS device stays signed in while the old ones drop.
+    new_token = create_access_token(data={
+        "sub": current_user["id"], "role": current_user["role"], "email": current_user["email"],
+    })
     log_audit("password_change", user_id=current_user["id"], ip=client_ip(request))
-    return {"ok": True}
+    return {"ok": True, "access_token": new_token}
 
 
 @router.post("/invite", status_code=status.HTTP_201_CREATED)

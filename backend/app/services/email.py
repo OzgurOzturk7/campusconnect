@@ -3,10 +3,12 @@ Transactional email service — provider-agnostic.
 
 Resolution order (first matching transport wins):
 
-  1. SMTP_HOST set        → send via stdlib smtplib (Gmail, Workspace,
-                            Outlook, any provider with a working SMTP).
-  2. RESEND_API_KEY set   → send via Resend's REST API.
-  3. Neither set          → "dev mode": log the message body, return success.
+  1. SMTP_HOST set        → stdlib smtplib. NOTE: most PaaS hosts (Railway,
+                            Render) block outbound SMTP ports — avoid in prod.
+  2. SENDGRID_API_KEY set → SendGrid HTTP API. Works on SMTP-blocked hosts;
+                            Single Sender Verification means no domain needed.
+  3. RESEND_API_KEY set   → send via Resend's REST API.
+  4. None set             → "dev mode": log the message body, return success.
 
 Why both? Resend is the cleanest production setup *once you have a
 verified domain*. Until then its sandbox sender only delivers to the
@@ -69,6 +71,8 @@ def send_email(
 
     if settings.SMTP_HOST:
         return _send_via_smtp(recipients, subject, html, text, reply_to)
+    if settings.SENDGRID_API_KEY:
+        return _send_via_sendgrid(recipients, subject, html, text, reply_to)
     if settings.RESEND_API_KEY:
         return _send_via_resend(recipients, subject, html, text, reply_to)
 
@@ -189,3 +193,59 @@ def _send_via_resend(
 
     data = res.json()
     return {"id": data.get("id", "resend"), "transport": "resend"}
+
+
+# ---------------------------------------------------------------------------
+# SendGrid transport (HTTP API — works on SMTP-blocked hosts like Railway;
+# Single Sender Verification means no custom domain required)
+# ---------------------------------------------------------------------------
+def _send_via_sendgrid(
+    recipients: list[str],
+    subject: str,
+    html: str,
+    text: Optional[str],
+    reply_to: Optional[str],
+) -> dict:
+    sender_addr = (settings.EMAIL_FROM or "").strip()
+    if not sender_addr:
+        raise EmailError("EMAIL_FROM must be a SendGrid-verified sender for SendGrid")
+
+    content = []
+    if text:
+        content.append({"type": "text/plain", "value": text})
+    content.append({"type": "text/html", "value": html})
+
+    from_obj: dict = {"email": sender_addr}
+    if (settings.EMAIL_FROM_NAME or "").strip():
+        from_obj["name"] = settings.EMAIL_FROM_NAME.strip()
+
+    payload: dict = {
+        "personalizations": [{"to": [{"email": r} for r in recipients]}],
+        "from": from_obj,
+        "subject": subject,
+        "content": content,
+    }
+    if reply_to:
+        payload["reply_to"] = {"email": reply_to}
+
+    headers = {
+        "Authorization": f"Bearer {settings.SENDGRID_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            res = client.post("https://api.sendgrid.com/v3/mail/send", headers=headers, json=payload)
+    except httpx.HTTPError as e:
+        logger.warning("SendGrid network error: %s", e)
+        raise
+
+    if res.status_code >= 500:
+        res.raise_for_status()
+    if res.status_code >= 400:
+        body = res.text
+        logger.error("SendGrid rejected the request: %s — %s", res.status_code, body)
+        raise EmailError(f"SendGrid {res.status_code}: {body[:300]}")
+
+    # SendGrid returns 202 Accepted with an empty body on success.
+    return {"id": res.headers.get("X-Message-Id", "sendgrid"), "transport": "sendgrid"}

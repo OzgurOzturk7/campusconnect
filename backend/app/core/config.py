@@ -59,6 +59,12 @@ class Settings(BaseSettings):
     # Option B — Resend. Used when SMTP_HOST is empty and this is set.
     RESEND_API_KEY: str = ""
 
+    # Option C — SendGrid (HTTP API). Works on hosts that block outbound
+    # SMTP ports (Railway, Render, etc.). With Single Sender Verification
+    # you can send without owning a custom domain. Takes priority over
+    # Resend when set.
+    SENDGRID_API_KEY: str = ""
+
     # ---- CSV env fields ----
     # CORS — comma-separated origins, e.g.
     #   ALLOWED_ORIGINS=http://localhost:5173,https://campusconnect.example.com

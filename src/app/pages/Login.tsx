@@ -563,12 +563,7 @@ export function Login() {
         <TiltCard>
           <h2
             className="text-3xl sm:text-4xl font-extrabold mb-1 tracking-tight"
-            style={{
-              backgroundImage: "linear-gradient(135deg, #7c3aed 0%, #8b5cf6 50%, #a78bfa 100%)",
-              WebkitBackgroundClip: "text",
-              WebkitTextFillColor: "transparent",
-              backgroundClip: "text",
-            }}
+            style={{ color: "#7c3aed" }}
           >
             <StaggeredText text="Welcome" />
           </h2>

@@ -65,6 +65,11 @@ class Settings(BaseSettings):
     # Resend when set.
     SENDGRID_API_KEY: str = ""
 
+    # Option D — Brevo (HTTP API). Same idea as SendGrid: works on
+    # SMTP-blocked hosts, sends from a verified single sender (no domain
+    # needed), generous free tier. Checked before Resend.
+    BREVO_API_KEY: str = ""
+
     # ---- CSV env fields ----
     # CORS — comma-separated origins, e.g.
     #   ALLOWED_ORIGINS=http://localhost:5173,https://campusconnect.example.com

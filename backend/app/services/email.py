@@ -7,8 +7,9 @@ Resolution order (first matching transport wins):
                             Render) block outbound SMTP ports — avoid in prod.
   2. SENDGRID_API_KEY set → SendGrid HTTP API. Works on SMTP-blocked hosts;
                             Single Sender Verification means no domain needed.
-  3. RESEND_API_KEY set   → send via Resend's REST API.
-  4. None set             → "dev mode": log the message body, return success.
+  3. BREVO_API_KEY set    → Brevo HTTP API. Same idea as SendGrid.
+  4. RESEND_API_KEY set   → send via Resend's REST API.
+  5. None set             → "dev mode": log the message body, return success.
 
 Why both? Resend is the cleanest production setup *once you have a
 verified domain*. Until then its sandbox sender only delivers to the
@@ -73,6 +74,8 @@ def send_email(
         return _send_via_smtp(recipients, subject, html, text, reply_to)
     if settings.SENDGRID_API_KEY:
         return _send_via_sendgrid(recipients, subject, html, text, reply_to)
+    if settings.BREVO_API_KEY:
+        return _send_via_brevo(recipients, subject, html, text, reply_to)
     if settings.RESEND_API_KEY:
         return _send_via_resend(recipients, subject, html, text, reply_to)
 
@@ -249,3 +252,57 @@ def _send_via_sendgrid(
 
     # SendGrid returns 202 Accepted with an empty body on success.
     return {"id": res.headers.get("X-Message-Id", "sendgrid"), "transport": "sendgrid"}
+
+
+# ---------------------------------------------------------------------------
+# Brevo transport (HTTP API — SMTP-blocked-host friendly, verified single
+# sender means no custom domain required)
+# ---------------------------------------------------------------------------
+def _send_via_brevo(
+    recipients: list[str],
+    subject: str,
+    html: str,
+    text: Optional[str],
+    reply_to: Optional[str],
+) -> dict:
+    sender_addr = (settings.EMAIL_FROM or "").strip()
+    if not sender_addr:
+        raise EmailError("EMAIL_FROM must be a Brevo-verified sender for Brevo")
+
+    sender: dict = {"email": sender_addr}
+    if (settings.EMAIL_FROM_NAME or "").strip():
+        sender["name"] = settings.EMAIL_FROM_NAME.strip()
+
+    payload: dict = {
+        "sender": sender,
+        "to": [{"email": r} for r in recipients],
+        "subject": subject,
+        "htmlContent": html,
+    }
+    if text:
+        payload["textContent"] = text
+    if reply_to:
+        payload["replyTo"] = {"email": reply_to}
+
+    headers = {
+        "api-key": settings.BREVO_API_KEY,
+        "Content-Type": "application/json",
+        "accept": "application/json",
+    }
+
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            res = client.post("https://api.brevo.com/v3/smtp/email", headers=headers, json=payload)
+    except httpx.HTTPError as e:
+        logger.warning("Brevo network error: %s", e)
+        raise
+
+    if res.status_code >= 500:
+        res.raise_for_status()
+    if res.status_code >= 400:
+        body = res.text
+        logger.error("Brevo rejected the request: %s — %s", res.status_code, body)
+        raise EmailError(f"Brevo {res.status_code}: {body[:300]}")
+
+    data = res.json() if res.content else {}
+    return {"id": data.get("messageId", "brevo"), "transport": "brevo"}

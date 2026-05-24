@@ -260,7 +260,7 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
         />
       </Link>
 
-      <div ref={searchRef} className="relative flex-1 max-w-xl mx-2 md:mx-4">
+      <div ref={searchRef} className="relative flex-1 min-w-0 max-w-xl mx-2 md:mx-4">
         <div
           className={`flex items-center gap-2 bg-muted rounded-lg px-3 h-9 border transition-colors ${
             searchOpen ? "border-primary/40" : "border-transparent"
@@ -303,7 +303,7 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
         )}
       </div>
 
-      <div className="ml-auto flex items-center gap-2 md:gap-3">
+      <div className="ml-auto flex items-center gap-2 md:gap-3 flex-shrink-0">
         {user?.role === "admin" && (
           <span className="hidden sm:inline-flex px-2.5 py-1 text-xs font-semibold bg-primary/10 text-primary rounded-full border border-primary/20">
             {t("badges.admin")}

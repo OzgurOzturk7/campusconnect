@@ -54,7 +54,6 @@ const TABS: { key: TabKey; icon: typeof UserIcon }[] = [
   { key: "profile", icon: UserIcon },
   { key: "password", icon: Lock },
   { key: "appearance", icon: Palette },
-  { key: "language", icon: Globe },
 ];
 
 export function Settings() {
@@ -117,7 +116,6 @@ export function Settings() {
           {activeTab === "profile" && <ProfileTab />}
           {activeTab === "password" && <PasswordTab />}
           {activeTab === "appearance" && <AppearanceTab />}
-          {activeTab === "language" && <LanguageTab />}
           {activeTab === "domains" && isAdmin && <DomainsTab />}
           {activeTab === "reports" && isAdmin && <ReportsTab />}
         </div>

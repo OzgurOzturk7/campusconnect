@@ -1,6 +1,5 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
-import LanguageDetector from "i18next-browser-languagedetector";
 
 import enCommon from "../i18n/locales/en/common.json";
 import enAuth from "../i18n/locales/en/auth.json";
@@ -62,7 +61,6 @@ export function isRTL(lang: string): boolean {
 }
 
 i18n
-  .use(LanguageDetector)
   .use(initReactI18next)
   .init({
     resources: {
@@ -107,15 +105,14 @@ i18n
         errors: arErrors,
       },
     },
+    // App is English-only for now. Locked here so a Turkish browser locale
+    // doesn't flip the i18n'd bits (sidebar/search/settings) to Turkish
+    // while the rest of the app is hardcoded English — keeps it consistent.
+    lng: "en",
     supportedLngs: SUPPORTED_LANGS as unknown as string[],
     fallbackLng: "en",
     defaultNS: "common",
     ns: NAMESPACES as unknown as string[],
-    detection: {
-      order: ["localStorage", "navigator", "htmlTag"],
-      lookupLocalStorage: LANG_STORAGE_KEY,
-      caches: ["localStorage"],
-    },
     interpolation: { escapeValue: false },
     returnNull: false,
     react: { useSuspense: false },

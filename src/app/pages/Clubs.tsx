@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
@@ -76,6 +77,9 @@ const CATEGORY_COLORS: Record<string, string> = {
 const CLUBS_PER_PAGE = 9;
 
 export function Clubs() {
+  const { t, i18n } = useTranslation("clubs");
+  const { t: tc } = useTranslation("common");
+  const locale = i18n.language;
   const { user } = useAuth();
   const [clubs, setClubs] = useState<Club[]>([]);
   const [myMemberships, setMyMemberships] = useState<MyMembership[]>([]);
@@ -188,7 +192,7 @@ export function Clubs() {
       const isOpen = result.is_open;
       setJoinFeedback({
         id: club.id,
-        msg: isOpen ? "Successfully joined!" : "Request sent",
+        msg: isOpen ? t("toast.joined") : t("toast.requestSent"),
         ok: true,
       });
       fetchMemberships();
@@ -196,7 +200,7 @@ export function Clubs() {
     } catch (err: unknown) {
       setJoinFeedback({
         id: club.id,
-        msg: err instanceof Error ? err.message : "Failed to join",
+        msg: err instanceof Error ? err.message : t("toast.joinFailed"),
         ok: false,
       });
       setTimeout(() => setJoinFeedback(null), 3500);
@@ -212,9 +216,9 @@ export function Clubs() {
       setShowCreateModal(false);
       setCreateForm({ name: "", description: "", category: "Technical", is_open: true });
       fetchClubs();
-      showToast("Club created successfully!");
+      showToast(t("toast.clubCreated"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to create club", false);
+      showToast(err instanceof Error ? err.message : t("toast.createFailed"), false);
     } finally {
       setIsSubmitting(false);
     }
@@ -241,9 +245,9 @@ export function Clubs() {
         motivation: "",
         is_open: true,
       });
-      showToast("Club request submitted! Admin will review it soon.");
+      showToast(t("toast.requestSubmitted"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to submit request", false);
+      showToast(err instanceof Error ? err.message : t("toast.submitFailed"), false);
     } finally {
       setIsRequesting(false);
     }
@@ -254,9 +258,9 @@ export function Clubs() {
       setDeletingClubId(clubId);
       await apiFetch(`/api/clubs/${clubId}`, { method: "DELETE" });
       setClubs((prev) => prev.filter((c) => c.id !== clubId));
-      showToast("Club deleted.");
+      showToast(t("toast.clubDeleted"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to delete club", false);
+      showToast(err instanceof Error ? err.message : t("toast.deleteFailed"), false);
     } finally {
       setDeletingClubId(null);
       setDeleteConfirm(null);
@@ -277,7 +281,7 @@ export function Clubs() {
           review_note: status === "rejected" ? (note || "").trim() : null,
         }),
       });
-      showToast(status === "approved" ? "Club approved and created!" : "Request rejected.");
+      showToast(status === "approved" ? t("toast.approved") : t("toast.rejected"));
       fetchClubRequests();
       if (status === "approved") fetchClubs();
       // Close the reject modal if it was open for this request.
@@ -286,7 +290,7 @@ export function Clubs() {
         setRejectReason("");
       }
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to review request", false);
+      showToast(err instanceof Error ? err.message : t("toast.reviewFailed"), false);
     } finally {
       setReviewingId(null);
     }
@@ -333,10 +337,10 @@ export function Clubs() {
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                 <Trash2 className="w-5 h-5 text-red-500" />
               </div>
-              <h3 className="font-bold text-base">Delete Club</h3>
+              <h3 className="font-bold text-base">{t("deleteModal.title")}</h3>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
-              Are you sure you want to delete <span className="font-semibold text-foreground">"{deleteConfirm.name}"</span>? This action cannot be undone.
+              {t("deleteModal.confirm", { name: deleteConfirm.name })}
             </p>
             <div className="flex gap-3">
               <Button
@@ -347,11 +351,11 @@ export function Clubs() {
               >
                 {deletingClubId === deleteConfirm.id
                   ? <Loader2 className="w-4 h-4 animate-spin" />
-                  : "Delete Club"
+                  : t("deleteModal.delete")
                 }
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>
-                Cancel
+                {tc("actions.cancel")}
               </Button>
             </div>
           </div>
@@ -372,16 +376,16 @@ export function Clubs() {
           title instead of getting pushed off-screen. */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Student Clubs</h1>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">{t("list.heading")}</h1>
         </div>
         <div className="flex gap-2">
           {user?.role === "admin" ? (
             <Button onClick={() => setShowCreateModal(true)}>
-              <Plus className="w-4 h-4" /> Create Club
+              <Plus className="w-4 h-4" /> {t("list.createClub")}
             </Button>
           ) : (
             <Button variant="outline" onClick={() => setShowRequestModal(true)}>
-              <Plus className="w-4 h-4" /> Request a Club
+              <Plus className="w-4 h-4" /> {t("list.requestClub")}
             </Button>
           )}
         </div>
@@ -398,7 +402,7 @@ export function Clubs() {
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            All Clubs
+            {t("list.allClubs")}
           </button>
           <button
             onClick={() => { setActiveTab("requests"); fetchClubRequests(); }}
@@ -408,7 +412,7 @@ export function Clubs() {
                 : "border-transparent text-muted-foreground hover:text-foreground"
             }`}
           >
-            Club Requests
+            {t("list.clubRequests")}
             {clubRequests.length > 0 && (
               <span className="w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center font-bold">
                 {clubRequests.length}
@@ -427,7 +431,7 @@ export function Clubs() {
             </div>
           ) : clubRequests.length === 0 ? (
             <Card className="p-12 text-center">
-              <p className="text-muted-foreground">No pending club requests.</p>
+              <p className="text-muted-foreground">{t("list.noPendingRequests")}</p>
             </Card>
           ) : (
             clubRequests.map((req) => (
@@ -436,16 +440,16 @@ export function Clubs() {
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-bold text-base">{req.club_name}</h3>
-                      <Tag variant="muted" className="text-xs">{req.category}</Tag>
+                      <Tag variant="muted" className="text-xs">{t(`categories.${req.category}`, { defaultValue: req.category })}</Tag>
                       <Tag variant="muted" className="text-xs">
-                        {req.is_open === false ? "Members-only" : "Open"}
+                        {req.is_open === false ? t("list.membersOnly") : t("list.open")}
                       </Tag>
                     </div>
                     <p className="text-sm text-muted-foreground mb-2">{req.description}</p>
                     {req.motivation && (
                       <div className="mb-2 rounded-md bg-muted/60 px-3 py-2">
                         <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-0.5">
-                          Motivation
+                          {t("list.motivationLabel")}
                         </div>
                         <p className="text-sm text-foreground/90 whitespace-pre-wrap">
                           {req.motivation}
@@ -453,7 +457,7 @@ export function Clubs() {
                       </div>
                     )}
                     <p className="text-xs text-muted-foreground">
-                      Submitted {new Date(req.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+                      {t("list.submittedOn", { date: new Date(req.created_at).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" }) })}
                     </p>
                   </div>
                   <div className="flex gap-2 flex-shrink-0">
@@ -464,7 +468,7 @@ export function Clubs() {
                     >
                       {reviewingId === req.id
                         ? <Loader2 className="w-4 h-4 animate-spin" />
-                        : <><Check className="w-4 h-4" /> Approve</>
+                        : <><Check className="w-4 h-4" /> {t("list.approve")}</>
                       }
                     </Button>
                     <Button
@@ -474,7 +478,7 @@ export function Clubs() {
                       disabled={reviewingId === req.id}
                       className="text-destructive border-destructive hover:bg-destructive/10"
                     >
-                      <X className="w-4 h-4" /> Reject
+                      <X className="w-4 h-4" /> {t("list.reject")}
                     </Button>
                   </div>
                 </div>
@@ -495,7 +499,7 @@ export function Clubs() {
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
                 <input
                   type="text"
-                  placeholder="Search clubs by name or description..."
+                  placeholder={t("list.searchPlaceholder")}
                   value={search}
                   onChange={(e) => handleFilterChange(() => setSearch(e.target.value))}
                   className="w-full pl-10 pr-4 py-2.5 bg-card rounded-lg border border-border focus:border-primary focus:outline-none transition-colors"
@@ -507,7 +511,7 @@ export function Clubs() {
                   showFilters ? "bg-primary text-primary-foreground border-primary" : "bg-card border-border hover:bg-muted"
                 }`}
               >
-                <Filter className="w-4 h-4" /> Filters
+                <Filter className="w-4 h-4" /> {t("list.filters")}
               </button>
             </div>
 
@@ -523,7 +527,7 @@ export function Clubs() {
                       : "bg-card border border-border text-foreground hover:bg-muted"
                   }`}
                 >
-                  {cat}
+                  {t(`categories.${cat}`, { defaultValue: cat })}
                 </button>
               ))}
             </div>
@@ -534,7 +538,7 @@ export function Clubs() {
                 <div className="flex flex-wrap gap-6">
                   {user?.role !== "admin" && (
                     <div>
-                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">My Status</p>
+                      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("list.myStatus")}</p>
                       <div className="flex gap-2">
                         {MEMBERSHIP_FILTERS.map((f) => (
                           <button
@@ -546,16 +550,16 @@ export function Clubs() {
                                 : "bg-muted text-foreground hover:bg-muted/80"
                             }`}
                           >
-                            {f}
+                            {t(`membershipFilters.${f}`, { defaultValue: f })}
                           </button>
                         ))}
                       </div>
                     </div>
                   )}
                   <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Membership Type</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("list.membershipType")}</p>
                     <div className="flex gap-2">
-                      {[["all", "All Types"], ["open", "Open"], ["closed", "Approval Required"]].map(([val, label]) => (
+                      {[["all", t("list.allTypes")], ["open", t("list.open")], ["closed", t("list.approvalRequired")]].map(([val, label]) => (
                         <button
                           key={val}
                           onClick={() => handleFilterChange(() => setMembershipType(val as "all" | "open" | "closed"))}
@@ -580,7 +584,7 @@ export function Clubs() {
                       })}
                       className="text-sm text-muted-foreground hover:text-foreground underline"
                     >
-                      Clear all
+                      {t("list.clearAll")}
                     </button>
                   </div>
                 </div>
@@ -588,14 +592,14 @@ export function Clubs() {
             )}
 
             <p className="text-sm text-muted-foreground">
-              {filtered.length} club{filtered.length !== 1 ? "s" : ""} found — page {currentPage} of {totalPages}
+              {t("list.found", { count: filtered.length, page: currentPage, pages: totalPages })}
             </p>
           </div>
 
           {/* Club cards */}
           {filtered.length === 0 ? (
             <Card className="p-4">
-              <EmptyState icon={Search} title="No clubs found matching your filters." />
+              <EmptyState icon={Search} title={t("list.noClubsFound")} />
             </Card>
           ) : (
             <>
@@ -622,7 +626,7 @@ export function Clubs() {
                         {/* Category badge */}
                         <div className="absolute top-3 left-3">
                           <span className="text-xs font-semibold px-2.5 py-1 rounded-full text-white" style={{ background: accentColor }}>
-                            {club.category}
+                            {t(`categories.${club.category}`, { defaultValue: club.category })}
                           </span>
                         </div>
                         {/* Membership badge — only for non-admins */}
@@ -630,11 +634,11 @@ export function Clubs() {
                           <div className="absolute top-3 right-3">
                             {mem.status === "approved" ? (
                               <span className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-green-500 text-white">
-                                <CheckCircle className="w-3 h-3" /> Joined
+                                <CheckCircle className="w-3 h-3" /> {t("list.joined")}
                               </span>
                             ) : (
                               <span className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-500 text-white">
-                                <Clock className="w-3 h-3" /> Pending
+                                <Clock className="w-3 h-3" /> {t("list.pending")}
                               </span>
                             )}
                           </div>
@@ -646,7 +650,7 @@ export function Clubs() {
                         <div className="flex items-start justify-between mb-2">
                           <h3 className="font-bold text-base leading-tight flex-1 mr-2">{club.name}</h3>
                           <Tag variant={club.is_open ? "primary" : "muted"} className="text-xs flex-shrink-0">
-                            {club.is_open ? "Open" : "Approval"}
+                            {club.is_open ? t("list.open") : t("list.approval")}
                           </Tag>
                         </div>
 
@@ -656,7 +660,7 @@ export function Clubs() {
 
                         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mb-4">
                           <Users className="w-3.5 h-3.5" />
-                          <span>{club.member_count ?? 0} members</span>
+                          <span>{t("list.members", { count: club.member_count ?? 0 })}</span>
                         </div>
 
                         {/* Inline feedback */}
@@ -673,12 +677,12 @@ export function Clubs() {
                         {/* Actions */}
                         <div className="flex items-center gap-2">
                           <Link to={`/clubs/${club.id}`} className="flex-1">
-                            <Button variant="outline" className="w-full h-10 text-sm">View Club</Button>
+                            <Button variant="outline" className="w-full h-10 text-sm">{t("list.viewClub")}</Button>
                           </Link>
                           {isAdmin && (
                             <>
                               <Link to={`/clubs/${club.id}#manage`} className="flex-1">
-                                <Button className="w-full h-10 text-sm">Manage</Button>
+                                <Button className="w-full h-10 text-sm">{t("list.manage")}</Button>
                               </Link>
                               <button
                                 onClick={() => setDeleteConfirm({ id: club.id, name: club.name })}
@@ -696,13 +700,13 @@ export function Clubs() {
                           {/* Club admin (not platform admin) — show manage */}
                           {!isAdmin && isClubAdmin && (
                             <Link to={`/clubs/${club.id}#manage`} className="flex-1">
-                              <Button className="w-full text-sm">Manage</Button>
+                              <Button className="w-full text-sm">{t("list.manage")}</Button>
                             </Link>
                           )}
                           {/* Club president/admin member — also show manage */}
                           {!isAdmin && !isClubAdmin && mem?.role === "president" || !isAdmin && !isClubAdmin && mem?.role === "admin" ? (
                             <Link to={`/clubs/${club.id}#manage`} className="flex-1">
-                              <Button className="w-full text-sm">Manage</Button>
+                              <Button className="w-full text-sm">{t("list.manage")}</Button>
                             </Link>
                           ) : null}
 
@@ -710,11 +714,11 @@ export function Clubs() {
                           {!isAdmin && !isClubAdmin && (
                             mem?.status === "approved" ? (
                               <Button variant="outline" className="flex-1 text-sm" disabled style={{ color: "#16a34a", borderColor: "#bbf7d0" }}>
-                                Joined ✓
+                                {t("list.joinedCheck")}
                               </Button>
                             ) : mem?.status === "pending" ? (
                               <Button variant="outline" className="flex-1 text-sm" disabled>
-                                Pending
+                                {t("list.pending")}
                               </Button>
                             ) : (
                               <Button
@@ -724,7 +728,7 @@ export function Clubs() {
                               >
                                 {joiningId === club.id
                                   ? <Loader2 className="w-4 h-4 animate-spin" />
-                                  : club.is_open ? "Join" : "Apply"
+                                  : club.is_open ? t("list.join") : t("list.apply")
                                 }
                               </Button>
                             )
@@ -739,9 +743,11 @@ export function Clubs() {
               {/* Pagination — always shown */}
               <div className="flex items-center justify-between gap-4 flex-wrap pt-4">
                 <p className="text-xs text-muted-foreground">
-                  Showing <span className="font-semibold text-foreground">{(currentPage - 1) * CLUBS_PER_PAGE + 1}</span>
-                  –<span className="font-semibold text-foreground">{Math.min(currentPage * CLUBS_PER_PAGE, filtered.length)}</span>
-                  {" "}of <span className="font-semibold text-foreground">{filtered.length}</span>
+                  {t("list.showing", {
+                    from: (currentPage - 1) * CLUBS_PER_PAGE + 1,
+                    to: Math.min(currentPage * CLUBS_PER_PAGE, filtered.length),
+                    total: filtered.length,
+                  })}
                 </p>
                 <div className="flex items-center gap-1.5">
                   <button
@@ -749,7 +755,7 @@ export function Clubs() {
                     disabled={currentPage === 1}
                     className="px-3 py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
-                    ← Prev
+                    ← {t("list.prev")}
                   </button>
                   <div className="flex gap-1">
                     {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => {
@@ -780,12 +786,11 @@ export function Clubs() {
                     disabled={currentPage === totalPages}
                     className="px-3 py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
                   >
-                    Next →
+                    {t("list.next")} →
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Page <span className="font-semibold text-foreground">{currentPage}</span> of{" "}
-                  <span className="font-semibold text-foreground">{totalPages}</span>
+                  {t("list.pageOf", { current: currentPage, total: totalPages })}
                 </p>
               </div>
             </>
@@ -798,41 +803,41 @@ export function Clubs() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl border border-border p-5 md:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Create a New Club</h2>
+              <h2 className="text-xl font-bold">{t("createModal.title")}</h2>
               <button onClick={() => setShowCreateModal(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">Club Name</label>
+                <label className="block text-sm font-medium mb-1.5">{t("createModal.clubName")}</label>
                 <input value={createForm.name} onChange={(e) => setCreateForm({ ...createForm, name: e.target.value })}
-                  placeholder="Club name" className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                  placeholder={t("createModal.clubNamePlaceholder")} className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Description</label>
+                <label className="block text-sm font-medium mb-1.5">{t("createModal.description")}</label>
                 <textarea value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                  placeholder="What is this club about?" rows={3}
+                  placeholder={t("createModal.descriptionPlaceholder")} rows={3}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Category</label>
+                <label className="block text-sm font-medium mb-1.5">{t("createModal.category")}</label>
                 <select value={createForm.category} onChange={(e) => setCreateForm({ ...createForm, category: e.target.value })}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
-                  {CATEGORIES.filter((c) => c !== "All").map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                  {CATEGORIES.filter((c) => c !== "All").map((cat) => <option key={cat} value={cat}>{t(`categories.${cat}`, { defaultValue: cat })}</option>)}
                 </select>
               </div>
               <div className="flex items-center gap-3">
                 <input type="checkbox" id="is_open_create" checked={createForm.is_open}
                   onChange={(e) => setCreateForm({ ...createForm, is_open: e.target.checked })} className="w-4 h-4" />
-                <label htmlFor="is_open_create" className="text-sm">Open membership (anyone can join instantly)</label>
+                <label htmlFor="is_open_create" className="text-sm">{t("createModal.openMembership")}</label>
               </div>
             </div>
             <div className="flex gap-3 mt-6">
               <Button onClick={handleCreate} disabled={isSubmitting || !createForm.name || !createForm.description}>
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Club"}
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t("createModal.create")}
               </Button>
-              <Button variant="outline" onClick={() => setShowCreateModal(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setShowCreateModal(false)}>{tc("actions.cancel")}</Button>
             </div>
           </div>
         </div>
@@ -843,47 +848,47 @@ export function Clubs() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl border border-border p-5 md:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-bold">Request a New Club</h2>
+              <h2 className="text-xl font-bold">{t("requestModal.title")}</h2>
               <button onClick={() => setShowRequestModal(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <p className="text-sm text-muted-foreground mb-5">
-              Your request will be reviewed by the admin. You'll be notified of the outcome.
+              {t("requestModal.intro")}
             </p>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">Club Name</label>
+                <label className="block text-sm font-medium mb-1.5">{t("requestModal.clubName")}</label>
                 <input value={requestForm.club_name} onChange={(e) => setRequestForm({ ...requestForm, club_name: e.target.value })}
-                  placeholder="Proposed club name" className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                  placeholder={t("requestModal.clubNamePlaceholder")} className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Category</label>
+                <label className="block text-sm font-medium mb-1.5">{t("requestModal.category")}</label>
                 <select value={requestForm.category} onChange={(e) => setRequestForm({ ...requestForm, category: e.target.value })}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
-                  {CATEGORIES.filter((c) => c !== "All").map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                  {CATEGORIES.filter((c) => c !== "All").map((cat) => <option key={cat} value={cat}>{t(`categories.${cat}`, { defaultValue: cat })}</option>)}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Description</label>
+                <label className="block text-sm font-medium mb-1.5">{t("requestModal.description")}</label>
                 <textarea value={requestForm.description} onChange={(e) => setRequestForm({ ...requestForm, description: e.target.value })}
-                  placeholder="What will this club do? Who is it for?" rows={3}
+                  placeholder={t("requestModal.descriptionPlaceholder")} rows={3}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">
-                  Motivation <span className="text-muted-foreground font-normal">(optional)</span>
+                  {t("requestModal.motivation")} <span className="text-muted-foreground font-normal">{t("requestModal.optional")}</span>
                 </label>
                 <textarea
                   value={requestForm.motivation}
                   onChange={(e) => setRequestForm({ ...requestForm, motivation: e.target.value })}
-                  placeholder="Why should this club exist? What problem does it solve?"
+                  placeholder={t("requestModal.motivationPlaceholder")}
                   rows={3}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Membership type</label>
+                <label className="block text-sm font-medium mb-2">{t("requestModal.membershipType")}</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -894,8 +899,8 @@ export function Clubs() {
                         : "border-border hover:bg-muted"
                     }`}
                   >
-                    <div className="font-semibold mb-0.5">Open</div>
-                    <div className="text-xs opacity-80">Anyone can join instantly</div>
+                    <div className="font-semibold mb-0.5">{t("requestModal.open")}</div>
+                    <div className="text-xs opacity-80">{t("requestModal.openDesc")}</div>
                   </button>
                   <button
                     type="button"
@@ -906,17 +911,17 @@ export function Clubs() {
                         : "border-border hover:bg-muted"
                     }`}
                   >
-                    <div className="font-semibold mb-0.5">Members-only</div>
-                    <div className="text-xs opacity-80">Approval required to join</div>
+                    <div className="font-semibold mb-0.5">{t("requestModal.membersOnly")}</div>
+                    <div className="text-xs opacity-80">{t("requestModal.membersOnlyDesc")}</div>
                   </button>
                 </div>
               </div>
             </div>
             <div className="flex gap-3 mt-6">
               <Button onClick={handleRequest} disabled={isRequesting || !requestForm.club_name || !requestForm.description}>
-                {isRequesting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Submit Request"}
+                {isRequesting ? <Loader2 className="w-4 h-4 animate-spin" /> : t("requestModal.submit")}
               </Button>
-              <Button variant="outline" onClick={() => setShowRequestModal(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setShowRequestModal(false)}>{tc("actions.cancel")}</Button>
             </div>
           </div>
         </div>
@@ -928,18 +933,18 @@ export function Clubs() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl border border-border p-5 md:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-2">
-              <h2 className="text-xl font-bold">Reject Club Request</h2>
+              <h2 className="text-xl font-bold">{t("rejectModal.title")}</h2>
               <button onClick={() => { setRejectModal(null); setRejectReason(""); }} className="text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
             </div>
             <p className="text-sm text-muted-foreground mb-4">
-              Rejecting <span className="font-semibold text-foreground">"{rejectModal.clubName}"</span>. Please tell the requester why so they can adjust and try again.
+              {t("rejectModal.intro", { name: rejectModal.clubName })}
             </p>
             <textarea
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
-              placeholder="e.g. We already have a similar club, please consider joining it instead..."
+              placeholder={t("rejectModal.placeholder")}
               rows={4}
               autoFocus
               className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none mb-4"
@@ -950,9 +955,9 @@ export function Clubs() {
                 onClick={() => handleReviewRequest(rejectModal.requestId, "rejected", rejectReason.trim())}
                 disabled={!rejectReason.trim() || reviewingId === rejectModal.requestId}
               >
-                {reviewingId === rejectModal.requestId ? <Loader2 className="w-4 h-4 animate-spin" /> : "Reject"}
+                {reviewingId === rejectModal.requestId ? <Loader2 className="w-4 h-4 animate-spin" /> : t("rejectModal.reject")}
               </Button>
-              <Button variant="outline" onClick={() => { setRejectModal(null); setRejectReason(""); }}>Cancel</Button>
+              <Button variant="outline" onClick={() => { setRejectModal(null); setRejectReason(""); }}>{tc("actions.cancel")}</Button>
             </div>
           </div>
         </div>

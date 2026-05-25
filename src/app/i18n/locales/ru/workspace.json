@@ -1,0 +1,148 @@
+{
+  "backToProjects": "Назад к проектам",
+  "loadFailed": "Не удалось загрузить рабочую область",
+  "notFound": "Рабочая область не найдена или у вас нет доступа.",
+  "memberCount": "{{count}} участников",
+  "stageLabel": "Этап",
+  "stageUpdated": "Этап изменён на {{stage}}",
+  "stageUpdateFailed": "Не удалось обновить этап",
+  "tabs": {
+    "overview": "Обзор",
+    "chat": "Командный чат",
+    "tasks": "Задачи",
+    "members": "Участники ({{count}})",
+    "resources": "Ресурсы",
+    "activity": "Активность"
+  },
+  "stages": {
+    "recruiting": "Набор",
+    "planning": "Планирование",
+    "development": "Разработка",
+    "testing": "Тестирование",
+    "launch": "Запуск",
+    "completed": "Завершено"
+  },
+  "status": {
+    "open": "Открыт",
+    "completed": "Завершён",
+    "closed": "Закрыт"
+  },
+  "columns": {
+    "todo": "К выполнению",
+    "in_progress": "В работе",
+    "review": "На проверке",
+    "done": "Готово"
+  },
+  "priority": {
+    "low": "низкий",
+    "medium": "средний",
+    "high": "высокий",
+    "urgent": "срочно"
+  },
+  "priorityOption": {
+    "low": "Низкий приоритет",
+    "medium": "Средний приоритет",
+    "high": "Высокий приоритет",
+    "urgent": "Срочно"
+  },
+  "roles": {
+    "owner": "владелец",
+    "admin": "администратор",
+    "member": "участник"
+  },
+  "overview": {
+    "taskProgress": "Прогресс задач",
+    "tasksDone": "Выполнено {{done}} из {{total}} задач",
+    "noTasks": "Задач пока нет. Перейдите на вкладку «Задачи», чтобы начать.",
+    "projectInfo": "О проекте",
+    "roles": "Роли",
+    "team": "Команда",
+    "activeMembers": "активных участников",
+    "currentStage": "Текущий этап",
+    "stepOf": "Шаг {{step}} из {{total}}"
+  },
+  "chat": {
+    "noChat": "Чат проекта не найден.",
+    "subtitle": "{{count}} участников · Чат проекта",
+    "teamMember": "Участник команды",
+    "attachment": "[вложение]",
+    "noMessages": "Сообщений пока нет. Будьте первым!",
+    "open": "Открыть чат проекта",
+    "footer": "Полный чат с реакциями, обменом файлами и другим находится в разделе «Чаты»."
+  },
+  "tasks": {
+    "loadFailed": "Не удалось загрузить задачи",
+    "created": "Задача создана!",
+    "createFailed": "Не удалось создать задачу",
+    "moveFailed": "Не удалось переместить задачу",
+    "deleted": "Задача удалена.",
+    "deleteFailed": "Не удалось удалить задачу",
+    "updated": "Задача обновлена",
+    "updateFailed": "Не удалось обновить задачу",
+    "titlePlaceholder": "Название задачи…",
+    "noAssignee": "Без исполнителя",
+    "add": "Добавить",
+    "addTask": "Добавить задачу",
+    "deleteConfirmTitle": "Удалить эту задачу?",
+    "deleteConfirmDesc": "Это нельзя отменить.",
+    "deleteConfirmLabel": "Удалить",
+    "moveTo": "Переместить в",
+    "assignee": "Исполнитель",
+    "unassigned": "Не назначен",
+    "dueDate": "Срок",
+    "comments": "Комментарии",
+    "noComments": "Комментариев пока нет.",
+    "commentPlaceholder": "Добавить комментарий…",
+    "loadCommentsFailed": "Не удалось загрузить комментарии",
+    "addCommentFailed": "Не удалось добавить комментарий"
+  },
+  "members": {
+    "loadFailed": "Не удалось загрузить участников",
+    "removeConfirmTitle": "Удалить {{name}}?",
+    "removeConfirmDesc": "{{name}} потеряет доступ к этой рабочей области.",
+    "removeConfirmLabel": "Удалить",
+    "removed": "{{name}} удалён из рабочей области",
+    "removeFailed": "Не удалось удалить участника",
+    "joinedLine": "{{role}} · Присоединился {{time}}"
+  },
+  "resources": {
+    "loadFailed": "Не удалось загрузить ресурсы",
+    "added": "Ресурс добавлен!",
+    "addFailed": "Не удалось добавить ресурс",
+    "removed": "Ресурс удалён.",
+    "removeFailed": "Не удалось удалить ресурс",
+    "addResource": "Добавить ресурс",
+    "addShared": "Добавить общий ресурс",
+    "title": "Название",
+    "titlePlaceholder": "напр. Репозиторий проекта",
+    "type": "Тип",
+    "url": "URL",
+    "empty": "Ресурсы пока не добавлены.",
+    "emptyHint": "Добавьте репозитории GitHub, файлы Figma, ссылки Drive и другое.",
+    "by": "добавил {{name}}",
+    "types": {
+      "github": "GitHub",
+      "figma": "Figma",
+      "drive": "Google Drive",
+      "notion": "Notion",
+      "meeting": "Ссылка на встречу",
+      "link": "Другая ссылка"
+    }
+  },
+  "activityTab": {
+    "empty": "Активности пока нет. Изменения появятся здесь."
+  },
+  "activity": {
+    "workspace_created": "{{actor}} создал рабочую область",
+    "member_joined": "{{actor}} присоединился к рабочей области",
+    "member_removed": "{{actor}} удалён из рабочей области",
+    "task_created": "{{actor}} создал задачу «{{title}}»",
+    "task_moved": "{{actor}} переместил «{{title}}» из {{from}} → {{to}}",
+    "task_deleted": "{{actor}} удалил задачу «{{title}}»",
+    "resource_added": "{{actor}} добавил ресурс «{{title}}»",
+    "resource_removed": "{{actor}} удалил ресурс",
+    "stage_updated": "{{actor}} изменил этап проекта на {{stage}}",
+    "default": "{{actor}} выполнил действие",
+    "someone": "Кто-то"
+  }
+}

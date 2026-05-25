@@ -88,13 +88,13 @@ export function Sidebar({ mobileOpen = false, onMobileClose }: SidebarProps) {
             mobileOpen ? "translate-x-0" : "-translate-x-full"
           }`}
           role="dialog"
-          aria-label="Navigation"
+          aria-label={t("a11y.navigation")}
         >
           <div className="h-16 flex items-center justify-between px-4 border-b border-border">
-            <span className="font-bold">Menu</span>
+            <span className="font-bold">{t("a11y.menu")}</span>
             <button
               onClick={onMobileClose}
-              aria-label="Close menu"
+              aria-label={t("a11y.closeMenu")}
               className="p-2 rounded-lg hover:bg-muted"
             >
               <X className="w-5 h-5" />

@@ -1,26 +1,126 @@
 {
   "title": "Chats",
-  "newChat": "New chat",
-  "search": "Search conversations",
-  "empty": {
-    "list": "No conversations yet",
-    "messages": "No messages yet. Say hi!"
+  "newChatTitle": "New chat",
+  "searchChats": "Search chats...",
+  "noChatsFound": "No chats found.",
+  "noChatsYet": "No chats yet. Start a new one!",
+  "noMessagesShort": "No messages yet",
+  "pinChat": "Pin chat",
+  "unpinChat": "Unpin chat",
+  "directMessage": "Direct Message",
+  "groupChat": "Group Chat",
+  "group": "Group",
+  "selectChat": "Select a chat",
+  "selectChatHint": "Pick a conversation from the list — or start a new one.",
+  "membersCount": "{{count}} members",
+  "directMessageLabel": "Direct message",
+  "searchInChat": "Search in chat",
+  "pinnedMessages": "Pinned messages",
+  "filesMedia": "Files & media",
+  "mute": "Mute",
+  "unmute": "Unmute",
+  "more": "More",
+  "deleteChat": "Delete chat",
+  "leaveGroup": "Leave group",
+  "deleteEntireGroup": "Delete entire group",
+  "searchInThisChat": "Search in this chat...",
+  "matches": "{{count}} matches",
+  "pinned": "Pinned",
+  "noPinned": "No pinned messages.",
+  "unknown": "Unknown",
+  "attachment": "[attachment]",
+  "filesMediaTitle": "Files & Media",
+  "noFiles": "No files shared yet.",
+  "file": "File",
+  "noMessagesSayHi": "No messages yet. Say hi 👋",
+  "noSearchMatch": "No messages match your search.",
+  "messageDeleted": "This message was deleted",
+  "edited": "edited",
+  "react": "React",
+  "reply": "Reply",
+  "pin": "Pin",
+  "unpin": "Unpin",
+  "delete": "Delete",
+  "report": "Report",
+  "today": "Today",
+  "yesterday": "Yesterday",
+  "typingOne": "{{name}} is typing...",
+  "typingMany": "{{count}} people are typing...",
+  "filePending": "{{kb}} KB · Add a caption (optional) and press send",
+  "replyingTo": "Replying to {{name}}",
+  "typeMessage": "Type a message...",
+  "attachFile": "Attach file",
+  "send": "Send",
+  "attachmentPreview": {
+    "image": "📷 Image",
+    "video": "🎬 Video",
+    "file": "📎 File",
+    "audio": "🎤 Audio"
   },
-  "input": {
-    "placeholder": "Write a message...",
-    "send": "Send",
-    "attach": "Attach file"
+  "relative": {
+    "now": "now",
+    "min": "{{count}}m",
+    "hour": "{{count}}h",
+    "day": "{{count}}d"
   },
-  "owner": {
-    "label": "Owner",
+  "toast": {
+    "sendFailed": "Failed to send message",
+    "maxFileSize": "Max file size is 25MB",
+    "reactionFailed": "Failed",
+    "pinFailed": "Failed to pin",
+    "deleteMsgFailed": "Couldn't delete the message",
+    "actionFailed": "Action failed",
+    "deleteChatFailed": "Could not delete chat",
+    "loadFilesFailed": "Could not load files"
+  },
+  "deleteMsg": {
+    "title": "Delete this message?",
+    "desc": "This action can't be undone.",
+    "confirm": "Delete"
+  },
+  "confirmModal": {
+    "fullTitle": "Delete entire group",
+    "deleteChatTitle": "Delete chat",
+    "leaveGroupTitle": "Leave group",
+    "fullBody": "This will permanently delete \"{{title}}\" for everyone. This cannot be undone.",
+    "directBody": "This chat will be removed from your list. The other person can still see it; if they send a new message it will reappear.",
+    "leaveBody": "You'll leave \"{{title}}\" and stop receiving its messages.",
+    "deleteForever": "Delete forever",
+    "delete": "Delete",
+    "leave": "Leave"
+  },
+  "newChat": {
+    "title": "New Chat",
+    "groupNamePlaceholder": "Group name (optional)",
+    "searchPlaceholder": "Search students by name...",
+    "typeToSearch": "Type at least 2 characters to search.",
+    "noUsers": "No users found.",
+    "createGroup": "Create Group",
+    "startChat": "Start Chat",
+    "errorTitle": "Couldn't start chat",
+    "errorBody": "Something went wrong while creating the chat.",
+    "errorHint": "Please try again in a moment.",
+    "defaultGroupTitle": "{{name}} & {{count}} others"
+  },
+  "members": {
+    "profile": "Profile",
+    "title": "Members",
+    "personOne": "{{count}} person",
+    "personMany": "{{count}} people",
     "addMember": "Add member",
-    "removeMember": "Remove member",
-    "confirmRemove": "Remove {{name}} from this group?"
+    "removeConfirmTitle": "Remove {{name}}?",
+    "removeConfirmDesc": "{{name}} will lose access to this group.",
+    "removeConfirmLabel": "Remove",
+    "removed": "{{name}} removed",
+    "removeFailed": "Couldn't remove member",
+    "you": "(you)",
+    "owner": "Owner",
+    "removeAria": "Remove {{name}}"
   },
-  "mute": {
-    "mute": "Mute",
-    "unmute": "Unmute",
-    "muted": "Muted"
-  },
-  "deleted": "Message deleted"
+  "addMember": {
+    "searchPlaceholder": "Search users to add...",
+    "cancel": "Cancel",
+    "noMatches": "No matches.",
+    "addFailed": "Couldn't add member"
+  }
 }

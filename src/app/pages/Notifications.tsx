@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import {
@@ -64,35 +65,41 @@ const colorMap: Record<string, string> = {
 };
 
 const labelMap: Record<string, string> = {
-  project_application: "Project",
-  project_application_result: "Project",
-  project_team_join: "Project",
-  club_announcement: "Club",
-  club_application: "Club",
-  club_application_result: "Club",
-  club_request: "Club",
-  club_request_result: "Club",
-  new_event: "Event",
-  event_reminder: "Event",
-  study_file_upload: "Study",
-  system: "System",
+  project_application: "project",
+  project_application_result: "project",
+  project_team_join: "project",
+  club_announcement: "club",
+  club_application: "club",
+  club_application_result: "club",
+  club_request: "club",
+  club_request_result: "club",
+  new_event: "event",
+  event_reminder: "event",
+  study_file_upload: "study",
+  system: "system",
 };
 
 const PER_PAGE = 10;
 
-function timeAgo(dateStr: string) {
+function timeAgo(
+  dateStr: string,
+  tc: (key: string, opts?: Record<string, unknown>) => string,
+  locale: string,
+) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "just now";
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1) return tc("notifications.justNow");
+  if (minutes < 60) return tc("notifications.minutesAgo", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return tc("notifications.hoursAgo", { count: hours });
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d ago`;
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (days < 7) return tc("notifications.daysAgo", { count: days });
+  return new Date(dateStr).toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
 export function Notifications() {
+  const { t: tc, i18n } = useTranslation("common");
+  const locale = i18n.language;
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [filter, setFilter] = useState<"all" | "unread">("all");
@@ -186,7 +193,7 @@ export function Notifications() {
 
   async function clearAll() {
     if (notifications.length === 0) return;
-    if (!window.confirm("Delete all notifications? This cannot be undone.")) return;
+    if (!window.confirm(tc("notificationsPage.confirmClearAll"))) return;
     const prev = notifications;
     setNotifications([]);
     setSelectedIds(new Set());
@@ -227,21 +234,21 @@ export function Notifications() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4 min-w-0">
         <div className="min-w-0">
-          <h1 className="text-2xl md:text-3xl font-bold mb-1 break-words">Notifications</h1>
+          <h1 className="text-2xl md:text-3xl font-bold mb-1 break-words">{tc("notifications.title")}</h1>
           <p className="text-sm text-muted-foreground">
             {unreadCount > 0
-              ? `You have ${unreadCount} unread notification${unreadCount === 1 ? "" : "s"}.`
-              : "You are all caught up."}
+              ? tc("notificationsPage.subtitleUnread", { count: unreadCount })
+              : tc("notificationsPage.subtitleCaught")}
           </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           <Button variant="outline" onClick={markAllRead} disabled={unreadCount === 0}>
             <CheckCheck className="w-4 h-4" />
-            Mark all as read
+            {tc("notificationsPage.markAllAsRead")}
           </Button>
           <Button variant="outline" onClick={clearAll} disabled={notifications.length === 0}>
             <Trash2 className="w-4 h-4" />
-            Clear all
+            {tc("notificationsPage.clearAll")}
           </Button>
         </div>
       </div>
@@ -251,16 +258,16 @@ export function Notifications() {
       {selectedIds.size > 0 && (
         <div className="flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg bg-primary/5 border border-primary/20">
           <span className="text-sm">
-            <span className="font-semibold">{selectedIds.size}</span> selected
+            {tc("notificationsPage.selected", { count: selectedIds.size })}
           </span>
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={clearSelection}>
               <X className="w-3.5 h-3.5" />
-              Cancel
+              {tc("actions.cancel")}
             </Button>
             <Button variant="primary" size="sm" onClick={deleteSelected}>
               <Trash2 className="w-3.5 h-3.5" />
-              Delete selected
+              {tc("notificationsPage.deleteSelected")}
             </Button>
           </div>
         </div>
@@ -274,7 +281,7 @@ export function Notifications() {
             filter === "all" ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          All
+          {tc("notificationsPage.filterAll")}
           <span className="ml-2 text-xs text-muted-foreground">{notifications.length}</span>
         </button>
         <button
@@ -283,7 +290,7 @@ export function Notifications() {
             filter === "unread" ? "bg-card shadow-sm" : "text-muted-foreground hover:text-foreground"
           }`}
         >
-          Unread
+          {tc("notificationsPage.filterUnread")}
           <span className="ml-2 text-xs text-muted-foreground">{unreadCount}</span>
         </button>
       </div>
@@ -295,10 +302,10 @@ export function Notifications() {
             <Inbox className="w-8 h-8 text-muted-foreground" />
           </div>
           <h3 className="font-semibold text-lg mb-1">
-            {filter === "unread" ? "No unread notifications" : "No notifications yet"}
+            {filter === "unread" ? tc("notificationsPage.emptyUnreadTitle") : tc("notificationsPage.emptyAllTitle")}
           </h3>
           <p className="text-muted-foreground text-sm">
-            {filter === "unread" ? "You are all caught up!" : "Your notifications will appear here."}
+            {filter === "unread" ? tc("notificationsPage.emptyUnreadBody") : tc("notificationsPage.emptyAllBody")}
           </p>
         </Card>
       ) : (
@@ -306,7 +313,7 @@ export function Notifications() {
           {paginated.map((notif) => {
             const Icon = iconMap[notif.type] || Bell;
             const color = colorMap[notif.type] || colorMap.system;
-            const label = labelMap[notif.type] || "System";
+            const label = tc(`notificationsPage.types.${labelMap[notif.type] || "system"}`);
             const isSelected = selectedIds.has(notif.id);
             return (
               <div
@@ -326,7 +333,7 @@ export function Notifications() {
                     checked={isSelected}
                     onChange={() => toggleSelect(notif.id)}
                     className="w-4 h-4 rounded border-border text-primary focus:ring-2 focus:ring-primary/30 cursor-pointer"
-                    aria-label={`Select notification: ${notif.title}`}
+                    aria-label={tc("notificationsPage.selectAria", { title: notif.title })}
                   />
                 </label>
 
@@ -349,7 +356,7 @@ export function Notifications() {
                         </span>
                       </div>
                       <div className="flex items-center gap-2 flex-shrink-0">
-                        <span className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo(notif.created_at)}</span>
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">{timeAgo(notif.created_at, tc, locale)}</span>
                         {!notif.is_read && <span className="w-2 h-2 bg-primary rounded-full" />}
                       </div>
                     </div>
@@ -364,8 +371,8 @@ export function Notifications() {
                 <button
                   type="button"
                   onClick={(e) => { e.stopPropagation(); deleteOne(notif.id); }}
-                  aria-label="Delete notification"
-                  title="Delete"
+                  aria-label={tc("notificationsPage.deleteAria")}
+                  title={tc("notificationsPage.deleteTitle")}
                   className="flex-shrink-0 self-start mt-1 p-1.5 rounded-md text-muted-foreground hover:text-destructive hover:bg-destructive/10 opacity-100 md:opacity-0 md:group-hover/notif:opacity-100 focus:opacity-100 transition-opacity"
                 >
                   <Trash2 className="w-4 h-4" />
@@ -380,15 +387,17 @@ export function Notifications() {
       {filtered.length > 0 && (
         <div className="flex items-center justify-between gap-4 flex-wrap pt-2">
           <p className="text-xs text-muted-foreground">
-            Showing <span className="font-semibold text-foreground">{(currentPage - 1) * PER_PAGE + 1}</span>
-            –<span className="font-semibold text-foreground">{Math.min(currentPage * PER_PAGE, filtered.length)}</span>
-            {" "}of <span className="font-semibold text-foreground">{filtered.length}</span>
+            {tc("notificationsPage.showing", {
+              from: (currentPage - 1) * PER_PAGE + 1,
+              to: Math.min(currentPage * PER_PAGE, filtered.length),
+              total: filtered.length,
+            })}
           </p>
           <div className="flex items-center gap-1.5">
             <button
               onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
               disabled={currentPage === 1}
-              aria-label="Previous page"
+              aria-label={tc("notificationsPage.prevPage")}
               className="w-9 h-9 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
             >
               <ChevronLeft className="w-4 h-4" />
@@ -420,15 +429,14 @@ export function Notifications() {
             <button
               onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
               disabled={currentPage === totalPages}
-              aria-label="Next page"
+              aria-label={tc("notificationsPage.nextPage")}
               className="w-9 h-9 rounded-lg border border-border bg-card hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-colors"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
           </div>
           <p className="text-xs text-muted-foreground">
-            Page <span className="font-semibold text-foreground">{currentPage}</span> of{" "}
-            <span className="font-semibold text-foreground">{totalPages}</span>
+            {tc("notificationsPage.pageOf", { current: currentPage, total: totalPages })}
           </p>
         </div>
       )}

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
@@ -65,6 +66,9 @@ interface Announcement {
 const CATEGORIES = ["Technical", "Social", "Sports", "Arts", "Research", "Business"];
 
 export function ClubDetail() {
+  const { t, i18n } = useTranslation("clubs");
+  const { t: tc } = useTranslation("common");
+  const locale = i18n.language;
   const { id } = useParams<{ id: string }>();
   const location = useLocation();
   const { user } = useAuth();
@@ -159,7 +163,7 @@ export function ClubDetail() {
       await apiFetch(`/api/clubs/${id}/join`, { method: "POST" });
       fetchData();
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to join", false);
+      showToast(err instanceof Error ? err.message : t("toast.joinFailed"), false);
     } finally {
       setIsJoining(false);
     }
@@ -167,8 +171,8 @@ export function ClubDetail() {
 
   async function handleLeave() {
     setConfirmModal({
-      title: "Leave Club",
-      message: `Are you sure you want to leave "${club?.name}"?`,
+      title: t("detail.leaveTitle"),
+      message: t("detail.confirmLeave", { name: club?.name }),
       danger: true,
       onConfirm: async () => {
         try {
@@ -176,7 +180,7 @@ export function ClubDetail() {
           await apiFetch(`/api/clubs/${id}/leave`, { method: "DELETE" });
           fetchData();
         } catch (err: unknown) {
-          showToast(err instanceof Error ? err.message : "Failed to leave", false);
+          showToast(err instanceof Error ? err.message : t("toast.leaveFailed"), false);
         } finally {
           setIsJoining(false);
         }
@@ -193,7 +197,7 @@ export function ClubDetail() {
       });
       fetchData();
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to update", false);
+      showToast(err instanceof Error ? err.message : t("toast.updateFailed"), false);
     } finally {
       setUpdatingMemberId(null);
     }
@@ -201,17 +205,17 @@ export function ClubDetail() {
 
   async function handleRemoveMember(userId: string, memberName: string) {
     setConfirmModal({
-      title: "Remove Member",
-      message: `Remove "${memberName}" from this club?`,
+      title: t("detail.removeMemberTitle"),
+      message: t("detail.confirmRemoveMember", { name: memberName }),
       danger: true,
       onConfirm: async () => {
         try {
           setUpdatingMemberId(userId);
           await apiFetch(`/api/clubs/${id}/members/${userId}/remove`, { method: "DELETE" });
           fetchData();
-          showToast("Member removed.");
+          showToast(t("toast.memberRemoved"));
         } catch (err: unknown) {
-          showToast(err instanceof Error ? err.message : "Failed to remove", false);
+          showToast(err instanceof Error ? err.message : t("toast.removeFailed"), false);
         } finally {
           setUpdatingMemberId(null);
         }
@@ -228,7 +232,7 @@ export function ClubDetail() {
       });
       fetchData();
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to update role", false);
+      showToast(err instanceof Error ? err.message : t("toast.roleUpdateFailed"), false);
     } finally {
       setUpdatingMemberId(null);
     }
@@ -239,9 +243,9 @@ export function ClubDetail() {
       setIsSavingClub(true);
       await apiFetch(`/api/clubs/${id}`, { method: "PUT", body: JSON.stringify(editForm) });
       fetchData();
-      showToast("Club updated!");
+      showToast(t("toast.clubUpdated"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to update club", false);
+      showToast(err instanceof Error ? err.message : t("toast.clubUpdateFailed"), false);
     } finally {
       setIsSavingClub(false);
     }
@@ -257,9 +261,9 @@ export function ClubDetail() {
       setAnnouncementForm({ title: "", content: "" });
       setShowAnnouncementForm(false);
       fetchData();
-      showToast("Announcement posted!");
+      showToast(t("toast.announcementPosted"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to post", false);
+      showToast(err instanceof Error ? err.message : t("toast.postFailed"), false);
     } finally {
       setIsPostingAnnouncement(false);
     }
@@ -267,16 +271,16 @@ export function ClubDetail() {
 
   async function handleDeleteAnnouncement(annId: string) {
     setConfirmModal({
-      title: "Delete Announcement",
-      message: "Are you sure you want to delete this announcement?",
+      title: t("detail.deleteAnnouncementTitle"),
+      message: t("detail.confirmDeleteAnnouncement"),
       danger: true,
       onConfirm: async () => {
         try {
           await apiFetch(`/api/clubs/${id}/announcements/${annId}`, { method: "DELETE" });
           fetchData();
-          showToast("Announcement deleted.");
+          showToast(t("toast.announcementDeleted"));
         } catch (err: unknown) {
-          showToast(err instanceof Error ? err.message : "Failed to delete", false);
+          showToast(err instanceof Error ? err.message : t("toast.annDeleteFailed"), false);
         }
       },
     });
@@ -325,9 +329,9 @@ export function ClubDetail() {
       setEventCoverPreview(null);
       setShowEventForm(false);
       fetchData();
-      showToast("Event created!");
+      showToast(t("toast.eventCreated"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to create event", false);
+      showToast(err instanceof Error ? err.message : t("toast.eventCreateFailed"), false);
     } finally {
       setIsCreatingEvent(false);
     }
@@ -335,17 +339,17 @@ export function ClubDetail() {
 
   async function handleDeleteEvent(eventId: string, eventTitle: string) {
     setConfirmModal({
-      title: "Delete Event",
-      message: `Delete "${eventTitle}"? This cannot be undone.`,
+      title: t("detail.deleteEventTitle"),
+      message: t("detail.confirmDeleteEvent", { title: eventTitle }),
       danger: true,
       onConfirm: async () => {
         try {
           setIsDeletingEvent(eventId);
           await apiFetch(`/api/events/${eventId}`, { method: "DELETE" });
           fetchData();
-          showToast("Event deleted.");
+          showToast(t("toast.eventDeleted"));
         } catch (err: unknown) {
-          showToast(err instanceof Error ? err.message : "Failed to delete event", false);
+          showToast(err instanceof Error ? err.message : t("toast.eventDeleteFailed"), false);
         } finally {
           setIsDeletingEvent(null);
         }
@@ -368,9 +372,9 @@ export function ClubDetail() {
       });
       if (!response.ok) throw new Error("Upload failed");
       fetchData();
-      showToast("Cover updated!");
+      showToast(t("toast.coverUpdated"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to upload", false);
+      showToast(err instanceof Error ? err.message : t("toast.uploadFailed"), false);
     } finally {
       setIsUploadingCover(false);
       if (coverInputRef.current) coverInputRef.current.value = "";
@@ -380,7 +384,7 @@ export function ClubDetail() {
   async function handleVideoUpload(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file) return;
-    if (file.size > 100 * 1024 * 1024) { showToast("Video must be under 100MB", false); return; }
+    if (file.size > 100 * 1024 * 1024) { showToast(t("toast.videoTooLarge"), false); return; }
     try {
       setIsUploadingVideo(true);
       const formData = new FormData();
@@ -393,9 +397,9 @@ export function ClubDetail() {
       });
       if (!response.ok) throw new Error("Upload failed");
       fetchData();
-      showToast("Video uploaded!");
+      showToast(t("toast.videoUploaded"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to upload", false);
+      showToast(err instanceof Error ? err.message : t("toast.uploadFailed"), false);
     } finally {
       setIsUploadingVideo(false);
       if (videoInputRef.current) videoInputRef.current.value = "";
@@ -404,16 +408,16 @@ export function ClubDetail() {
 
   async function handleDeleteVideo() {
     setConfirmModal({
-      title: "Delete Video",
-      message: "Delete the introduction video?",
+      title: t("detail.deleteVideoTitle"),
+      message: t("detail.confirmDeleteVideo"),
       danger: true,
       onConfirm: async () => {
         try {
           await apiFetch(`/api/clubs/${id}/delete-video`, { method: "DELETE" });
           fetchData();
-          showToast("Video deleted.");
+          showToast(t("toast.videoDeleted"));
         } catch (err: unknown) {
-          showToast(err instanceof Error ? err.message : "Failed to delete", false);
+          showToast(err instanceof Error ? err.message : t("toast.annDeleteFailed"), false);
         }
       },
     });
@@ -428,7 +432,7 @@ export function ClubDetail() {
   }
 
   if (!club) {
-    return <div className="text-center py-12 text-muted-foreground">Club not found.</div>;
+    return <div className="text-center py-12 text-muted-foreground">{t("detail.notFound")}</div>;
   }
 
   const approvedMembers = members.filter((m) => m.status === "approved");
@@ -468,10 +472,10 @@ export function ClubDetail() {
                 style={confirmModal.danger ? { background: "#ef4444" } : {}}
                 onClick={() => { confirmModal.onConfirm(); setConfirmModal(null); }}
               >
-                Confirm
+                {t("detail.confirm")}
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => setConfirmModal(null)}>
-                Cancel
+                {tc("actions.cancel")}
               </Button>
             </div>
           </div>
@@ -480,7 +484,7 @@ export function ClubDetail() {
 
       <Link to="/clubs">
         <Button variant="ghost" size="sm">
-          <ArrowLeft className="w-4 h-4" /> Back to Clubs
+          <ArrowLeft className="w-4 h-4" /> {t("detail.backToClubs")}
         </Button>
       </Link>
 
@@ -500,7 +504,7 @@ export function ClubDetail() {
               className="absolute bottom-3 right-3 flex items-center gap-1.5 text-xs bg-black/50 hover:bg-black/70 text-white px-3 py-1.5 rounded-lg transition-colors"
             >
               {isUploadingCover ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Image className="w-3.5 h-3.5" />}
-              {isUploadingCover ? "Uploading..." : "Change Cover"}
+              {isUploadingCover ? t("detail.uploading") : t("detail.changeCover")}
             </button>
           )}
           <input ref={coverInputRef} type="file" accept="image/*" onChange={handleCoverUpload} className="hidden" />
@@ -511,31 +515,31 @@ export function ClubDetail() {
             <div className="flex-1 min-w-0">
               <h1 className="text-2xl md:text-3xl font-bold mb-2 break-words">{club.name}</h1>
               <div className="flex gap-2 flex-wrap mb-3">
-                <Tag variant="muted">{club.category}</Tag>
+                <Tag variant="muted">{t(`categories.${club.category}`, { defaultValue: club.category })}</Tag>
                 <Tag variant={club.is_open ? "primary" : "secondary"}>
-                  {club.is_open ? "Open Membership" : "Approval Required"}
+                  {club.is_open ? t("detail.openMembership") : t("detail.approvalRequired")}
                 </Tag>
                 {isClubManager && pendingMembers.length > 0 && (
-                  <Tag variant="secondary">{pendingMembers.length} pending</Tag>
+                  <Tag variant="secondary">{t("detail.pendingCount", { count: pendingMembers.length })}</Tag>
                 )}
               </div>
               <p className="text-muted-foreground mb-3">{club.description}</p>
               <div className="flex items-center gap-2 text-muted-foreground">
                 <Users className="w-4 h-4" />
-                <span className="text-sm font-medium">{approvedMembers.length} members</span>
+                <span className="text-sm font-medium">{t("detail.members", { count: approvedMembers.length })}</span>
               </div>
             </div>
             <div className="flex gap-2 md:ml-4 flex-shrink-0">
               {!isClubManager && (
                 isApprovedMember ? (
                   <Button variant="outline" onClick={handleLeave} disabled={isJoining}>
-                    {isJoining ? <Loader2 className="w-4 h-4 animate-spin" /> : <><UserMinus className="w-4 h-4" /> Leave</>}
+                    {isJoining ? <Loader2 className="w-4 h-4 animate-spin" /> : <><UserMinus className="w-4 h-4" /> {t("detail.leave")}</>}
                   </Button>
                 ) : isPending ? (
-                  <Tag variant="muted" className="self-center">Pending approval</Tag>
+                  <Tag variant="muted" className="self-center">{t("detail.pendingApproval")}</Tag>
                 ) : (
                   <Button onClick={handleJoin} disabled={isJoining}>
-                    {isJoining ? <Loader2 className="w-4 h-4 animate-spin" /> : <><UserPlus className="w-4 h-4" /> Join</>}
+                    {isJoining ? <Loader2 className="w-4 h-4 animate-spin" /> : <><UserPlus className="w-4 h-4" /> {t("detail.join")}</>}
                   </Button>
                 )
               )}
@@ -548,9 +552,9 @@ export function ClubDetail() {
           ("Events & Announcements (12)") don't push the page width. */}
       <div className="flex gap-0 border-b border-border overflow-x-auto">
         {[
-          { key: "overview", label: "Overview" },
-          { key: "announcements", label: `Events & Announcements${clubEvents.length + announcements.length > 0 ? ` (${clubEvents.length + announcements.length})` : ""}` },
-          ...(isClubManager ? [{ key: "manage", label: "Manage" }] : []),
+          { key: "overview", label: t("detail.tabs.overview") },
+          { key: "announcements", label: `${t("detail.tabs.announcements")}${clubEvents.length + announcements.length > 0 ? ` (${clubEvents.length + announcements.length})` : ""}` },
+          ...(isClubManager ? [{ key: "manage", label: t("detail.tabs.manage") }] : []),
         ].map((tab) => (
           <button
             key={tab.key}
@@ -579,7 +583,7 @@ export function ClubDetail() {
               <Card className="p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Video className="w-5 h-5 text-primary" />
-                  <h2 className="text-xl font-bold">Club Introduction</h2>
+                  <h2 className="text-xl font-bold">{t("detail.clubIntroduction")}</h2>
                 </div>
                 <video src={club.video_url} controls className="w-full rounded-lg max-h-72 bg-black" />
               </Card>
@@ -587,19 +591,19 @@ export function ClubDetail() {
           </div>
           <div>
             <Card className="p-6">
-              <h3 className="font-bold mb-4">Members ({approvedMembers.length})</h3>
+              <h3 className="font-bold mb-4">{t("detail.membersTitle", { count: approvedMembers.length })}</h3>
               <div className="space-y-3">
                 {approvedMembers.slice(0, 10).map((member) => (
                   <div key={member.id} className="flex items-center gap-3">
                     <Avatar name={member.name || "?"} size="sm" src={member.avatar_url} />
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{member.name || "Student"}</p>
+                      <p className="text-sm font-medium truncate">{member.name || t("detail.student")}</p>
                       <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
                     </div>
                   </div>
                 ))}
                 {approvedMembers.length > 10 && (
-                  <p className="text-xs text-muted-foreground text-center">+{approvedMembers.length - 10} more</p>
+                  <p className="text-xs text-muted-foreground text-center">{t("detail.moreMembers", { count: approvedMembers.length - 10 })}</p>
                 )}
               </div>
             </Card>
@@ -615,10 +619,10 @@ export function ClubDetail() {
           {isClubManager && (
             <div className="flex gap-3 flex-wrap">
               <Button onClick={() => setShowEventForm(!showEventForm)}>
-                <Plus className="w-4 h-4" /> Add Event
+                <Plus className="w-4 h-4" /> {t("detail.addEvent")}
               </Button>
               <Button variant="outline" onClick={() => setShowAnnouncementForm(!showAnnouncementForm)}>
-                <Megaphone className="w-4 h-4" /> Post Announcement
+                <Megaphone className="w-4 h-4" /> {t("detail.postAnnouncement")}
               </Button>
             </div>
           )}
@@ -627,12 +631,12 @@ export function ClubDetail() {
           {showEventForm && isClubManager && (
             <Card className="p-6">
               <h3 className="font-bold mb-4 flex items-center gap-2">
-                <Calendar className="w-5 h-5 text-primary" /> New Club Event
+                <Calendar className="w-5 h-5 text-primary" /> {t("detail.newClubEvent")}
               </h3>
 
               {/* Cover image picker */}
               <div className="mb-4">
-                <label className="block text-sm font-medium mb-1.5">Event Poster / Cover (optional)</label>
+                <label className="block text-sm font-medium mb-1.5">{t("detail.eventCoverLabel")}</label>
                 {eventCoverPreview ? (
                   <div className="relative rounded-xl overflow-hidden h-40 mb-2">
                     <img src={eventCoverPreview} alt="cover preview" className="w-full h-full object-cover" />
@@ -649,7 +653,7 @@ export function ClubDetail() {
                     className="border-2 border-dashed border-border rounded-xl h-28 flex flex-col items-center justify-center cursor-pointer hover:border-primary transition-colors"
                   >
                     <Image className="w-6 h-6 text-muted-foreground mb-1" />
-                    <p className="text-sm text-muted-foreground">Click to upload poster</p>
+                    <p className="text-sm text-muted-foreground">{t("detail.uploadPoster")}</p>
                   </div>
                 )}
                 <input ref={eventCoverInputRef} type="file" accept="image/*" onChange={handleEventCoverChange} className="hidden" />
@@ -657,35 +661,35 @@ export function ClubDetail() {
 
               <div className="space-y-3">
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">Title</label>
+                  <label className="block text-sm font-medium mb-1.5">{t("detail.titleLabel")}</label>
                   <input value={eventForm.title} onChange={(e) => setEventForm({ ...eventForm, title: e.target.value })}
-                    placeholder="Event title" className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                    placeholder={t("detail.eventTitlePlaceholder")} className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">Description</label>
+                  <label className="block text-sm font-medium mb-1.5">{t("detail.descriptionLabel")}</label>
                   <textarea value={eventForm.description} onChange={(e) => setEventForm({ ...eventForm, description: e.target.value })}
-                    placeholder="Event details..." rows={3}
+                    placeholder={t("detail.eventDetailsPlaceholder")} rows={3}
                     className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium mb-1.5">Date & Time</label>
+                    <label className="block text-sm font-medium mb-1.5">{t("detail.dateTime")}</label>
                     <input type="datetime-local" value={eventForm.event_date} onChange={(e) => setEventForm({ ...eventForm, event_date: e.target.value })}
                       className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium mb-1.5">Location</label>
+                    <label className="block text-sm font-medium mb-1.5">{t("detail.location")}</label>
                     <input value={eventForm.location} onChange={(e) => setEventForm({ ...eventForm, location: e.target.value })}
-                      placeholder="Place or Online" className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                      placeholder={t("detail.locationPlaceholder")} className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
                   </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">Capacity (optional)</label>
+                  <label className="block text-sm font-medium mb-1.5">{t("detail.capacity")}</label>
                   <input type="number" value={eventForm.capacity} onChange={(e) => setEventForm({ ...eventForm, capacity: e.target.value })}
-                    placeholder="Max attendees" className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                    placeholder={t("detail.capacityPlaceholder")} className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Visibility</label>
+                  <label className="block text-sm font-medium mb-2">{t("detail.visibility")}</label>
                   <div className="flex gap-3">
                     <button
                       onClick={() => setEventForm({ ...eventForm, is_members_only: false })}
@@ -693,7 +697,7 @@ export function ClubDetail() {
                         !eventForm.is_members_only ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/50"
                       }`}
                     >
-                      <Globe className="w-4 h-4" /> Everyone
+                      <Globe className="w-4 h-4" /> {t("detail.everyone")}
                     </button>
                     <button
                       onClick={() => setEventForm({ ...eventForm, is_members_only: true })}
@@ -701,16 +705,16 @@ export function ClubDetail() {
                         eventForm.is_members_only ? "border-primary bg-primary/5 text-primary" : "border-border text-muted-foreground hover:border-primary/50"
                       }`}
                     >
-                      <Lock className="w-4 h-4" /> Members Only
+                      <Lock className="w-4 h-4" /> {t("detail.membersOnly")}
                     </button>
                   </div>
                 </div>
               </div>
               <div className="flex gap-3 mt-4">
                 <Button onClick={handleCreateEvent} disabled={isCreatingEvent || !eventForm.title || !eventForm.event_date || !eventForm.location}>
-                  {isCreatingEvent ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Event"}
+                  {isCreatingEvent ? <Loader2 className="w-4 h-4 animate-spin" /> : t("detail.createEvent")}
                 </Button>
-                <Button variant="outline" onClick={() => { setShowEventForm(false); setEventCoverFile(null); setEventCoverPreview(null); }}>Cancel</Button>
+                <Button variant="outline" onClick={() => { setShowEventForm(false); setEventCoverFile(null); setEventCoverPreview(null); }}>{tc("actions.cancel")}</Button>
               </div>
             </Card>
           )}
@@ -719,20 +723,20 @@ export function ClubDetail() {
           {showAnnouncementForm && isClubManager && (
             <Card className="p-6">
               <h3 className="font-bold mb-4 flex items-center gap-2">
-                <Megaphone className="w-5 h-5 text-primary" /> New Announcement
+                <Megaphone className="w-5 h-5 text-primary" /> {t("detail.newAnnouncement")}
               </h3>
               <div className="space-y-3">
                 <input value={announcementForm.title} onChange={(e) => setAnnouncementForm({ ...announcementForm, title: e.target.value })}
-                  placeholder="Announcement title" className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
+                  placeholder={t("detail.announcementTitlePlaceholder")} className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
                 <textarea value={announcementForm.content} onChange={(e) => setAnnouncementForm({ ...announcementForm, content: e.target.value })}
-                  placeholder="Write your announcement..." rows={4}
+                  placeholder={t("detail.announcementContentPlaceholder")} rows={4}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
               </div>
               <div className="flex gap-3 mt-4">
                 <Button onClick={handlePostAnnouncement} disabled={isPostingAnnouncement || !announcementForm.title || !announcementForm.content}>
-                  {isPostingAnnouncement ? <Loader2 className="w-4 h-4 animate-spin" /> : "Post"}
+                  {isPostingAnnouncement ? <Loader2 className="w-4 h-4 animate-spin" /> : t("detail.post")}
                 </Button>
-                <Button variant="outline" onClick={() => setShowAnnouncementForm(false)}>Cancel</Button>
+                <Button variant="outline" onClick={() => setShowAnnouncementForm(false)}>{tc("actions.cancel")}</Button>
               </div>
             </Card>
           )}
@@ -740,7 +744,7 @@ export function ClubDetail() {
           {/* Club Events */}
           {clubEvents.length > 0 && (
             <div>
-              <h2 className="text-lg font-bold mb-3">Club Events</h2>
+              <h2 className="text-lg font-bold mb-3">{t("detail.clubEvents")}</h2>
               <div className="space-y-4">
                 {[...upcomingEvents, ...pastEvents].map((event) => {
                   const isPast = new Date(event.event_date) < new Date();
@@ -756,14 +760,14 @@ export function ClubDetail() {
                               <h3 className="font-bold text-base">{event.title}</h3>
                               {event.is_members_only ? (
                                 <span className="flex items-center gap-1 text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">
-                                  <Lock className="w-3 h-3" /> Members Only
+                                  <Lock className="w-3 h-3" /> {t("detail.membersOnly")}
                                 </span>
                               ) : (
                                 <span className="flex items-center gap-1 text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">
-                                  <Globe className="w-3 h-3" /> Public
+                                  <Globe className="w-3 h-3" /> {t("detail.public")}
                                 </span>
                               )}
-                              {isPast && <Tag variant="muted" className="text-xs">Past</Tag>}
+                              {isPast && <Tag variant="muted" className="text-xs">{t("detail.past")}</Tag>}
                             </div>
                             {event.description && (
                               <p className="text-sm text-muted-foreground mb-3">{event.description}</p>
@@ -785,11 +789,11 @@ export function ClubDetail() {
                         <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
                           <span className="flex items-center gap-1.5">
                             <Calendar className="w-4 h-4" />
-                            {new Date(event.event_date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
+                            {new Date(event.event_date).toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric", year: "numeric" })}
                           </span>
                           <span className="flex items-center gap-1.5">
                             <Clock className="w-4 h-4" />
-                            {new Date(event.event_date).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            {new Date(event.event_date).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}
                           </span>
                           <span className="flex items-center gap-1.5">
                             <MapPin className="w-4 h-4" /> {event.location}
@@ -812,7 +816,7 @@ export function ClubDetail() {
           {/* Announcements */}
           {announcements.length > 0 && (
             <div>
-              <h2 className="text-lg font-bold mb-3">Announcements</h2>
+              <h2 className="text-lg font-bold mb-3">{t("detail.announcementsTitle")}</h2>
               <div className="space-y-4">
                 {announcements.map((ann) => (
                   <Card key={ann.id} className="p-6">
@@ -826,7 +830,7 @@ export function ClubDetail() {
                     </div>
                     <p className="text-muted-foreground text-sm leading-relaxed whitespace-pre-wrap break-words">{renderRichText(ann.content)}</p>
                     <p className="text-xs text-muted-foreground mt-3">
-                      {new Date(ann.created_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}
+                      {new Date(ann.created_at).toLocaleDateString(locale, { year: "numeric", month: "long", day: "numeric" })}
                     </p>
                   </Card>
                 ))}
@@ -837,7 +841,7 @@ export function ClubDetail() {
           {clubEvents.length === 0 && announcements.length === 0 && (
             <Card className="p-12 text-center">
               <Megaphone className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-              <p className="text-muted-foreground">No events or announcements yet.</p>
+              <p className="text-muted-foreground">{t("detail.noContent")}</p>
             </Card>
           )}
         </div>
@@ -850,33 +854,33 @@ export function ClubDetail() {
           {/* Edit club */}
           <Card className="p-6">
             <h2 className="text-xl font-bold mb-6 flex items-center gap-2">
-              <Settings className="w-5 h-5" /> Club Settings
+              <Settings className="w-5 h-5" /> {t("detail.clubSettings")}
             </h2>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">Club Name</label>
+                <label className="block text-sm font-medium mb-1.5">{t("detail.clubName")}</label>
                 <input value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Description</label>
+                <label className="block text-sm font-medium mb-1.5">{t("detail.descriptionLabel")}</label>
                 <textarea value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   rows={3} className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Category</label>
+                <label className="block text-sm font-medium mb-1.5">{t("detail.category")}</label>
                 <select value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
-                  {CATEGORIES.map((cat) => <option key={cat} value={cat}>{cat}</option>)}
+                  {CATEGORIES.map((cat) => <option key={cat} value={cat}>{t(`categories.${cat}`, { defaultValue: cat })}</option>)}
                 </select>
               </div>
               <div className="flex items-center gap-3">
                 <input type="checkbox" id="is_open_edit" checked={editForm.is_open}
                   onChange={(e) => setEditForm({ ...editForm, is_open: e.target.checked })} className="w-4 h-4" />
-                <label htmlFor="is_open_edit" className="text-sm">Open membership</label>
+                <label htmlFor="is_open_edit" className="text-sm">{t("detail.openMembershipShort")}</label>
               </div>
               <Button onClick={handleSaveClub} disabled={isSavingClub}>
-                {isSavingClub ? <Loader2 className="w-4 h-4 animate-spin" /> : "Save Changes"}
+                {isSavingClub ? <Loader2 className="w-4 h-4 animate-spin" /> : t("detail.saveChanges")}
               </Button>
             </div>
           </Card>
@@ -884,17 +888,17 @@ export function ClubDetail() {
           {/* Video */}
           <Card className="p-6">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Video className="w-5 h-5" /> Introduction Video
+              <Video className="w-5 h-5" /> {t("detail.introVideo")}
             </h2>
             {club.video_url ? (
               <div className="space-y-4">
                 <video src={club.video_url} controls className="w-full rounded-lg max-h-64 bg-black" />
                 <div className="flex gap-3">
                   <Button variant="outline" onClick={() => videoInputRef.current?.click()} disabled={isUploadingVideo}>
-                    {isUploadingVideo ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Upload className="w-4 h-4" /> Replace</>}
+                    {isUploadingVideo ? <Loader2 className="w-4 h-4 animate-spin" /> : <><Upload className="w-4 h-4" /> {t("detail.replace")}</>}
                   </Button>
                   <Button variant="outline" onClick={handleDeleteVideo} className="text-destructive border-destructive">
-                    <Trash2 className="w-4 h-4" /> Delete
+                    <Trash2 className="w-4 h-4" /> {t("detail.delete")}
                   </Button>
                 </div>
               </div>
@@ -904,13 +908,13 @@ export function ClubDetail() {
                 {isUploadingVideo ? (
                   <div className="flex flex-col items-center gap-2">
                     <Loader2 className="w-8 h-8 animate-spin text-primary" />
-                    <p className="text-sm text-muted-foreground">Uploading...</p>
+                    <p className="text-sm text-muted-foreground">{t("detail.uploading")}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col items-center gap-2">
                     <Video className="w-8 h-8 text-muted-foreground" />
-                    <p className="font-medium text-sm">Upload intro video</p>
-                    <p className="text-xs text-muted-foreground">MP4, WebM — max 100MB</p>
+                    <p className="font-medium text-sm">{t("detail.uploadIntroVideo")}</p>
+                    <p className="text-xs text-muted-foreground">{t("detail.videoHint")}</p>
                   </div>
                 )}
               </div>
@@ -921,24 +925,24 @@ export function ClubDetail() {
           {/* Pending */}
           {pendingMembers.length > 0 && (
             <Card className="p-6">
-              <h2 className="text-xl font-bold mb-4">Pending Requests ({pendingMembers.length})</h2>
+              <h2 className="text-xl font-bold mb-4">{t("detail.pendingRequests", { count: pendingMembers.length })}</h2>
               <div className="space-y-3">
                 {pendingMembers.map((member) => (
                   <div key={member.id} className="flex items-center gap-4 p-3 bg-muted rounded-lg">
                     <Avatar name={member.name || "?"} size="sm" />
                     <div className="flex-1 min-w-0">
-                      <p className="font-medium text-sm">{member.name || "Student"}</p>
+                      <p className="font-medium text-sm">{member.name || t("detail.student")}</p>
                       <p className="text-xs text-muted-foreground">{member.email || ""}</p>
                     </div>
                     <div className="flex gap-2">
                       <Button size="sm" onClick={() => handleMembershipUpdate(member.user_id, "approved")}
                         disabled={updatingMemberId === member.user_id}>
-                        <Check className="w-4 h-4" /> Approve
+                        <Check className="w-4 h-4" /> {t("detail.approve")}
                       </Button>
                       <Button size="sm" variant="outline" onClick={() => handleMembershipUpdate(member.user_id, "rejected")}
                         disabled={updatingMemberId === member.user_id}
                         className="text-destructive border-destructive">
-                        <X className="w-4 h-4" /> Reject
+                        <X className="w-4 h-4" /> {t("detail.reject")}
                       </Button>
                     </div>
                   </div>
@@ -950,28 +954,28 @@ export function ClubDetail() {
           {/* Members — anchor for "Manage" button from Clubs list */}
           <Card id="manage" className="p-6 scroll-mt-24">
             <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
-              <Shield className="w-5 h-5" /> Members ({approvedMembers.length})
+              <Shield className="w-5 h-5" /> {t("detail.manageMembers", { count: approvedMembers.length })}
             </h2>
             <div className="space-y-3">
               {approvedMembers.map((member) => (
                 <div key={member.id} className="flex items-center gap-4 p-3 bg-muted rounded-lg">
                   <Avatar name={member.name || "?"} size="sm" />
                   <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm truncate">{member.name || "Student"}</p>
+                    <p className="font-medium text-sm truncate">{member.name || t("detail.student")}</p>
                     <p className="text-xs text-muted-foreground capitalize">{member.role}</p>
                   </div>
                   <div className="flex items-center gap-2">
                     <select value={member.role}
                       onChange={(e) => handleRoleUpdate(member.user_id, e.target.value)}
                       disabled={updatingMemberId === member.user_id || user?.role !== "admin"}
-                      title={user?.role !== "admin" ? "Only platform admin can change roles" : undefined}
+                      title={user?.role !== "admin" ? t("detail.onlyAdminRoles") : undefined}
                       className="text-xs px-2 py-1 bg-card border border-border rounded-lg focus:outline-none disabled:opacity-60 disabled:cursor-not-allowed">
-                      <option value="member">Member</option>
-                      <option value="president">President</option>
+                      <option value="member">{t("detail.roleMember")}</option>
+                      <option value="president">{t("detail.rolePresident")}</option>
                     </select>
                     {(user?.role === "admin" || member.user_id !== club.admin_user_id) && (
                       <Button size="sm" variant="outline"
-                        onClick={() => handleRemoveMember(member.user_id, member.name || "this member")}
+                        onClick={() => handleRemoveMember(member.user_id, member.name || t("detail.thisMember"))}
                         disabled={updatingMemberId === member.user_id}
                         className="text-destructive border-destructive hover:bg-destructive/10">
                         {updatingMemberId === member.user_id

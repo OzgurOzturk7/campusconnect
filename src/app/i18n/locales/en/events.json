@@ -1,0 +1,77 @@
+{
+  "heading": "Campus Events",
+  "searchPlaceholder": "Search events...",
+  "filters": {
+    "upcoming": "Upcoming",
+    "all": "All",
+    "past": "Past"
+  },
+  "months": ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"],
+  "days": ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+  "noEvents": "No events found.",
+  "members": "Members",
+  "attending": "Attending",
+  "full": "Full",
+  "past": "Past",
+  "edit": "Edit",
+  "delete": "Delete",
+  "markAttending": "Mark as Attending",
+  "eventFull": "Event full",
+  "attendees": "Attendees ({{count}})",
+  "addToCalendar": "Add to Google Calendar",
+  "attendingCount": "{{count}} attending",
+  "attendingCountCap": "{{count}} / {{capacity}} attending",
+  "deleteModal": {
+    "title": "Delete Event",
+    "confirm": "Delete \"{{title}}\"? This cannot be undone.",
+    "delete": "Delete"
+  },
+  "editModal": {
+    "title": "Edit Event",
+    "titleLabel": "Title",
+    "description": "Description",
+    "dateTime": "Date & Time",
+    "location": "Location",
+    "locationPlaceholder": "Physical location or Online",
+    "saving": "Saving...",
+    "saveChanges": "Save Changes"
+  },
+  "createModal": {
+    "title": "Create Event",
+    "titleLabel": "Title",
+    "titlePlaceholder": "Event title",
+    "description": "Description",
+    "descriptionPlaceholder": "Event description",
+    "dateTime": "Date & Time",
+    "location": "Location",
+    "locationPlaceholder": "Physical location or Online",
+    "linkClub": "Link to Club (optional)",
+    "noneGeneral": "None (general event)",
+    "schoolWide": "School-wide event",
+    "schoolWideHint": "(notifies all students)",
+    "creating": "Creating...",
+    "create": "Create Event"
+  },
+  "toast": {
+    "attendFailed": "Failed to update attendance",
+    "eventCreated": "Event created!",
+    "createFailed": "Failed to create event",
+    "eventUpdated": "Event updated!",
+    "updateFailed": "Failed to update",
+    "eventDeleted": "Event deleted.",
+    "deleteFailed": "Failed to delete"
+  },
+  "attendeesModal": {
+    "loading": "Loading…",
+    "attending": "{{count}} attending",
+    "downloadCsv": "Download CSV",
+    "noAttendeesTitle": "No attendees yet",
+    "downloadTitle": "Download as CSV",
+    "close": "Close",
+    "empty": "Nobody has marked attendance yet.",
+    "unknown": "Unknown",
+    "year": "Year {{year}}",
+    "loadFailed": "Couldn't load attendees",
+    "exportFailed": "Couldn't export CSV"
+  }
+}

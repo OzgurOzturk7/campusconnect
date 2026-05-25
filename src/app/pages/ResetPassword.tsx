@@ -1,5 +1,6 @@
 import { useState, useEffect, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Loader2, Lock, ArrowLeft, AlertCircle, CheckCircle2 } from "lucide-react";
 import { supabase } from "../lib/supabase";
 
@@ -17,6 +18,7 @@ import { supabase } from "../lib/supabase";
  * a recovery session into a normal one.
  */
 export function ResetPassword() {
+  const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -37,11 +39,11 @@ export function ResetPassword() {
     e.preventDefault();
     setError(null);
     if (next.length < 8) {
-      setError("Use at least 8 characters.");
+      setError(t("reset.tooShort"));
       return;
     }
     if (next !== confirm) {
-      setError("Passwords don't match.");
+      setError(t("reset.mismatch"));
       return;
     }
     setSubmitting(true);
@@ -51,7 +53,7 @@ export function ResetPassword() {
       await supabase.auth.signOut();
       setDone(true);
     } catch (e: any) {
-      setError(e?.message || "Couldn't update password. Try requesting a new link.");
+      setError(e?.message || t("reset.updateFailed"));
     } finally {
       setSubmitting(false);
     }
@@ -65,7 +67,7 @@ export function ResetPassword() {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to sign in
+          {t("reset.backToSignIn")}
         </Link>
 
         <div className="bg-card border border-border rounded-2xl shadow-lg p-6 md:p-8">
@@ -74,15 +76,15 @@ export function ResetPassword() {
               <div className="w-14 h-14 mx-auto rounded-full bg-green-100 dark:bg-green-500/10 flex items-center justify-center mb-4">
                 <CheckCircle2 className="w-7 h-7 text-green-600 dark:text-green-400" />
               </div>
-              <h2 className="text-xl font-bold mb-2">Password updated</h2>
+              <h2 className="text-xl font-bold mb-2">{t("reset.doneTitle")}</h2>
               <p className="text-sm text-muted-foreground mb-6">
-                You can sign in with your new password.
+                {t("reset.doneBody")}
               </p>
               <button
                 onClick={() => navigate("/login", { replace: true })}
                 className="w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
               >
-                Go to sign in
+                {t("reset.goToSignIn")}
               </button>
             </div>
           ) : hasSession === false ? (
@@ -90,9 +92,9 @@ export function ResetPassword() {
               <div className="flex items-start gap-2 mb-4">
                 <AlertCircle className="w-5 h-5 text-destructive flex-shrink-0 mt-0.5" />
                 <div>
-                  <h2 className="font-semibold">This reset link is invalid or expired</h2>
+                  <h2 className="font-semibold">{t("reset.invalidTitle")}</h2>
                   <p className="text-sm text-muted-foreground mt-1">
-                    Request a new one from the forgot-password page.
+                    {t("reset.invalidBody")}
                   </p>
                 </div>
               </div>
@@ -100,27 +102,27 @@ export function ResetPassword() {
                 to="/forgot-password"
                 className="block w-full py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold text-center hover:bg-primary/90 transition-colors"
               >
-                Request a new link
+                {t("reset.requestNewLink")}
               </Link>
             </div>
           ) : (
             <>
               <div className="mb-6">
-                <h1 className="text-2xl font-bold tracking-tight">Set a new password</h1>
+                <h1 className="text-2xl font-bold tracking-tight">{t("reset.title")}</h1>
                 <p className="text-sm text-muted-foreground mt-1.5">
-                  Pick something you don't use anywhere else.
+                  {t("reset.subtitle")}
                 </p>
               </div>
 
               <form onSubmit={onSubmit} className="space-y-4">
                 <PasswordField
-                  label="New password"
+                  label={t("reset.newPassword")}
                   value={next}
                   onChange={setNext}
                   autoComplete="new-password"
                 />
                 <PasswordField
-                  label="Confirm new password"
+                  label={t("reset.confirmPassword")}
                   value={confirm}
                   onChange={setConfirm}
                   autoComplete="new-password"
@@ -139,10 +141,10 @@ export function ResetPassword() {
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+                      <Loader2 className="w-4 h-4 animate-spin" /> {t("reset.saving")}
                     </>
                   ) : (
-                    "Update password"
+                    t("reset.updateButton")
                   )}
                 </button>
               </form>

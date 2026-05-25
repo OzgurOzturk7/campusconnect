@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { useLocation } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   Search, Send, Paperclip, Smile, Reply as ReplyIcon, X, Plus, Loader2,
   Bell, BellOff, Pin, Trash2, Check, CheckCheck, Users as UsersIcon,
@@ -66,51 +67,55 @@ interface ChatSummary {
 const QUICK_REACTIONS = ["👍", "❤️", "😂", "😮", "😢", "🙏"];
 
 // ================================================================
-function timeAgo(dateStr: string) {
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
+
+function timeAgo(dateStr: string, t: TFunc, locale: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 1) return "now";
-  if (minutes < 60) return `${minutes}m`;
+  if (minutes < 1) return t("relative.now");
+  if (minutes < 60) return t("relative.min", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
+  if (hours < 24) return t("relative.hour", { count: hours });
   const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (days < 7) return t("relative.day", { count: days });
+  return new Date(dateStr).toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
-function formatTime(dateStr: string) {
-  return new Date(dateStr).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+function formatTime(dateStr: string, locale: string) {
+  return new Date(dateStr).toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 }
 
-function formatDayLabel(dateStr: string) {
+function formatDayLabel(dateStr: string, t: TFunc, locale: string) {
   const d = new Date(dateStr);
   const today = new Date();
   const yesterday = new Date(); yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return "Today";
-  if (d.toDateString() === yesterday.toDateString()) return "Yesterday";
-  return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric" });
+  if (d.toDateString() === today.toDateString()) return t("today");
+  if (d.toDateString() === yesterday.toDateString()) return t("yesterday");
+  return d.toLocaleDateString(locale, { weekday: "long", month: "short", day: "numeric" });
 }
 
-function chatDisplayTitle(chat: ChatSummary, currentUserId: string): string {
+function chatDisplayTitle(chat: ChatSummary, currentUserId: string, t: TFunc): string {
   if (chat.type === "direct") {
     const other = chat.members.find((m) => m.id !== currentUserId);
-    return other?.name || chat.title || "Direct Message";
+    return other?.name || chat.title || t("directMessage");
   }
-  return chat.title || "Group Chat";
+  return chat.title || t("groupChat");
 }
 
-function chatDisplayAvatar(chat: ChatSummary, currentUserId: string): { name: string; url?: string } {
+function chatDisplayAvatar(chat: ChatSummary, currentUserId: string, t: TFunc): { name: string; url?: string } {
   if (chat.type === "direct") {
     const other = chat.members.find((m) => m.id !== currentUserId);
     return { name: other?.name || "?", url: other?.avatar_url };
   }
   // Group / project chats: always show initials of the group name.
   // No image upload — keeps the look consistent and avoids storage cost.
-  return { name: chat.title || "Group" };
+  return { name: chat.title || t("group") };
 }
 
 // ================================================================
 export function Chat() {
+  const { t, i18n } = useTranslation("chat");
+  const locale = i18n.language;
   const { user } = useAuth();
   const { error: toastError, success: toastSuccess } = useToast();
   const { confirm: confirmDialog } = useConfirm();
@@ -543,7 +548,7 @@ export function Chat() {
         });
       }
     } catch (e: any) {
-      toastError(e?.message || "Failed to send message");
+      toastError(e?.message || t("toast.sendFailed"));
     }
   }
 
@@ -602,7 +607,7 @@ export function Chat() {
 
   // ----------- Files -----------
   function pickFile(file: File) {
-    if (file.size > 25 * 1024 * 1024) { toastError("Max file size is 25MB"); return; }
+    if (file.size > 25 * 1024 * 1024) { toastError(t("toast.maxFileSize")); return; }
     setPendingFile(file);
     if (file.type.startsWith("image/")) {
       setPendingPreviewUrl(URL.createObjectURL(file));
@@ -687,7 +692,7 @@ export function Chat() {
         body: JSON.stringify({ emoji }),
       });
     } catch (e: any) {
-      toastError(e?.message || "Failed");
+      toastError(e?.message || t("toast.reactionFailed"));
       // Revert on error
       loadMessages(activeChatId);
     }
@@ -730,7 +735,7 @@ export function Chat() {
     } catch (e: any) {
       // Revert
       setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, is_pinned: msg.is_pinned } : m));
-      toastError(e?.message || "Failed to pin");
+      toastError(e?.message || t("toast.pinFailed"));
     }
   }
 
@@ -748,9 +753,9 @@ export function Chat() {
   async function deleteMessage(msg: ChatMessage) {
     if (!activeChatId) return;
     const ok = await confirmDialog({
-      title: "Delete this message?",
-      description: "This action can't be undone.",
-      confirmLabel: "Delete",
+      title: t("deleteMsg.title"),
+      description: t("deleteMsg.desc"),
+      confirmLabel: t("deleteMsg.confirm"),
       tone: "danger",
     });
     if (!ok) return;
@@ -758,7 +763,7 @@ export function Chat() {
       await apiFetch(`/api/chats/${activeChatId}/messages/${msg.id}`, { method: "DELETE" });
       setMessages((prev) => prev.map((m) => m.id === msg.id ? { ...m, deleted_at: new Date().toISOString() } : m));
     } catch (e: any) {
-      toastError(e?.message || "Couldn't delete the message");
+      toastError(e?.message || t("toast.deleteMsgFailed"));
     }
   }
 
@@ -772,7 +777,7 @@ export function Chat() {
       setActiveChat(null);
       setConfirmDelete(null);
     } catch (e: any) {
-      toastError(e?.message || "Action failed");
+      toastError(e?.message || t("toast.actionFailed"));
     }
   }
 
@@ -786,7 +791,7 @@ export function Chat() {
       setActiveChat(null);
       setConfirmDelete(null);
     } catch (e: any) {
-      toastError(e?.message || "Could not delete chat");
+      toastError(e?.message || t("toast.deleteChatFailed"));
     }
   }
 
@@ -801,7 +806,7 @@ export function Chat() {
       const data = await apiFetch(`/api/chats/${activeChatId}/files`);
       setChatFiles(data || []);
     } catch (e: any) {
-      toastError(e?.message || "Could not load files");
+      toastError(e?.message || t("toast.loadFilesFailed"));
     } finally {
       setFilesLoading(false);
     }
@@ -831,7 +836,7 @@ export function Chat() {
     if (!chatListSearch.trim()) return chats;
     const q = chatListSearch.toLowerCase();
     return chats.filter((c) => {
-      const title = chatDisplayTitle(c, user?.user_id || "").toLowerCase();
+      const title = chatDisplayTitle(c, user?.user_id || "", t).toLowerCase();
       return title.includes(q);
     });
   }, [chats, chatListSearch, user?.user_id]);
@@ -862,11 +867,11 @@ export function Chat() {
       {/* ========== LEFT: chat list ========== */}
       <aside className={`${activeChatId ? "hidden md:flex" : "flex"} w-full md:w-80 lg:w-96 flex-col border-r border-border`}>
         <div className="p-4 border-b border-border flex items-center gap-2">
-          <h2 className="font-bold text-lg flex-1">Chats</h2>
+          <h2 className="font-bold text-lg flex-1">{t("title")}</h2>
           <button
             onClick={() => setShowNewChat(true)}
             className="p-2 rounded-lg hover:bg-muted transition-colors"
-            title="New chat"
+            title={t("newChatTitle")}
           >
             <Plus className="w-5 h-5" />
           </button>
@@ -878,7 +883,7 @@ export function Chat() {
               type="text"
               value={chatListSearch}
               onChange={(e) => setChatListSearch(e.target.value)}
-              placeholder="Search chats..."
+              placeholder={t("searchChats")}
               className="w-full pl-9 pr-3 py-2 text-sm bg-muted rounded-lg border border-transparent focus:border-primary focus:outline-none transition-colors"
             />
           </div>
@@ -890,18 +895,18 @@ export function Chat() {
           ) : filteredChats.length === 0 ? (
             <div className="px-6 py-12 text-center text-muted-foreground text-sm">
               <MessageCircle className="w-10 h-10 mx-auto mb-3 opacity-40" />
-              {chatListSearch ? "No chats found." : "No chats yet. Start a new one!"}
+              {chatListSearch ? t("noChatsFound") : t("noChatsYet")}
             </div>
           ) : (
             filteredChats.map((c) => {
-              const title = chatDisplayTitle(c, user?.user_id || "");
-              const av = chatDisplayAvatar(c, user?.user_id || "");
+              const title = chatDisplayTitle(c, user?.user_id || "", t);
+              const av = chatDisplayAvatar(c, user?.user_id || "", t);
               const isActive = activeChatId === c.id;
               const lastBody = c.last_message?.body
-                || (c.last_message?.attachment_type === "image" ? "📷 Image"
-                  : c.last_message?.attachment_type === "video" ? "🎬 Video"
-                  : c.last_message?.attachment_type === "file" ? "📎 File"
-                  : c.last_message?.attachment_type === "audio" ? "🎤 Audio"
+                || (c.last_message?.attachment_type === "image" ? t("attachmentPreview.image")
+                  : c.last_message?.attachment_type === "video" ? t("attachmentPreview.video")
+                  : c.last_message?.attachment_type === "file" ? t("attachmentPreview.file")
+                  : c.last_message?.attachment_type === "audio" ? t("attachmentPreview.audio")
                   : "");
               const isPinned = !!c.pinned_at;
               return (
@@ -935,12 +940,12 @@ export function Chat() {
                           <span className="truncate">{title}</span>
                         </span>
                         <span className="text-xs text-muted-foreground flex-shrink-0">
-                          {c.last_message ? timeAgo(c.last_message.created_at) : ""}
+                          {c.last_message ? timeAgo(c.last_message.created_at, t, locale) : ""}
                         </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className={`text-xs truncate flex-1 ${c.unread_count > 0 ? "text-foreground font-medium" : "text-muted-foreground"}`}>
-                          {lastBody || <em className="opacity-60">No messages yet</em>}
+                          {lastBody || <em className="opacity-60">{t("noMessagesShort")}</em>}
                         </span>
                         {c.unread_count > 0 && (
                           <span className="bg-primary text-primary-foreground text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[20px] text-center">
@@ -955,7 +960,7 @@ export function Chat() {
                   <button
                     type="button"
                     onClick={(e) => { e.stopPropagation(); toggleChatPin(c.id); }}
-                    title={isPinned ? "Unpin chat" : "Pin chat"}
+                    title={isPinned ? t("unpinChat") : t("pinChat")}
                     className={`absolute top-2 right-2 p-1.5 rounded-md transition-opacity ${
                       isPinned
                         ? "opacity-100 text-primary hover:bg-primary/10"
@@ -977,8 +982,8 @@ export function Chat() {
           <div className="flex-1 flex items-center justify-center text-center px-8">
             <div>
               <MessageCircle className="w-16 h-16 text-muted-foreground mx-auto mb-4 opacity-40" />
-              <h3 className="text-lg font-semibold mb-1">Select a chat</h3>
-              <p className="text-sm text-muted-foreground">Pick a conversation from the list — or start a new one.</p>
+              <h3 className="text-lg font-semibold mb-1">{t("selectChat")}</h3>
+              <p className="text-sm text-muted-foreground">{t("selectChatHint")}</p>
             </div>
           </div>
         ) : !activeChat ? (
@@ -1001,17 +1006,17 @@ export function Chat() {
                   </div>
                 ) : (
                   <Avatar
-                    name={chatDisplayAvatar(activeChat, user?.user_id || "").name}
-                    src={chatDisplayAvatar(activeChat, user?.user_id || "").url}
+                    name={chatDisplayAvatar(activeChat, user?.user_id || "", t).name}
+                    src={chatDisplayAvatar(activeChat, user?.user_id || "", t).url}
                     size="md"
                   />
                 )}
                 <div className="min-w-0">
-                  <div className="font-semibold truncate">{chatDisplayTitle(activeChat, user?.user_id || "")}</div>
+                  <div className="font-semibold truncate">{chatDisplayTitle(activeChat, user?.user_id || "", t)}</div>
                   <div className="text-xs text-muted-foreground truncate">
                     {activeChat.type === "direct"
-                      ? activeChat.members.find((m) => m.id !== user?.user_id)?.department || "Direct message"
-                      : `${activeChat.members.length} members`}
+                      ? activeChat.members.find((m) => m.id !== user?.user_id)?.department || t("directMessageLabel")
+                      : t("membersCount", { count: activeChat.members.length })}
                   </div>
                 </div>
               </div>
@@ -1019,23 +1024,23 @@ export function Chat() {
                   from overflowing. They're still accessible from sm:
                   up; on mobile the user can long-press a message to
                   pin/search/etc. */}
-              <button onClick={() => setShowInChatSearch((v) => !v)} className="hidden sm:flex p-2 rounded-lg hover:bg-muted" title="Search in chat">
+              <button onClick={() => setShowInChatSearch((v) => !v)} className="hidden sm:flex p-2 rounded-lg hover:bg-muted" title={t("searchInChat")}>
                 <Search className="w-5 h-5" />
               </button>
-              <button onClick={() => { setShowPinned((v) => !v); setShowFiles(false); }} className="hidden sm:flex p-2 rounded-lg hover:bg-muted" title="Pinned messages">
+              <button onClick={() => { setShowPinned((v) => !v); setShowFiles(false); }} className="hidden sm:flex p-2 rounded-lg hover:bg-muted" title={t("pinnedMessages")}>
                 <Pin className={`w-5 h-5 ${pinnedMessages.length > 0 ? "text-primary" : ""}`} />
               </button>
-              <button onClick={() => { setShowFiles((v) => !v); setShowPinned(false); }} className="hidden sm:flex p-2 rounded-lg hover:bg-muted" title="Files & media">
+              <button onClick={() => { setShowFiles((v) => !v); setShowPinned(false); }} className="hidden sm:flex p-2 rounded-lg hover:bg-muted" title={t("filesMedia")}>
                 <Folder className="w-5 h-5" />
               </button>
-              <button onClick={toggleMute} className="p-1.5 sm:p-2 rounded-lg hover:bg-muted" title={activeChat.is_muted ? "Unmute" : "Mute"}>
+              <button onClick={toggleMute} className="p-1.5 sm:p-2 rounded-lg hover:bg-muted" title={activeChat.is_muted ? t("unmute") : t("mute")}>
                 {activeChat.is_muted ? <BellOff className="w-5 h-5" /> : <Bell className="w-5 h-5" />}
               </button>
 
               {/* Three-dots menu: leave / hide / delete (+ secondary
                   actions on mobile where the header buttons are hidden). */}
               <div className="relative" onClick={(e) => e.stopPropagation()}>
-                <button onClick={() => setShowChatMenu((v) => !v)} className="p-1.5 sm:p-2 rounded-lg hover:bg-muted" title="More">
+                <button onClick={() => setShowChatMenu((v) => !v)} className="p-1.5 sm:p-2 rounded-lg hover:bg-muted" title={t("more")}>
                   <MoreVertical className="w-5 h-5" />
                 </button>
                 {showChatMenu && (
@@ -1045,19 +1050,19 @@ export function Chat() {
                       onClick={() => { setShowChatMenu(false); setShowInChatSearch((v) => !v); }}
                       className="sm:hidden w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted text-left transition-colors"
                     >
-                      <Search className="w-4 h-4" /> Search in chat
+                      <Search className="w-4 h-4" /> {t("searchInChat")}
                     </button>
                     <button
                       onClick={() => { setShowChatMenu(false); setShowPinned((v) => !v); setShowFiles(false); }}
                       className="sm:hidden w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted text-left transition-colors"
                     >
-                      <Pin className="w-4 h-4" /> Pinned messages
+                      <Pin className="w-4 h-4" /> {t("pinnedMessages")}
                     </button>
                     <button
                       onClick={() => { setShowChatMenu(false); setShowFiles((v) => !v); setShowPinned(false); }}
                       className="sm:hidden w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted text-left transition-colors border-b border-border"
                     >
-                      <Folder className="w-4 h-4" /> Files &amp; media
+                      <Folder className="w-4 h-4" /> {t("filesMedia")}
                     </button>
 
                     {activeChat.type !== "project" && (
@@ -1066,7 +1071,7 @@ export function Chat() {
                         className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-muted text-left transition-colors"
                       >
                         <LogOut className="w-4 h-4" />
-                        {activeChat.type === "direct" ? "Delete chat" : "Leave group"}
+                        {activeChat.type === "direct" ? t("deleteChat") : t("leaveGroup")}
                       </button>
                     )}
                     {activeChat.type === "group" &&
@@ -1076,7 +1081,7 @@ export function Chat() {
                         className="w-full flex items-center gap-2 px-4 py-2 text-sm hover:bg-destructive/10 text-destructive text-left transition-colors"
                       >
                         <Trash2 className="w-4 h-4" />
-                        Delete entire group
+                        {t("deleteEntireGroup")}
                       </button>
                     )}
                   </div>
@@ -1092,11 +1097,11 @@ export function Chat() {
                   autoFocus
                   value={inChatSearch}
                   onChange={(e) => setInChatSearch(e.target.value)}
-                  placeholder="Search in this chat..."
+                  placeholder={t("searchInThisChat")}
                   className="flex-1 bg-transparent text-sm outline-none"
                 />
                 {inChatSearch && (
-                  <span className="text-xs text-muted-foreground">{searchResults.length} match{searchResults.length === 1 ? "" : "es"}</span>
+                  <span className="text-xs text-muted-foreground">{t("matches", { count: searchResults.length })}</span>
                 )}
                 <button onClick={() => { setShowInChatSearch(false); setInChatSearch(""); }} className="p-1 hover:bg-muted rounded">
                   <X className="w-4 h-4" />
@@ -1108,16 +1113,16 @@ export function Chat() {
             {showPinned && (
               <div className="px-4 py-2 border-b border-border bg-muted/30 max-h-40 overflow-y-auto">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Pinned</span>
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">{t("pinned")}</span>
                   <button onClick={() => setShowPinned(false)} className="p-1 hover:bg-muted rounded"><X className="w-3 h-3" /></button>
                 </div>
                 {pinnedMessages.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-2">No pinned messages.</p>
+                  <p className="text-xs text-muted-foreground py-2">{t("noPinned")}</p>
                 ) : (
                   pinnedMessages.map((m) => (
                     <div key={m.id} className="text-xs py-1.5 border-l-2 border-primary pl-2 mb-1">
-                      <span className="font-semibold">{m.sender?.name || "Unknown"}: </span>
-                      <span className="text-muted-foreground">{m.body || "[attachment]"}</span>
+                      <span className="font-semibold">{m.sender?.name || t("unknown")}: </span>
+                      <span className="text-muted-foreground">{m.body || t("attachment")}</span>
                     </div>
                   ))
                 )}
@@ -1129,14 +1134,14 @@ export function Chat() {
               <div className="px-4 py-2 border-b border-border bg-muted/30 max-h-72 overflow-y-auto">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
-                    <Folder className="w-3.5 h-3.5" /> Files & Media
+                    <Folder className="w-3.5 h-3.5" /> {t("filesMediaTitle")}
                   </span>
                   <button onClick={() => setShowFiles(false)} className="p-1 hover:bg-muted rounded"><X className="w-3 h-3" /></button>
                 </div>
                 {filesLoading ? (
                   <div className="flex justify-center py-3"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>
                 ) : chatFiles.length === 0 ? (
-                  <p className="text-xs text-muted-foreground py-2">No files shared yet.</p>
+                  <p className="text-xs text-muted-foreground py-2">{t("noFiles")}</p>
                 ) : (
                   <div className="grid grid-cols-1 gap-1.5">
                     {chatFiles.map((m) => (
@@ -1147,7 +1152,7 @@ export function Chat() {
                             m.attachment_type === "video" ? "🎬" :
                               m.attachment_type === "audio" ? "🎤" : "📎"}
                         </span>
-                        <span className="truncate flex-1 font-medium">{m.attachment_name || "File"}</span>
+                        <span className="truncate flex-1 font-medium">{m.attachment_name || t("file")}</span>
                         <span className="text-muted-foreground flex-shrink-0">{m.sender?.name || "?"}</span>
                       </a>
                     ))}
@@ -1162,18 +1167,18 @@ export function Chat() {
                 <div className="flex justify-center py-10"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
               ) : messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                  No messages yet. Say hi 👋
+                  {t("noMessagesSayHi")}
                 </div>
               ) : (showInChatSearch && inChatSearch ? searchResults : messages).length === 0 ? (
                 <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-                  No messages match your search.
+                  {t("noSearchMatch")}
                 </div>
               ) : (
                 groupedMessages.map(({ day, items }) => (
                   <div key={day}>
                     <div className="text-center my-3">
                       <span className="inline-block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground bg-muted/60 rounded-full px-3 py-1">
-                        {formatDayLabel(items[0].created_at)}
+                        {formatDayLabel(items[0].created_at, t, locale)}
                       </span>
                     </div>
                     {items.map((m, idx) => {
@@ -1216,13 +1221,13 @@ export function Chat() {
                                       : "bg-card border-primary hover:bg-muted"
                                   }`}
                                 >
-                                  <div className="font-semibold opacity-80">{replyMsg.sender?.name || "Unknown"}</div>
-                                  <div className="opacity-80 line-clamp-1">{replyMsg.body || "[attachment]"}</div>
+                                  <div className="font-semibold opacity-80">{replyMsg.sender?.name || t("unknown")}</div>
+                                  <div className="opacity-80 line-clamp-1">{replyMsg.body || t("attachment")}</div>
                                 </button>
                               )}
 
                               {m.deleted_at ? (
-                                <span className="text-sm">This message was deleted</span>
+                                <span className="text-sm">{t("messageDeleted")}</span>
                               ) : (
                                 <>
                                   {m.attachment_url && m.attachment_type === "image" && (
@@ -1239,7 +1244,7 @@ export function Chat() {
                                          mine ? "bg-primary-foreground/15" : "bg-card border border-border"
                                        }`}>
                                       <FileText className="w-4 h-4" />
-                                      <span className="text-sm truncate">{m.attachment_name || "File"}</span>
+                                      <span className="text-sm truncate">{m.attachment_name || t("file")}</span>
                                     </a>
                                   )}
                                   {m.attachment_url && m.attachment_type === "audio" && (
@@ -1254,8 +1259,8 @@ export function Chat() {
                                 mine ? "text-primary-foreground/70" : "text-muted-foreground"
                               }`}>
                                 {m.is_pinned && <Pin className="w-2.5 h-2.5" />}
-                                {m.edited_at && <span className="italic">edited</span>}
-                                <span>{formatTime(m.created_at)}</span>
+                                {m.edited_at && <span className="italic">{t("edited")}</span>}
+                                <span>{formatTime(m.created_at, locale)}</span>
                                 {mine && !m.deleted_at && (isReadByOthers ? <CheckCheck className="w-3 h-3" /> : <Check className="w-3 h-3" />)}
                               </div>
                             </div>
@@ -1283,14 +1288,14 @@ export function Chat() {
                             {/* Hover actions */}
                             {!m.deleted_at && (
                               <div className={`flex gap-1 mt-1 opacity-0 group-hover:opacity-100 transition-opacity ${mine ? "flex-row-reverse" : ""}`}>
-                                <button onClick={() => setEmojiPickerFor(emojiPickerFor === m.id ? null : m.id)} className="p-1 rounded hover:bg-muted" title="React"><Smile className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => setReplyTo(m)} className="p-1 rounded hover:bg-muted" title="Reply"><ReplyIcon className="w-3.5 h-3.5" /></button>
-                                <button onClick={() => togglePin(m)} className="p-1 rounded hover:bg-muted" title={m.is_pinned ? "Unpin" : "Pin"}><Pin className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setEmojiPickerFor(emojiPickerFor === m.id ? null : m.id)} className="p-1 rounded hover:bg-muted" title={t("react")}><Smile className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => setReplyTo(m)} className="p-1 rounded hover:bg-muted" title={t("reply")}><ReplyIcon className="w-3.5 h-3.5" /></button>
+                                <button onClick={() => togglePin(m)} className="p-1 rounded hover:bg-muted" title={m.is_pinned ? t("unpin") : t("pin")}><Pin className="w-3.5 h-3.5" /></button>
                                 {!mine && (
-                                  <button onClick={() => { setReportReason(""); setReportingMsg(m); }} className="p-1 rounded hover:bg-muted" title="Report"><Flag className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => { setReportReason(""); setReportingMsg(m); }} className="p-1 rounded hover:bg-muted" title={t("report")}><Flag className="w-3.5 h-3.5" /></button>
                                 )}
                                 {(mine || activeChat.my_role === "admin") && (
-                                  <button onClick={() => deleteMessage(m)} className="p-1 rounded hover:bg-muted text-destructive" title="Delete"><Trash2 className="w-3.5 h-3.5" /></button>
+                                  <button onClick={() => deleteMessage(m)} className="p-1 rounded hover:bg-muted text-destructive" title={t("delete")}><Trash2 className="w-3.5 h-3.5" /></button>
                                 )}
                               </div>
                             )}
@@ -1321,8 +1326,8 @@ export function Chat() {
                   <span className="w-1.5 h-1.5 bg-muted-foreground rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
                 </span>
                 {typingUsers.length === 1
-                  ? `${typingUsers[0].name} is typing...`
-                  : `${typingUsers.length} people are typing...`}
+                  ? t("typingOne", { name: typingUsers[0].name })
+                  : t("typingMany", { count: typingUsers.length })}
               </div>
             )}
 
@@ -1339,7 +1344,7 @@ export function Chat() {
                 <div className="flex-1 min-w-0 text-xs">
                   <div className="font-semibold truncate">{pendingFile.name}</div>
                   <div className="text-muted-foreground">
-                    {(pendingFile.size / 1024).toFixed(0)} KB · Add a caption (optional) and press send
+                    {t("filePending", { kb: (pendingFile.size / 1024).toFixed(0) })}
                   </div>
                 </div>
                 <button onClick={clearPendingFile} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4" /></button>
@@ -1351,8 +1356,8 @@ export function Chat() {
               <div className="px-4 py-2 border-t border-border bg-muted/30 flex items-start gap-2">
                 <ReplyIcon className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
                 <div className="flex-1 min-w-0 text-xs">
-                  <div className="font-semibold text-primary">Replying to {replyTo.sender?.name || "..."}</div>
-                  <div className="text-muted-foreground truncate">{replyTo.body || "[attachment]"}</div>
+                  <div className="font-semibold text-primary">{t("replyingTo", { name: replyTo.sender?.name || "..." })}</div>
+                  <div className="text-muted-foreground truncate">{replyTo.body || t("attachment")}</div>
                 </div>
                 <button onClick={() => setReplyTo(null)} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4" /></button>
               </div>
@@ -1399,7 +1404,7 @@ export function Chat() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingFile}
                 className="p-2 rounded-lg hover:bg-muted text-muted-foreground transition-colors disabled:opacity-50"
-                title="Attach file"
+                title={t("attachFile")}
               >
                 {uploadingFile ? <Loader2 className="w-5 h-5 animate-spin" /> : <Paperclip className="w-5 h-5" />}
               </button>
@@ -1422,7 +1427,7 @@ export function Chat() {
                   }
                 }}
                 onKeyDown={handleInputKey}
-                placeholder="Type a message..."
+                placeholder={t("typeMessage")}
                 rows={1}
                 className="flex-1 px-3 py-2 text-sm bg-muted rounded-2xl border border-transparent focus:border-primary focus:outline-none transition-colors resize-none max-h-32"
                 style={{ minHeight: "40px" }}
@@ -1431,7 +1436,7 @@ export function Chat() {
                 onClick={sendMessage}
                 disabled={(!input.trim() && !pendingFile) || uploadingFile}
                 className="p-2.5 rounded-full bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-40"
-                title="Send"
+                title={t("send")}
               >
                 {uploadingFile ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>
@@ -1472,25 +1477,25 @@ export function Chat() {
               </div>
               <h3 className="font-bold text-base">
                 {confirmDelete.kind === "full"
-                  ? "Delete entire group"
-                  : activeChat.type === "direct" ? "Delete chat" : "Leave group"}
+                  ? t("confirmModal.fullTitle")
+                  : activeChat.type === "direct" ? t("confirmModal.deleteChatTitle") : t("confirmModal.leaveGroupTitle")}
               </h3>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
               {confirmDelete.kind === "full"
-                ? `This will permanently delete "${chatDisplayTitle(activeChat, user?.user_id || "")}" for everyone. This cannot be undone.`
+                ? t("confirmModal.fullBody", { title: chatDisplayTitle(activeChat, user?.user_id || "", t) })
                 : activeChat.type === "direct"
-                  ? "This chat will be removed from your list. The other person can still see it; if they send a new message it will reappear."
-                  : `You'll leave "${chatDisplayTitle(activeChat, user?.user_id || "")}" and stop receiving its messages.`}
+                  ? t("confirmModal.directBody")
+                  : t("confirmModal.leaveBody", { title: chatDisplayTitle(activeChat, user?.user_id || "", t) })}
             </p>
             <div className="flex gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setConfirmDelete(null)}>Cancel</Button>
+              <Button variant="outline" className="flex-1" onClick={() => setConfirmDelete(null)}>{t("addMember.cancel")}</Button>
               <Button
                 className="flex-1"
                 style={{ background: "#ef4444" }}
                 onClick={() => confirmDelete.kind === "full" ? fullDeleteChat() : leaveOrHideChat()}
               >
-                {confirmDelete.kind === "full" ? "Delete forever" : (activeChat.type === "direct" ? "Delete" : "Leave")}
+                {confirmDelete.kind === "full" ? t("confirmModal.deleteForever") : (activeChat.type === "direct" ? t("confirmModal.delete") : t("confirmModal.leave"))}
               </Button>
             </div>
           </div>
@@ -1538,6 +1543,7 @@ export function Chat() {
 // New chat modal — search users, create DM or group
 // =================================================================
 function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: (chatId: string) => void }) {
+  const { t } = useTranslation("chat");
   const { user } = useAuth();
   const { error: toastError } = useToast();
   const [search, setSearch] = useState("");
@@ -1575,16 +1581,16 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
         method: "POST",
         body: JSON.stringify({
           type: isGroup ? "group" : "direct",
-          title: isGroup ? (groupTitle.trim() || `${user?.name?.split(" ")[0]} & ${selected.length} others`) : null,
+          title: isGroup ? (groupTitle.trim() || t("newChat.defaultGroupTitle", { name: user?.name?.split(" ")[0], count: selected.length })) : null,
           member_ids: selected.map((s) => s.id),
         }),
       });
       onCreated(chat.id);
     } catch (e: any) {
       toastError({
-        title: "Couldn't start chat",
-        body: e?.message || "Something went wrong while creating the chat.",
-        hint: "Please try again in a moment.",
+        title: t("newChat.errorTitle"),
+        body: e?.message || t("newChat.errorBody"),
+        hint: t("newChat.errorHint"),
       });
     } finally {
       setIsCreating(false);
@@ -1595,7 +1601,7 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div className="bg-card rounded-2xl border border-border w-full max-w-md shadow-xl flex flex-col" style={{ maxHeight: "80vh" }}>
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
-          <h3 className="font-bold">New Chat</h3>
+          <h3 className="font-bold">{t("newChat.title")}</h3>
           <button onClick={onClose} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4" /></button>
         </div>
 
@@ -1604,7 +1610,7 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
             <input
               value={groupTitle}
               onChange={(e) => setGroupTitle(e.target.value)}
-              placeholder="Group name (optional)"
+              placeholder={t("newChat.groupNamePlaceholder")}
               className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             />
           )}
@@ -1624,7 +1630,7 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
               autoFocus
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search students by name..."
+              placeholder={t("newChat.searchPlaceholder")}
               className="w-full pl-9 pr-3 py-2 text-sm bg-muted rounded-lg border border-transparent focus:border-primary focus:outline-none"
             />
           </div>
@@ -1634,9 +1640,9 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
           {isSearching ? (
             <div className="flex justify-center py-6"><Loader2 className="w-5 h-5 animate-spin text-primary" /></div>
           ) : search.trim().length < 2 ? (
-            <p className="text-center text-xs text-muted-foreground py-6">Type at least 2 characters to search.</p>
+            <p className="text-center text-xs text-muted-foreground py-6">{t("newChat.typeToSearch")}</p>
           ) : results.length === 0 ? (
-            <p className="text-center text-xs text-muted-foreground py-6">No users found.</p>
+            <p className="text-center text-xs text-muted-foreground py-6">{t("newChat.noUsers")}</p>
           ) : (
             results.map((u) => {
               const isSelected = selected.some((s) => s.id === u.id);
@@ -1659,9 +1665,9 @@ function NewChatModal({ onClose, onCreated }: { onClose: () => void; onCreated: 
         </div>
 
         <div className="px-5 py-3 border-t border-border flex gap-2">
-          <Button variant="outline" className="flex-1" onClick={onClose}>Cancel</Button>
+          <Button variant="outline" className="flex-1" onClick={onClose}>{t("addMember.cancel")}</Button>
           <Button className="flex-1" onClick={create} disabled={selected.length === 0 || isCreating}>
-            {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : selected.length > 1 ? "Create Group" : "Start Chat"}
+            {isCreating ? <Loader2 className="w-4 h-4 animate-spin" /> : selected.length > 1 ? t("newChat.createGroup") : t("newChat.startChat")}
           </Button>
         </div>
       </div>
@@ -1683,6 +1689,7 @@ function MembersModal({
   onClose: () => void;
   onUpdated: () => void;
 }) {
+  const { t } = useTranslation("chat");
   const { error: toastError, success: toastOk } = useToast();
   const { confirm: confirmDialog } = useConfirm();
   const [showAdd, setShowAdd] = useState(false);
@@ -1693,20 +1700,20 @@ function MembersModal({
 
   async function removeMember(memberId: string, name: string) {
     const ok = await confirmDialog({
-      title: `Remove ${name}?`,
-      description: `${name} will lose access to this group.`,
-      confirmLabel: "Remove",
+      title: t("members.removeConfirmTitle", { name }),
+      description: t("members.removeConfirmDesc", { name }),
+      confirmLabel: t("members.removeConfirmLabel"),
       tone: "danger",
     });
     if (!ok) return;
     try {
       setBusyId(memberId);
       await apiFetch(`/api/chats/${chat.id}/members/${memberId}`, { method: "DELETE" });
-      toastOk(`${name} removed`);
+      toastOk(t("members.removed", { name }));
       onUpdated();
       onClose();
     } catch (e: any) {
-      toastError(e?.message || "Couldn't remove member");
+      toastError(e?.message || t("members.removeFailed"));
     } finally {
       setBusyId(null);
     }
@@ -1717,8 +1724,8 @@ function MembersModal({
       <div className="bg-card rounded-2xl border border-border w-full max-w-md shadow-xl flex flex-col" style={{ maxHeight: "80vh" }}>
         <div className="px-5 py-4 border-b border-border flex items-center justify-between">
           <div>
-            <h3 className="font-bold">{chat.type === "direct" ? "Profile" : "Members"}</h3>
-            <p className="text-xs text-muted-foreground">{chat.members.length} {chat.members.length === 1 ? "person" : "people"}</p>
+            <h3 className="font-bold">{chat.type === "direct" ? t("members.profile") : t("members.title")}</h3>
+            <p className="text-xs text-muted-foreground">{chat.members.length === 1 ? t("members.personOne", { count: chat.members.length }) : t("members.personMany", { count: chat.members.length })}</p>
           </div>
           <button onClick={onClose} className="p-1 hover:bg-muted rounded"><X className="w-4 h-4" /></button>
         </div>
@@ -1729,7 +1736,7 @@ function MembersModal({
               onClick={() => setShowAdd(true)}
               className="w-full flex items-center justify-center gap-2 px-3 py-2 text-sm font-medium rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             >
-              <Plus className="w-4 h-4" /> Add member
+              <Plus className="w-4 h-4" /> {t("members.addMember")}
             </button>
           </div>
         )}
@@ -1749,18 +1756,18 @@ function MembersModal({
               <Avatar name={m.name} src={m.avatar_url} size="sm" />
               <div className="flex-1 min-w-0">
                 <div className="text-sm font-medium truncate">
-                  {m.name} {m.id === currentUserId && <span className="text-xs text-muted-foreground">(you)</span>}
+                  {m.name} {m.id === currentUserId && <span className="text-xs text-muted-foreground">{t("members.you")}</span>}
                 </div>
                 <div className="text-xs text-muted-foreground truncate">{m.department || ""}</div>
               </div>
               {m.role === "admin" && (
-                <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">Owner</span>
+                <span className="text-[10px] font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded-full">{t("members.owner")}</span>
               )}
               {canManage && m.id !== currentUserId && m.role !== "admin" && (
                 <button
                   onClick={() => removeMember(m.id, m.name)}
                   disabled={busyId === m.id}
-                  aria-label={`Remove ${m.name}`}
+                  aria-label={t("members.removeAria", { name: m.name })}
                   className="p-1.5 text-muted-foreground hover:text-destructive disabled:opacity-50 transition-colors"
                 >
                   {busyId === m.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <X className="w-4 h-4" />}
@@ -1785,6 +1792,7 @@ function AddMemberPanel({
   onCancel: () => void;
   onAdded: () => void;
 }) {
+  const { t } = useTranslation("chat");
   const { error: toastError } = useToast();
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<{ id: string; name: string; avatar_url?: string; department?: string }[]>([]);
@@ -1816,7 +1824,7 @@ function AddMemberPanel({
       });
       onAdded();
     } catch (e: any) {
-      toastError(e?.message || "Couldn't add member");
+      toastError(e?.message || t("addMember.addFailed"));
     } finally {
       setAdding(null);
     }
@@ -1830,15 +1838,15 @@ function AddMemberPanel({
           autoFocus
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search users to add..."
+          placeholder={t("addMember.searchPlaceholder")}
           className="flex-1 bg-transparent text-sm outline-none"
         />
-        <button onClick={onCancel} className="text-xs text-muted-foreground hover:underline">Cancel</button>
+        <button onClick={onCancel} className="text-xs text-muted-foreground hover:underline">{t("addMember.cancel")}</button>
       </div>
       <div className="max-h-48 overflow-y-auto">
         {isSearching && <div className="flex justify-center py-2"><Loader2 className="w-4 h-4 animate-spin text-muted-foreground" /></div>}
         {!isSearching && query.trim().length >= 2 && results.length === 0 && (
-          <p className="text-xs text-muted-foreground py-2 text-center">No matches.</p>
+          <p className="text-xs text-muted-foreground py-2 text-center">{t("addMember.noMatches")}</p>
         )}
         {results.map((u) => (
           <button

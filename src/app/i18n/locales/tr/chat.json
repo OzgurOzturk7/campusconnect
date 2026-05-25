@@ -1,26 +1,126 @@
 {
   "title": "Sohbetler",
-  "newChat": "Yeni sohbet",
-  "search": "Sohbetlerde ara",
-  "empty": {
-    "list": "Henüz sohbet yok",
-    "messages": "Henüz mesaj yok. Merhaba de!"
+  "newChatTitle": "Yeni sohbet",
+  "searchChats": "Sohbet ara...",
+  "noChatsFound": "Sohbet bulunamadı.",
+  "noChatsYet": "Henüz sohbet yok. Yeni bir tane başlat!",
+  "noMessagesShort": "Henüz mesaj yok",
+  "pinChat": "Sohbeti sabitle",
+  "unpinChat": "Sabitlemeyi kaldır",
+  "directMessage": "Özel Mesaj",
+  "groupChat": "Grup Sohbeti",
+  "group": "Grup",
+  "selectChat": "Bir sohbet seç",
+  "selectChatHint": "Listeden bir sohbet seç ya da yeni bir tane başlat.",
+  "membersCount": "{{count}} üye",
+  "directMessageLabel": "Özel mesaj",
+  "searchInChat": "Sohbette ara",
+  "pinnedMessages": "Sabitlenen mesajlar",
+  "filesMedia": "Dosyalar ve medya",
+  "mute": "Sessize al",
+  "unmute": "Sesi aç",
+  "more": "Daha fazla",
+  "deleteChat": "Sohbeti sil",
+  "leaveGroup": "Gruptan ayrıl",
+  "deleteEntireGroup": "Tüm grubu sil",
+  "searchInThisChat": "Bu sohbette ara...",
+  "matches": "{{count}} eşleşme",
+  "pinned": "Sabitlenenler",
+  "noPinned": "Sabitlenmiş mesaj yok.",
+  "unknown": "Bilinmiyor",
+  "attachment": "[ek]",
+  "filesMediaTitle": "Dosyalar ve Medya",
+  "noFiles": "Henüz dosya paylaşılmadı.",
+  "file": "Dosya",
+  "noMessagesSayHi": "Henüz mesaj yok. Merhaba de 👋",
+  "noSearchMatch": "Aramanla eşleşen mesaj yok.",
+  "messageDeleted": "Bu mesaj silindi",
+  "edited": "düzenlendi",
+  "react": "Tepki ver",
+  "reply": "Yanıtla",
+  "pin": "Sabitle",
+  "unpin": "Sabitlemeyi kaldır",
+  "delete": "Sil",
+  "report": "Şikayet et",
+  "today": "Bugün",
+  "yesterday": "Dün",
+  "typingOne": "{{name}} yazıyor...",
+  "typingMany": "{{count}} kişi yazıyor...",
+  "filePending": "{{kb}} KB · Açıklama ekle (isteğe bağlı) ve gönder",
+  "replyingTo": "{{name}} kişisine yanıt",
+  "typeMessage": "Mesaj yaz...",
+  "attachFile": "Dosya ekle",
+  "send": "Gönder",
+  "attachmentPreview": {
+    "image": "📷 Görsel",
+    "video": "🎬 Video",
+    "file": "📎 Dosya",
+    "audio": "🎤 Ses"
   },
-  "input": {
-    "placeholder": "Mesaj yaz...",
-    "send": "Gönder",
-    "attach": "Dosya ekle"
+  "relative": {
+    "now": "şimdi",
+    "min": "{{count}}dk",
+    "hour": "{{count}}sa",
+    "day": "{{count}}g"
   },
-  "owner": {
-    "label": "Owner",
+  "toast": {
+    "sendFailed": "Mesaj gönderilemedi",
+    "maxFileSize": "Maksimum dosya boyutu 25MB",
+    "reactionFailed": "Başarısız",
+    "pinFailed": "Sabitlenemedi",
+    "deleteMsgFailed": "Mesaj silinemedi",
+    "actionFailed": "İşlem başarısız",
+    "deleteChatFailed": "Sohbet silinemedi",
+    "loadFilesFailed": "Dosyalar yüklenemedi"
+  },
+  "deleteMsg": {
+    "title": "Bu mesaj silinsin mi?",
+    "desc": "Bu işlem geri alınamaz.",
+    "confirm": "Sil"
+  },
+  "confirmModal": {
+    "fullTitle": "Tüm grubu sil",
+    "deleteChatTitle": "Sohbeti sil",
+    "leaveGroupTitle": "Gruptan ayrıl",
+    "fullBody": "Bu, \"{{title}}\" grubunu herkes için kalıcı olarak siler. Bu işlem geri alınamaz.",
+    "directBody": "Bu sohbet listenden kaldırılacak. Karşı taraf hâlâ görebilir; yeni bir mesaj gönderirse tekrar görünür.",
+    "leaveBody": "\"{{title}}\" grubundan ayrılacak ve mesajlarını almayı bırakacaksın.",
+    "deleteForever": "Kalıcı olarak sil",
+    "delete": "Sil",
+    "leave": "Ayrıl"
+  },
+  "newChat": {
+    "title": "Yeni Sohbet",
+    "groupNamePlaceholder": "Grup adı (isteğe bağlı)",
+    "searchPlaceholder": "Öğrencileri ada göre ara...",
+    "typeToSearch": "Aramak için en az 2 karakter yaz.",
+    "noUsers": "Kullanıcı bulunamadı.",
+    "createGroup": "Grup Oluştur",
+    "startChat": "Sohbet Başlat",
+    "errorTitle": "Sohbet başlatılamadı",
+    "errorBody": "Sohbet oluşturulurken bir sorun oluştu.",
+    "errorHint": "Lütfen birazdan tekrar dene.",
+    "defaultGroupTitle": "{{name}} ve {{count}} kişi daha"
+  },
+  "members": {
+    "profile": "Profil",
+    "title": "Üyeler",
+    "personOne": "{{count}} kişi",
+    "personMany": "{{count}} kişi",
     "addMember": "Üye ekle",
-    "removeMember": "Üyeyi çıkar",
-    "confirmRemove": "{{name}} bu gruptan çıkarılsın mı?"
+    "removeConfirmTitle": "{{name}} çıkarılsın mı?",
+    "removeConfirmDesc": "{{name}} bu gruba erişimini kaybedecek.",
+    "removeConfirmLabel": "Çıkar",
+    "removed": "{{name}} çıkarıldı",
+    "removeFailed": "Üye çıkarılamadı",
+    "you": "(sen)",
+    "owner": "Sahip",
+    "removeAria": "{{name}} kişisini çıkar"
   },
-  "mute": {
-    "mute": "Sessize al",
-    "unmute": "Sesi aç",
-    "muted": "Sessizde"
-  },
-  "deleted": "Mesaj silindi"
+  "addMember": {
+    "searchPlaceholder": "Eklenecek kullanıcı ara...",
+    "cancel": "İptal",
+    "noMatches": "Eşleşme yok.",
+    "addFailed": "Üye eklenemedi"
+  }
 }

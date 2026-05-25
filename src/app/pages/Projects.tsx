@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
@@ -89,22 +90,22 @@ function daysBetween(startISO: string, endISO: string): number {
  *   - if both set, start must be strictly before deadline
  * Returns a translated error message, or null if valid.
  */
+// Returns a `dates.errors.*` translation key, or null if valid.
 function validateProjectDates(startISO: string, deadlineISO: string): string | null {
   const today = todayISO();
-  if (startISO && startISO < today) return "Start date can't be in the past.";
-  if (deadlineISO && deadlineISO < today) return "Deadline can't be in the past.";
+  if (startISO && startISO < today) return "startInPast";
+  if (deadlineISO && deadlineISO < today) return "deadlineInPast";
   if (startISO && deadlineISO) {
-    if (startISO === deadlineISO) return "Start date and deadline can't be the same day.";
-    if (startISO > deadlineISO) return "Start date must be before the deadline.";
+    if (startISO === deadlineISO) return "startEqualsDeadline";
+    if (startISO > deadlineISO) return "startAfterDeadline";
   }
   return null;
 }
 
-function computeDurationLabel(startISO: string, deadlineISO: string): string {
-  if (!startISO || !deadlineISO) return "";
+function durationDays(startISO: string, deadlineISO: string): number {
+  if (!startISO || !deadlineISO) return 0;
   const days = daysBetween(startISO, deadlineISO);
-  if (days <= 0) return "";
-  return `${days} day${days === 1 ? "" : "s"}`;
+  return days > 0 ? days : 0;
 }
 
 const STATUS_COLORS: Record<string, string> = {
@@ -120,6 +121,9 @@ const APP_STATUS_COLORS: Record<string, string> = {
 };
 
 export function Projects() {
+  const { t, i18n } = useTranslation("projects");
+  const { t: tc } = useTranslation("common");
+  const locale = i18n.language;
   const { user } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
@@ -220,7 +224,7 @@ export function Projects() {
       setSuggested(sugg);
       setLimitInfo(limit);
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to load projects", false);
+      showToast(err instanceof Error ? err.message : t("toast.loadFailed"), false);
     } finally {
       setIsLoading(false);
     }
@@ -247,15 +251,16 @@ export function Projects() {
 
   async function handleCreate() {
     const dateError = validateProjectDates(createForm.start_date, createForm.deadline);
-    if (dateError) { showToast(dateError, false); return; }
+    if (dateError) { showToast(t(`dates.errors.${dateError}`), false); return; }
     // Local guard so we don't hit the backend with a request we already know will fail.
     if (limitInfo && !limitInfo.is_admin && (limitInfo.remaining ?? 0) <= 0) {
-      showToast("Monthly publish limit reached. Try again next month.", false);
+      showToast(t("toast.monthlyLimit"), false);
       return;
     }
     try {
       setIsSubmitting(true);
-      const computedDuration = computeDurationLabel(createForm.start_date, createForm.deadline);
+      const days = durationDays(createForm.start_date, createForm.deadline);
+      const computedDuration = days > 0 ? `${days} day${days === 1 ? "" : "s"}` : "";
       await apiFetch("/api/projects/", {
         method: "POST",
         body: JSON.stringify({
@@ -272,9 +277,9 @@ export function Projects() {
       setShowCreateModal(false);
       setCreateForm({ title: "", description: "", tech_stack: "", roles_needed: "", github_url: "", duration: "", start_date: "", deadline: "" });
       fetchAll();
-      showToast("Project created!");
+      showToast(t("toast.created"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to create project", false);
+      showToast(err instanceof Error ? err.message : t("toast.createFailed"), false);
     } finally {
       setIsSubmitting(false);
     }
@@ -283,10 +288,11 @@ export function Projects() {
   async function handleEdit() {
     if (!editingProject) return;
     const dateError = validateProjectDates(createForm.start_date, createForm.deadline);
-    if (dateError) { showToast(dateError, false); return; }
+    if (dateError) { showToast(t(`dates.errors.${dateError}`), false); return; }
     try {
       setIsSubmitting(true);
-      const computedDuration = computeDurationLabel(createForm.start_date, createForm.deadline);
+      const days = durationDays(createForm.start_date, createForm.deadline);
+      const computedDuration = days > 0 ? `${days} day${days === 1 ? "" : "s"}` : "";
       await apiFetch(`/api/projects/${editingProject.id}`, {
         method: "PUT",
         body: JSON.stringify({
@@ -302,9 +308,9 @@ export function Projects() {
       });
       setEditingProject(null);
       fetchAll();
-      showToast("Project updated!");
+      showToast(t("toast.updated"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to update", false);
+      showToast(err instanceof Error ? err.message : t("toast.updateFailed"), false);
     } finally {
       setIsSubmitting(false);
     }
@@ -330,9 +336,9 @@ export function Projects() {
       setDeleteConfirm(null);
       if (selectedProject?.id === project.id) setSelectedProject(null);
       fetchAll();
-      showToast("Project deleted.");
+      showToast(t("toast.deleted"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to delete", false);
+      showToast(err instanceof Error ? err.message : t("toast.deleteFailed"), false);
     }
   }
 
@@ -346,9 +352,9 @@ export function Projects() {
       if (selectedProject?.id === project.id) {
         setSelectedProject({ ...selectedProject, status: newStatus });
       }
-      showToast(`Status changed to ${newStatus}`);
+      showToast(t("toast.statusChanged", { status: t(`status.${newStatus}`, { defaultValue: newStatus }) }));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to update status", false);
+      showToast(err instanceof Error ? err.message : t("toast.statusFailed"), false);
     }
   }
 
@@ -369,9 +375,9 @@ export function Projects() {
       setMyApplicationForProject(result);
       setApplyForm({ role: "", motivation: "", cv_url: null, cv_name: null, links: [] });
       fetchAll();
-      showToast("Application submitted!");
+      showToast(t("toast.applied"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to apply", false);
+      showToast(err instanceof Error ? err.message : t("toast.applyFailed"), false);
     } finally {
       setIsSubmitting(false);
     }
@@ -393,9 +399,9 @@ export function Projects() {
       }
       const data = await res.json();
       setApplyForm((p) => ({ ...p, cv_url: data.url, cv_name: data.name }));
-      showToast("CV uploaded");
+      showToast(t("toast.cvUploaded"));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "CV upload failed", false);
+      showToast(err instanceof Error ? err.message : t("toast.cvFailed"), false);
     } finally {
       setIsUploadingCv(false);
     }
@@ -413,9 +419,9 @@ export function Projects() {
       );
       setRejectModal(null);
       setRejectReason("");
-      showToast(`Application ${newStatus}!`);
+      showToast(t("toast.appUpdated", { status: t(`appStatusLabel.${newStatus}`, { defaultValue: newStatus }) }));
     } catch (err: unknown) {
-      showToast(err instanceof Error ? err.message : "Failed to update", false);
+      showToast(err instanceof Error ? err.message : t("toast.appUpdateFailed"), false);
     } finally {
       setUpdatingAppId(null);
     }
@@ -455,24 +461,24 @@ export function Projects() {
                 <X className="w-5 h-5 text-red-500" />
               </div>
               <div>
-                <h3 className="font-bold text-base">Reject Application</h3>
-                <p className="text-xs text-muted-foreground">The applicant will be notified with your reason.</p>
+                <h3 className="font-bold text-base">{t("rejectModal.title")}</h3>
+                <p className="text-xs text-muted-foreground">{t("rejectModal.subtitle")}</p>
               </div>
             </div>
             <div className="mb-5">
               <label className="block text-sm font-medium mb-1.5">
-                Reason for rejection <span className="text-destructive font-normal">*</span>
+                {t("rejectModal.reasonLabel")} <span className="text-destructive font-normal">*</span>
               </label>
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}
-                placeholder="e.g. We already found someone for this role, or your skills don't match our current needs..."
+                placeholder={t("rejectModal.placeholder")}
                 rows={3}
                 required
                 className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
               />
               <p className="text-xs text-muted-foreground mt-1.5">
-                Please provide a reason. This helps the applicant understand and improve.
+                {t("rejectModal.hint")}
               </p>
             </div>
             <div className="flex gap-3">
@@ -484,11 +490,11 @@ export function Projects() {
               >
                 {updatingAppId === rejectModal.appId
                   ? <Loader2 className="w-4 h-4 animate-spin" />
-                  : "Send Rejection"
+                  : t("rejectModal.send")
                 }
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => { setRejectModal(null); setRejectReason(""); }}>
-                Cancel
+                {tc("actions.cancel")}
               </Button>
             </div>
           </div>
@@ -503,14 +509,14 @@ export function Projects() {
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center">
                 <Trash2 className="w-5 h-5 text-red-500" />
               </div>
-              <h3 className="font-bold">Delete Project</h3>
+              <h3 className="font-bold">{t("deleteModal.title")}</h3>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
-              Delete <span className="font-semibold text-foreground">"{deleteConfirm.title}"</span>? This cannot be undone.
+              {t("deleteModal.confirm", { title: deleteConfirm.title })}
             </p>
             <div className="flex gap-3">
-              <Button className="flex-1" style={{ background: "#ef4444" }} onClick={() => handleDelete(deleteConfirm)}>Delete</Button>
-              <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>Cancel</Button>
+              <Button className="flex-1" style={{ background: "#ef4444" }} onClick={() => handleDelete(deleteConfirm)}>{t("deleteModal.delete")}</Button>
+              <Button variant="outline" className="flex-1" onClick={() => setDeleteConfirm(null)}>{tc("actions.cancel")}</Button>
             </div>
           </div>
         </div>
@@ -519,8 +525,8 @@ export function Projects() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl md:text-3xl font-bold mb-2">Projects</h1>
-          <p className="text-muted-foreground text-sm md:text-base">Find teammates and collaborate on projects</p>
+          <h1 className="text-2xl md:text-3xl font-bold mb-2">{t("title")}</h1>
+          <p className="text-muted-foreground text-sm md:text-base">{t("subtitle")}</p>
         </div>
         <div className="flex flex-col items-start sm:items-end gap-1.5">
           {(() => {
@@ -530,9 +536,9 @@ export function Projects() {
               <Button
                 onClick={() => setShowCreateModal(true)}
                 disabled={atLimit}
-                title={atLimit ? "Monthly publish limit reached" : undefined}
+                title={atLimit ? t("limitReachedTitle") : undefined}
               >
-                <Plus className="w-4 h-4" /> Post a Project
+                <Plus className="w-4 h-4" /> {t("postProject")}
               </Button>
             );
           })()}
@@ -545,10 +551,10 @@ export function Projects() {
               }`}
             >
               {(limitInfo.remaining ?? 0) > 0
-                ? `${limitInfo.remaining} of ${limitInfo.limit} left this month`
-                : `Monthly limit reached${
+                ? t("leftThisMonth", { remaining: limitInfo.remaining, max: limitInfo.limit })
+                : `${t("monthlyLimitReached")}${
                     limitInfo.resets_at
-                      ? ` — resets ${new Date(limitInfo.resets_at).toLocaleDateString()}`
+                      ? t("resets", { date: new Date(limitInfo.resets_at).toLocaleDateString(locale) })
                       : ""
                   }`}
             </p>
@@ -559,10 +565,10 @@ export function Projects() {
       {/* Tabs */}
       <div className="flex gap-0 border-b border-border overflow-x-auto">
         {[
-          { key: "browse", label: "Browse Projects" },
-          { key: "my-posts", label: `My Posts (${myPosts.length})` },
-          { key: "my-projects", label: `My Projects (${myProjects.length})` },
-          { key: "my-applications", label: `My Applications (${myApplications.length})` },
+          { key: "browse", label: t("tabs.browse") },
+          { key: "my-posts", label: t("tabs.myPosts", { count: myPosts.length }) },
+          { key: "my-projects", label: t("tabs.myProjects", { count: myProjects.length }) },
+          { key: "my-applications", label: t("tabs.myApplications", { count: myApplications.length }) },
         ].map((tab) => (
           <button key={tab.key} onClick={() => { setActiveTab(tab.key as typeof activeTab); setSelectedProject(null); }}
             className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors ${
@@ -581,8 +587,8 @@ export function Projects() {
             <div className="border border-primary/20 bg-primary/3 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-4">
                 <Sparkles className="w-5 h-5 text-primary" />
-                <h2 className="font-bold text-lg">Suggested for You</h2>
-                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">Based on your skills</span>
+                <h2 className="font-bold text-lg">{t("suggestedTitle")}</h2>
+                <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">{t("basedOnSkills")}</span>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {suggested.map((p) => (
@@ -596,26 +602,26 @@ export function Projects() {
           <div className="flex gap-3 flex-wrap">
             <div className="relative flex-1 min-w-48">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-              <input type="text" placeholder="Search projects, tech stack..." value={search}
+              <input type="text" placeholder={t("searchPlaceholder")} value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 className="w-full pl-10 pr-4 py-2.5 bg-card rounded-lg border border-border focus:border-primary focus:outline-none transition-colors" />
             </div>
             <div className="flex gap-2">
               {(["open", "all", "closed", "completed"] as const).map((s) => (
                 <button key={s} onClick={() => setStatusFilter(s)}
-                  className={`px-4 py-2 rounded-lg text-sm font-medium capitalize transition-colors ${
+                  className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
                     statusFilter === s ? "bg-primary text-primary-foreground" : "bg-card border border-border hover:bg-muted"
                   }`}>
-                  {s}
+                  {t(`statusFilter.${s}`)}
                 </button>
               ))}
             </div>
           </div>
 
-          <p className="text-sm text-muted-foreground">{filtered.length} project{filtered.length !== 1 ? "s" : ""} found</p>
+          <p className="text-sm text-muted-foreground">{t("found", { count: filtered.length })}</p>
 
           {filtered.length === 0 ? (
-            <Card className="p-12 text-center"><p className="text-muted-foreground">No projects found.</p></Card>
+            <Card className="p-12 text-center"><p className="text-muted-foreground">{t("noProjects")}</p></Card>
           ) : (() => {
             const totalPages = Math.max(1, Math.ceil(filtered.length / BROWSE_PAGE_SIZE));
             const page = Math.min(browsePage, totalPages);
@@ -639,8 +645,8 @@ export function Projects() {
         <div className="space-y-6">
           {myProjects.length === 0 ? (
             <Card className="p-12 text-center">
-              <p className="text-muted-foreground">You're not in any projects yet.</p>
-              <p className="text-xs text-muted-foreground mt-1">Apply to a project from Browse, or create your own.</p>
+              <p className="text-muted-foreground">{t("notInProjects")}</p>
+              <p className="text-xs text-muted-foreground mt-1">{t("notInProjectsHint")}</p>
             </Card>
           ) : (() => {
             const totalPages = Math.max(1, Math.ceil(myProjects.length / MY_PROJECTS_PAGE_SIZE));
@@ -669,7 +675,7 @@ export function Projects() {
         <div className="space-y-6">
           <button onClick={() => setSelectedProject(null)}
             className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1">
-            ← Back to projects
+            ← {t("backToProjects")}
           </button>
 
           {/* Big centered Open Workspace CTA — for owner + accepted members */}
@@ -685,8 +691,8 @@ export function Projects() {
                     <LayoutDashboard className="w-6 h-6" />
                   </div>
                   <div className="min-w-0">
-                    <h3 className="font-bold text-base">Project Workspace</h3>
-                    <p className="text-xs text-muted-foreground">Tasks, members, resources, and team chat in one place.</p>
+                    <h3 className="font-bold text-base">{t("workspaceTitle")}</h3>
+                    <p className="text-xs text-muted-foreground">{t("workspaceDesc")}</p>
                   </div>
                 </div>
                 <Button
@@ -694,7 +700,7 @@ export function Projects() {
                   className="px-6 sm:px-8 py-3 text-base w-full sm:w-auto"
                   onClick={() => navigate(`/projects/${selectedProject.id}/workspace`)}
                 >
-                  Open Workspace <LayoutDashboard className="w-5 h-5" />
+                  {t("openWorkspace")} <LayoutDashboard className="w-5 h-5" />
                 </Button>
               </div>
             </div>
@@ -705,8 +711,8 @@ export function Projects() {
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   <h2 className="text-2xl font-bold">{selectedProject.title}</h2>
-                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${STATUS_COLORS[selectedProject.status] || ""}`}>
-                    {selectedProject.status}
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${STATUS_COLORS[selectedProject.status] || ""}`}>
+                    {t(`status.${selectedProject.status}`, { defaultValue: selectedProject.status })}
                   </span>
                 </div>
                 {selectedProject.owner && (
@@ -733,13 +739,13 @@ export function Projects() {
                     </a>
                   )}
                   <span className="flex items-center gap-1.5">
-                    <Users className="w-4 h-4" />{selectedProject.application_count || 0} applications
+                    <Users className="w-4 h-4" />{t("applicationsInline", { count: selectedProject.application_count || 0 })}
                   </span>
                 </div>
 
                 {selectedProject.tech_stack?.length > 0 && (
                   <div className="mb-3">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Tech Stack</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("techStack")}</p>
                     <div className="flex flex-wrap gap-2">
                       {selectedProject.tech_stack.map((t) => <Tag key={t} variant="primary">{t}</Tag>)}
                     </div>
@@ -747,7 +753,7 @@ export function Projects() {
                 )}
                 {selectedProject.roles_needed?.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Roles Needed</p>
+                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("rolesNeeded")}</p>
                     <div className="flex flex-wrap gap-2">
                       {selectedProject.roles_needed.map((r) => <Tag key={r} variant="muted">{r}</Tag>)}
                     </div>
@@ -759,19 +765,19 @@ export function Projects() {
               {selectedProject.owner_id === user?.user_id && (
                 <div className="flex flex-col gap-2 ml-4 flex-shrink-0">
                   <Button variant="outline" size="sm" onClick={() => { openEdit(selectedProject); }}>
-                    <Edit className="w-4 h-4" /> Edit
+                    <Edit className="w-4 h-4" /> {t("edit")}
                   </Button>
                   <div className="flex gap-1">
                     {["open", "closed", "completed"].filter((s) => s !== selectedProject.status).map((s) => (
                       <button key={s} onClick={() => handleStatusChange(selectedProject, s)}
-                        className={`px-2 py-1 text-xs font-medium rounded-lg border capitalize transition-colors ${STATUS_COLORS[s]}`}>
-                        → {s}
+                        className={`px-2 py-1 text-xs font-medium rounded-lg border transition-colors ${STATUS_COLORS[s]}`}>
+                        → {t(`status.${s}`, { defaultValue: s })}
                       </button>
                     ))}
                   </div>
                   <Button variant="outline" size="sm" className="text-destructive border-destructive"
                     onClick={() => setDeleteConfirm(selectedProject)}>
-                    <Trash2 className="w-4 h-4" /> Delete
+                    <Trash2 className="w-4 h-4" /> {t("delete")}
                   </Button>
                 </div>
               )}
@@ -785,11 +791,11 @@ export function Projects() {
                     <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${APP_STATUS_COLORS[myApplicationForProject.status]}`}>
                       <AlertCircle className="w-5 h-5 flex-shrink-0" />
                       <div>
-                        <p className="text-sm font-semibold capitalize">Application {myApplicationForProject.status}</p>
+                        <p className="text-sm font-semibold">{t("applicationStatusLabel", { status: t(`appStatusLabel.${myApplicationForProject.status}`, { defaultValue: myApplicationForProject.status }) })}</p>
                         <p className="text-xs opacity-80">
-                          {myApplicationForProject.status === "pending" && "The project owner will review your application and notify you."}
-                          {myApplicationForProject.status === "accepted" && "Congratulations! You've been accepted to the team."}
-                          {myApplicationForProject.role && ` · Role: ${myApplicationForProject.role}`}
+                          {myApplicationForProject.status === "pending" && t("pendingReview")}
+                          {myApplicationForProject.status === "accepted" && t("acceptedMsg")}
+                          {myApplicationForProject.role && t("roleColon", { role: myApplicationForProject.role })}
                         </p>
                       </div>
                     </div>
@@ -802,28 +808,28 @@ export function Projects() {
                     <div className={`flex items-center gap-3 px-4 py-3 rounded-xl ${APP_STATUS_COLORS.rejected}`}>
                       <AlertCircle className="w-5 h-5 flex-shrink-0" />
                       <div>
-                        <p className="text-sm font-semibold">Previous application was not accepted</p>
-                        <p className="text-xs opacity-80">You can apply again with an updated pitch.</p>
+                        <p className="text-sm font-semibold">{t("prevRejectedTitle")}</p>
+                        <p className="text-xs opacity-80">{t("prevRejectedDesc")}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-4">
                       <Button onClick={() => setShowApplyModal(true)}>
-                        <Briefcase className="w-4 h-4" /> Apply Again
+                        <Briefcase className="w-4 h-4" /> {t("applyAgain")}
                       </Button>
                     </div>
                   </div>
                 ) : selectedProject.status === "open" ? (
                   <div className="flex items-center gap-4">
                     <Button onClick={() => setShowApplyModal(true)}>
-                      <Briefcase className="w-4 h-4" /> Send Join Request
+                      <Briefcase className="w-4 h-4" /> {t("sendJoinRequest")}
                     </Button>
                     <p className="text-xs text-muted-foreground">
-                      The project owner will review your request and notify you of the outcome.
+                      {t("sendJoinHint")}
                     </p>
                   </div>
                 ) : (
                   <p className="text-sm text-muted-foreground italic">
-                    This project is <strong>{selectedProject.status}</strong> and not accepting new members.
+                    {t("notAccepting", { status: t(`status.${selectedProject.status}`, { defaultValue: selectedProject.status }) })}
                   </p>
                 )}
               </div>
@@ -834,12 +840,12 @@ export function Projects() {
           {selectedProject.owner_id === user?.user_id && (
             <Card className="p-6">
               <h3 className="font-bold text-lg mb-4 flex items-center gap-2">
-                <Users className="w-5 h-5" /> Applications ({projectApplications.length})
+                <Users className="w-5 h-5" /> {t("applicationsTitle", { count: projectApplications.length })}
               </h3>
               {isLoadingApplications ? (
                 <div className="flex justify-center py-6"><Loader2 className="w-6 h-6 animate-spin text-primary" /></div>
               ) : projectApplications.length === 0 ? (
-                <p className="text-muted-foreground text-sm italic">No applications yet.</p>
+                <p className="text-muted-foreground text-sm italic">{t("noApplicationsYet")}</p>
               ) : (
                 <div className="space-y-4">
                   {projectApplications.map((app) => (
@@ -849,7 +855,7 @@ export function Projects() {
                           <Avatar name={app.applicant?.name || "?"} size="sm" src={app.applicant?.avatar_url} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2 flex-wrap mb-1">
-                              <p className="font-semibold text-sm">{app.applicant?.name || "Student"}</p>
+                              <p className="font-semibold text-sm">{app.applicant?.name || t("student")}</p>
                               {app.applicant?.github_url && (
                                 <a href={app.applicant.github_url} target="_blank" rel="noopener noreferrer"
                                   className="text-muted-foreground hover:text-foreground">
@@ -858,7 +864,7 @@ export function Projects() {
                               )}
                             </div>
                             <p className="text-xs text-muted-foreground mb-1">
-                              {app.applicant?.department} {app.applicant?.year ? `· Year ${app.applicant.year}` : ""}
+                              {app.applicant?.department} {app.applicant?.year ? t("yearShort", { year: app.applicant.year }) : ""}
                             </p>
                             {app.applicant?.skills && app.applicant.skills.length > 0 && (
                               <div className="flex flex-wrap gap-1 mb-2">
@@ -868,7 +874,7 @@ export function Projects() {
                               </div>
                             )}
                             <div className="bg-muted rounded-lg px-3 py-2 text-sm">
-                              <p className="text-xs font-semibold text-muted-foreground mb-1">Applying for: <span className="text-foreground">{app.role}</span></p>
+                              <p className="text-xs font-semibold text-muted-foreground mb-1">{t("applyingFor")} <span className="text-foreground">{app.role}</span></p>
                               <p className="text-sm text-foreground">{app.motivation}</p>
                             </div>
                             {app.cv_url && (
@@ -879,14 +885,14 @@ export function Projects() {
                                   rel="noopener noreferrer"
                                   className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-card hover:bg-muted transition-colors"
                                 >
-                                  <Sparkles className="w-3 h-3" /> Preview CV
+                                  <Sparkles className="w-3 h-3" /> {t("previewCv")}
                                 </a>
                                 <a
                                   href={app.cv_url}
                                   download={app.cv_name || "cv.pdf"}
                                   className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs font-medium rounded-md border border-border bg-card hover:bg-muted transition-colors"
                                 >
-                                  Download
+                                  {t("download")}
                                 </a>
                                 {app.cv_name && (
                                   <span className="text-xs text-muted-foreground truncate max-w-[200px]">
@@ -898,19 +904,19 @@ export function Projects() {
                           </div>
                         </div>
                         <div className="flex flex-col items-end gap-2 flex-shrink-0">
-                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full capitalize ${APP_STATUS_COLORS[app.status]}`}>
-                            {app.status}
+                          <span className={`text-xs font-semibold px-2.5 py-1 rounded-full ${APP_STATUS_COLORS[app.status]}`}>
+                            {t(`appStatusLabel.${app.status}`, { defaultValue: app.status })}
                           </span>
                           {app.status === "pending" && (
                             <div className="flex gap-2">
                               <Button size="sm" onClick={() => handleApplicationStatus(app.id, selectedProject.id, "accepted")}
                                 disabled={updatingAppId === app.id}>
-                                {updatingAppId === app.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Check className="w-3 h-3" /> Accept</>}
+                                {updatingAppId === app.id ? <Loader2 className="w-3 h-3 animate-spin" /> : <><Check className="w-3 h-3" /> {t("accept")}</>}
                               </Button>
                               <Button size="sm" variant="outline" className="text-destructive border-destructive"
                                 onClick={() => { setRejectModal({ appId: app.id, projectId: selectedProject.id }); setRejectReason(""); }}
                                 disabled={updatingAppId === app.id}>
-                                <X className="w-3 h-3" /> Reject
+                                <X className="w-3 h-3" /> {t("reject")}
                               </Button>
                             </div>
                           )}
@@ -931,8 +937,8 @@ export function Projects() {
           {myPosts.length === 0 ? (
             <Card className="p-12 text-center">
               <Briefcase className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-              <p className="text-muted-foreground mb-4">You haven't posted any projects yet.</p>
-              <Button onClick={() => setShowCreateModal(true)}><Plus className="w-4 h-4" /> Post a Project</Button>
+              <p className="text-muted-foreground mb-4">{t("noPostsYet")}</p>
+              <Button onClick={() => setShowCreateModal(true)}><Plus className="w-4 h-4" /> {t("postProject")}</Button>
             </Card>
           ) : (
             myPosts.map((p) => (
@@ -941,11 +947,11 @@ export function Projects() {
                   <div className="flex-1 cursor-pointer" onClick={() => { setActiveTab("browse"); openProjectDetail(p); }}>
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <h3 className="font-bold text-base">{p.title}</h3>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${STATUS_COLORS[p.status]}`}>{p.status}</span>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[p.status]}`}>{t(`status.${p.status}`, { defaultValue: p.status })}</span>
                     </div>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{p.description}</p>
                     <div className="flex gap-3 text-xs text-muted-foreground">
-                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{p.application_count || 0} applications</span>
+                      <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{t("applicationsInline", { count: p.application_count || 0 })}</span>
                       {p.duration && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{p.duration}</span>}
                     </div>
                   </div>
@@ -954,13 +960,13 @@ export function Projects() {
                       onClick={() => navigate(`/projects/${p.id}/workspace`)}
                       className="flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors"
                     >
-                      <LayoutDashboard className="w-3.5 h-3.5" /> Workspace
+                      <LayoutDashboard className="w-3.5 h-3.5" /> {t("workspace")}
                     </button>
                     <div className="flex gap-1">
                       {["open", "closed", "completed"].filter((s) => s !== p.status).map((s) => (
                         <button key={s} onClick={() => handleStatusChange(p, s)}
-                          className={`px-2 py-1 text-xs font-medium rounded-lg border capitalize ${STATUS_COLORS[s]}`}>
-                          → {s}
+                          className={`px-2 py-1 text-xs font-medium rounded-lg border ${STATUS_COLORS[s]}`}>
+                          → {t(`status.${s}`, { defaultValue: s })}
                         </button>
                       ))}
                     </div>
@@ -987,7 +993,7 @@ export function Projects() {
         <div className="space-y-4">
           {myApplications.length === 0 ? (
             <Card className="p-12 text-center">
-              <p className="text-muted-foreground">You haven't applied to any projects yet.</p>
+              <p className="text-muted-foreground">{t("noApplicationsTab")}</p>
             </Card>
           ) : (
             myApplications.map((app) => (
@@ -1002,7 +1008,7 @@ export function Projects() {
                     try {
                       proj = await apiFetch(`/api/projects/${app.project_id}`);
                     } catch {
-                      showToast("Project not found or deleted", false);
+                      showToast(t("toast.projectNotFound"), false);
                       return;
                     }
                   }
@@ -1013,13 +1019,13 @@ export function Projects() {
                 <div className="flex items-start justify-between gap-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                      <h3 className="font-bold text-base">{app.project?.title || "Unknown Project"}</h3>
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${APP_STATUS_COLORS[app.status]}`}>
-                        {app.status}
+                      <h3 className="font-bold text-base">{app.project?.title || t("unknownProject")}</h3>
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${APP_STATUS_COLORS[app.status]}`}>
+                        {t(`appStatusLabel.${app.status}`, { defaultValue: app.status })}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground mb-1">
-                      Applied for: <span className="font-medium text-foreground">{app.role}</span>
+                      {t("appliedFor")} <span className="font-medium text-foreground">{app.role}</span>
                     </p>
                     <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{app.motivation}</p>
 
@@ -1029,7 +1035,7 @@ export function Projects() {
                         onClick={(e) => { e.stopPropagation(); navigate(`/projects/${app.project_id}/workspace`); }}
                         className="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors mb-2"
                       >
-                        <LayoutDashboard className="w-3.5 h-3.5" /> Open Workspace
+                        <LayoutDashboard className="w-3.5 h-3.5" /> {t("openWorkspace")}
                       </button>
                     )}
 
@@ -1038,14 +1044,14 @@ export function Projects() {
                       <div className="flex items-start gap-2 px-3 py-2 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
                         <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                         <div>
-                          <span className="font-semibold">Rejection reason: </span>
+                          <span className="font-semibold">{t("rejectionReason")}</span>
                           {app.rejection_reason}
                         </div>
                       </div>
                     )}
 
                     <p className="text-xs text-muted-foreground mt-2">
-                      {app.applied_at ? new Date(app.applied_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" }) : ""}
+                      {app.applied_at ? new Date(app.applied_at).toLocaleDateString(locale, { month: "short", day: "numeric", year: "numeric" }) : ""}
                     </p>
                   </div>
                   <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-1" />
@@ -1061,14 +1067,14 @@ export function Projects() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl border border-border p-5 md:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
-              <h2 className="text-xl font-bold">{editingProject ? "Edit Project" : "Post a Project"}</h2>
+              <h2 className="text-xl font-bold">{editingProject ? t("createModal.editTitle") : t("createModal.createTitle")}</h2>
               <button onClick={() => { setShowCreateModal(false); setEditingProject(null); }}
                 className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
             </div>
             <div className="space-y-4">
               {[
-                { label: "Title", key: "title", placeholder: "Project title" },
-                { label: "GitHub URL (optional)", key: "github_url", placeholder: "https://github.com/..." },
+                { label: t("createModal.title"), key: "title", placeholder: t("createModal.titlePlaceholder") },
+                { label: t("createModal.githubUrl"), key: "github_url", placeholder: t("createModal.githubPlaceholder") },
               ].map(({ label, key, placeholder }) => (
                 <div key={key}>
                   <label className="block text-sm font-medium mb-1.5">{label}</label>
@@ -1088,12 +1094,12 @@ export function Projects() {
                   ? new Date(new Date(createForm.deadline).getTime() - 86_400_000).toISOString().slice(0, 10)
                   : undefined;
                 const dateError = validateProjectDates(createForm.start_date, createForm.deadline);
-                const duration = computeDurationLabel(createForm.start_date, createForm.deadline);
+                const days = durationDays(createForm.start_date, createForm.deadline);
                 return (
                   <>
                     <div className="grid grid-cols-2 gap-3">
                       <div>
-                        <label className="block text-sm font-medium mb-1.5">Start date</label>
+                        <label className="block text-sm font-medium mb-1.5">{t("createModal.startDate")}</label>
                         <input
                           type="date"
                           value={createForm.start_date}
@@ -1104,7 +1110,7 @@ export function Projects() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium mb-1.5">Deadline</label>
+                        <label className="block text-sm font-medium mb-1.5">{t("createModal.deadline")}</label>
                         <input
                           type="date"
                           value={createForm.deadline}
@@ -1116,33 +1122,33 @@ export function Projects() {
                     </div>
                     {dateError ? (
                       <p className="text-xs text-red-500 flex items-center gap-1.5 -mt-2">
-                        <AlertCircle className="w-3.5 h-3.5" /> {dateError}
+                        <AlertCircle className="w-3.5 h-3.5" /> {t(`dates.errors.${dateError}`)}
                       </p>
-                    ) : duration ? (
+                    ) : days > 0 ? (
                       <p className="text-xs text-muted-foreground -mt-2">
                         <Clock className="w-3.5 h-3.5 inline mr-1" />
-                        Duration: <span className="font-medium text-foreground">{duration}</span>
+                        {t("createModal.durationPrefix")} <span className="font-medium text-foreground">{t("dates.durationDays", { count: days })}</span>
                       </p>
                     ) : null}
                   </>
                 );
               })()}
               <div>
-                <label className="block text-sm font-medium mb-1.5">Description</label>
+                <label className="block text-sm font-medium mb-1.5">{t("createModal.description")}</label>
                 <textarea value={createForm.description} onChange={(e) => setCreateForm({ ...createForm, description: e.target.value })}
-                  placeholder="Describe your project..." rows={4}
+                  placeholder={t("createModal.descriptionPlaceholder")} rows={4}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Tech Stack <span className="text-muted-foreground font-normal">(comma separated)</span></label>
+                <label className="block text-sm font-medium mb-1.5">{t("createModal.techStack")} <span className="text-muted-foreground font-normal">{t("createModal.commaSeparated")}</span></label>
                 <input value={createForm.tech_stack} onChange={(e) => setCreateForm({ ...createForm, tech_stack: e.target.value })}
-                  placeholder="React, Python, PostgreSQL"
+                  placeholder={t("createModal.techStackPlaceholder")}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Roles Needed <span className="text-muted-foreground font-normal">(comma separated)</span></label>
+                <label className="block text-sm font-medium mb-1.5">{t("createModal.rolesNeeded")} <span className="text-muted-foreground font-normal">{t("createModal.commaSeparated")}</span></label>
                 <input value={createForm.roles_needed} onChange={(e) => setCreateForm({ ...createForm, roles_needed: e.target.value })}
-                  placeholder="Frontend Developer, UI Designer, Backend Developer"
+                  placeholder={t("createModal.rolesPlaceholder")}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
             </div>
@@ -1154,9 +1160,9 @@ export function Projects() {
                   !createForm.description ||
                   validateProjectDates(createForm.start_date, createForm.deadline) !== null
                 }>
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : editingProject ? "Save Changes" : "Post Project"}
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : editingProject ? t("createModal.saveChanges") : t("createModal.postProjectBtn")}
               </Button>
-              <Button variant="outline" onClick={() => { setShowCreateModal(false); setEditingProject(null); }}>Cancel</Button>
+              <Button variant="outline" onClick={() => { setShowCreateModal(false); setEditingProject(null); }}>{tc("actions.cancel")}</Button>
             </div>
           </div>
         </div>
@@ -1167,7 +1173,7 @@ export function Projects() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl border border-border p-5 md:p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Send Join Request</h2>
+              <h2 className="text-xl font-bold">{t("applyModal.title")}</h2>
               <button onClick={() => setShowApplyModal(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
@@ -1175,43 +1181,43 @@ export function Projects() {
             <div className="bg-muted rounded-lg px-4 py-3 mb-4">
               <p className="text-sm font-medium">{selectedProject.title}</p>
               <p className="text-xs text-muted-foreground mt-0.5">
-                Your request will be sent to the project owner. They will review your profile and motivation, then accept or reject your application.
+                {t("applyModal.info")}
               </p>
             </div>
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">Role You're Applying For</label>
+                <label className="block text-sm font-medium mb-1.5">{t("applyModal.roleLabel")}</label>
                 <select value={applyForm.role} onChange={(e) => setApplyForm({ ...applyForm, role: e.target.value })}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary">
-                  <option value="">Select a role</option>
+                  <option value="">{t("applyModal.selectRole")}</option>
                   {selectedProject.roles_needed.map((r) => <option key={r} value={r}>{r}</option>)}
-                  <option value="Other">Other</option>
+                  <option value="Other">{t("applyModal.other")}</option>
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Motivation</label>
+                <label className="block text-sm font-medium mb-1.5">{t("applyModal.motivation")}</label>
                 <textarea value={applyForm.motivation} onChange={(e) => setApplyForm({ ...applyForm, motivation: e.target.value })}
-                  placeholder="Why do you want to join this project? What can you contribute?"
+                  placeholder={t("applyModal.motivationPlaceholder")}
                   rows={4} className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
               </div>
 
               {/* CV upload */}
               <div>
-                <label className="block text-sm font-medium mb-1.5">CV / Resume <span className="text-muted-foreground font-normal">(optional, PDF/DOC)</span></label>
+                <label className="block text-sm font-medium mb-1.5">{t("applyModal.cvLabel")} <span className="text-muted-foreground font-normal">{t("applyModal.cvHint")}</span></label>
                 {applyForm.cv_url ? (
                   <div className="flex items-center justify-between gap-2 px-3 py-2.5 bg-muted border border-border rounded-lg">
                     <div className="flex items-center gap-2 min-w-0 text-sm">
                       <span className="text-primary">📄</span>
                       <a href={applyForm.cv_url} target="_blank" rel="noopener noreferrer" className="truncate hover:underline">{applyForm.cv_name}</a>
                     </div>
-                    <button type="button" onClick={() => setApplyForm((p) => ({ ...p, cv_url: null, cv_name: null }))} className="text-xs text-destructive hover:underline flex-shrink-0">Remove</button>
+                    <button type="button" onClick={() => setApplyForm((p) => ({ ...p, cv_url: null, cv_name: null }))} className="text-xs text-destructive hover:underline flex-shrink-0">{t("applyModal.remove")}</button>
                   </div>
                 ) : (
                   <label className="flex items-center justify-center gap-2 px-3 py-2.5 text-sm bg-muted border border-dashed border-border rounded-lg cursor-pointer hover:bg-muted/70 transition-colors">
                     {isUploadingCv ? (
-                      <><Loader2 className="w-4 h-4 animate-spin" /> Uploading...</>
+                      <><Loader2 className="w-4 h-4 animate-spin" /> {t("applyModal.uploading")}</>
                     ) : (
-                      <><span>📎</span> Choose file (max 10 MB)</>
+                      <><span>📎</span> {t("applyModal.chooseFile")}</>
                     )}
                     <input type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                       hidden disabled={isUploadingCv}
@@ -1223,18 +1229,18 @@ export function Projects() {
               {/* Links */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
-                  <label className="block text-sm font-medium">Links <span className="text-muted-foreground font-normal">(GitHub, LinkedIn, portfolio…)</span></label>
+                  <label className="block text-sm font-medium">{t("applyModal.linksLabel")} <span className="text-muted-foreground font-normal">{t("applyModal.linksHint")}</span></label>
                   <button type="button"
                     onClick={() => setApplyForm((p) => ({ ...p, links: [...p.links, { label: "", url: "" }] }))}
-                    className="text-xs text-primary hover:underline">+ Add link</button>
+                    className="text-xs text-primary hover:underline">{t("applyModal.addLink")}</button>
                 </div>
                 {applyForm.links.length === 0 ? (
-                  <p className="text-xs text-muted-foreground">No links added.</p>
+                  <p className="text-xs text-muted-foreground">{t("applyModal.noLinks")}</p>
                 ) : (
                   <div className="space-y-2">
                     {applyForm.links.map((link, i) => (
                       <div key={i} className="flex gap-2">
-                        <input type="text" placeholder="Label (e.g. GitHub)" value={link.label}
+                        <input type="text" placeholder={t("applyModal.labelPlaceholder")} value={link.label}
                           onChange={(e) => setApplyForm((p) => ({ ...p, links: p.links.map((l, j) => j === i ? { ...l, label: e.target.value } : l) }))}
                           className="w-32 px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary" />
                         <input type="url" placeholder="https://…" value={link.url}
@@ -1251,9 +1257,9 @@ export function Projects() {
             </div>
             <div className="flex gap-3 mt-6">
               <Button onClick={handleApply} disabled={isSubmitting || isUploadingCv || !applyForm.role || !applyForm.motivation}>
-                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Send Request"}
+                {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t("applyModal.sendRequest")}
               </Button>
-              <Button variant="outline" onClick={() => setShowApplyModal(false)}>Cancel</Button>
+              <Button variant="outline" onClick={() => setShowApplyModal(false)}>{tc("actions.cancel")}</Button>
             </div>
           </div>
         </div>
@@ -1266,6 +1272,7 @@ export function Projects() {
 function ProjectCard({ project, onClick, highlighted }: {
   project: Project; onClick: () => void; highlighted?: boolean;
 }) {
+  const { t } = useTranslation("projects");
   return (
     <Card
       className={`p-5 hover:shadow-md transition-all ${highlighted ? "border-primary/30 bg-primary/2" : ""}`}
@@ -1274,12 +1281,12 @@ function ProjectCard({ project, onClick, highlighted }: {
         <div className="flex-1 min-w-0 cursor-pointer" onClick={onClick}>
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <h3 className="font-bold text-base">{project.title}</h3>
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full capitalize ${STATUS_COLORS[project.status] || ""}`}>
-              {project.status}
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_COLORS[project.status] || ""}`}>
+              {t(`status.${project.status}`, { defaultValue: project.status })}
             </span>
             {highlighted && (
               <span className="flex items-center gap-1 text-xs text-primary font-medium">
-                <Sparkles className="w-3 h-3" /> Match
+                <Sparkles className="w-3 h-3" /> {t("card.match")}
               </span>
             )}
           </div>
@@ -1290,14 +1297,14 @@ function ProjectCard({ project, onClick, highlighted }: {
           <div className="flex flex-wrap gap-4 text-xs text-muted-foreground mb-3">
             {project.duration && <span className="flex items-center gap-1"><Clock className="w-3.5 h-3.5" />{project.duration}</span>}
             {project.github_url && <span className="flex items-center gap-1"><Github className="w-3.5 h-3.5" />GitHub</span>}
-            <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{project.application_count || 0} applicants</span>
+            <span className="flex items-center gap-1"><Users className="w-3.5 h-3.5" />{t("card.applicants", { count: project.application_count || 0 })}</span>
           </div>
           <div className="flex flex-wrap gap-2">
-            {(project.tech_stack || []).slice(0, 4).map((t) => (
-              <Tag key={t} variant="primary" className="text-xs">{t}</Tag>
+            {(project.tech_stack || []).slice(0, 4).map((tech) => (
+              <Tag key={tech} variant="primary" className="text-xs">{tech}</Tag>
             ))}
             {(project.tech_stack || []).length > 4 && (
-              <span className="text-xs text-muted-foreground">+{project.tech_stack.length - 4} more</span>
+              <span className="text-xs text-muted-foreground">{t("card.moreTech", { count: project.tech_stack.length - 4 })}</span>
             )}
           </div>
         </div>
@@ -1311,7 +1318,7 @@ function ProjectCard({ project, onClick, highlighted }: {
             onClick={onClick}
             className="flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 hover:bg-primary/20 px-3 py-1.5 rounded-lg transition-colors mt-1"
           >
-            View Details <ChevronRight className="w-3.5 h-3.5" />
+            {t("card.viewDetails")} <ChevronRight className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

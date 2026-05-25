@@ -1,6 +1,7 @@
 {
   "title": "Settings",
   "subtitle": "Manage your account, appearance, and preferences.",
+  "sectionsAria": "Settings sections",
 
   "tabs": {
     "profile": "Profile",

@@ -1,0 +1,77 @@
+{
+  "heading": "فعاليات الحرم الجامعي",
+  "searchPlaceholder": "ابحث عن فعاليات...",
+  "filters": {
+    "upcoming": "القادمة",
+    "all": "الكل",
+    "past": "المنتهية"
+  },
+  "months": ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"],
+  "days": ["أحد", "إثن", "ثلا", "أرب", "خمي", "جمع", "سبت"],
+  "noEvents": "لا توجد فعاليات.",
+  "members": "أعضاء",
+  "attending": "ستحضر",
+  "full": "ممتلئ",
+  "past": "منتهية",
+  "edit": "تعديل",
+  "delete": "حذف",
+  "markAttending": "سأحضر",
+  "eventFull": "الفعالية ممتلئة",
+  "attendees": "الحاضرون ({{count}})",
+  "addToCalendar": "إضافة إلى تقويم Google",
+  "attendingCount": "{{count}} سيحضرون",
+  "attendingCountCap": "{{count}} / {{capacity}} سيحضرون",
+  "deleteModal": {
+    "title": "حذف الفعالية",
+    "confirm": "حذف «{{title}}»؟ لا يمكن التراجع عن هذا.",
+    "delete": "حذف"
+  },
+  "editModal": {
+    "title": "تعديل الفعالية",
+    "titleLabel": "العنوان",
+    "description": "الوصف",
+    "dateTime": "التاريخ والوقت",
+    "location": "المكان",
+    "locationPlaceholder": "مكان فعلي أو عبر الإنترنت",
+    "saving": "جارٍ الحفظ...",
+    "saveChanges": "حفظ التغييرات"
+  },
+  "createModal": {
+    "title": "إنشاء فعالية",
+    "titleLabel": "العنوان",
+    "titlePlaceholder": "عنوان الفعالية",
+    "description": "الوصف",
+    "descriptionPlaceholder": "وصف الفعالية",
+    "dateTime": "التاريخ والوقت",
+    "location": "المكان",
+    "locationPlaceholder": "مكان فعلي أو عبر الإنترنت",
+    "linkClub": "ربط بنادٍ (اختياري)",
+    "noneGeneral": "لا شيء (فعالية عامة)",
+    "schoolWide": "فعالية على مستوى الجامعة",
+    "schoolWideHint": "(تُشعر جميع الطلاب)",
+    "creating": "جارٍ الإنشاء...",
+    "create": "إنشاء فعالية"
+  },
+  "toast": {
+    "attendFailed": "تعذّر تحديث الحضور",
+    "eventCreated": "تم إنشاء الفعالية!",
+    "createFailed": "تعذّر إنشاء الفعالية",
+    "eventUpdated": "تم تحديث الفعالية!",
+    "updateFailed": "تعذّر التحديث",
+    "eventDeleted": "تم حذف الفعالية.",
+    "deleteFailed": "تعذّر الحذف"
+  },
+  "attendeesModal": {
+    "loading": "جارٍ التحميل…",
+    "attending": "{{count}} سيحضرون",
+    "downloadCsv": "تنزيل CSV",
+    "noAttendeesTitle": "لا يوجد حضور بعد",
+    "downloadTitle": "تنزيل بصيغة CSV",
+    "close": "إغلاق",
+    "empty": "لم يسجّل أحد الحضور بعد.",
+    "unknown": "غير معروف",
+    "year": "السنة {{year}}",
+    "loadFailed": "تعذّر تحميل الحاضرين",
+    "exportFailed": "تعذّر تصدير CSV"
+  }
+}

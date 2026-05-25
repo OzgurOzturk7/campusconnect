@@ -1,26 +1,126 @@
 {
   "title": "Чаты",
-  "newChat": "Новый чат",
-  "search": "Поиск по чатам",
-  "empty": {
-    "list": "Пока нет чатов",
-    "messages": "Сообщений пока нет. Поздоровайтесь!"
+  "newChatTitle": "Новый чат",
+  "searchChats": "Поиск чатов...",
+  "noChatsFound": "Чаты не найдены.",
+  "noChatsYet": "Чатов пока нет. Начните новый!",
+  "noMessagesShort": "Сообщений пока нет",
+  "pinChat": "Закрепить чат",
+  "unpinChat": "Открепить чат",
+  "directMessage": "Личное сообщение",
+  "groupChat": "Групповой чат",
+  "group": "Группа",
+  "selectChat": "Выберите чат",
+  "selectChatHint": "Выберите беседу из списка или начните новую.",
+  "membersCount": "{{count}} участников",
+  "directMessageLabel": "Личное сообщение",
+  "searchInChat": "Поиск в чате",
+  "pinnedMessages": "Закреплённые сообщения",
+  "filesMedia": "Файлы и медиа",
+  "mute": "Отключить уведомления",
+  "unmute": "Включить уведомления",
+  "more": "Ещё",
+  "deleteChat": "Удалить чат",
+  "leaveGroup": "Покинуть группу",
+  "deleteEntireGroup": "Удалить всю группу",
+  "searchInThisChat": "Поиск в этом чате...",
+  "matches": "совпадений: {{count}}",
+  "pinned": "Закреплённые",
+  "noPinned": "Нет закреплённых сообщений.",
+  "unknown": "Неизвестно",
+  "attachment": "[вложение]",
+  "filesMediaTitle": "Файлы и медиа",
+  "noFiles": "Файлы пока не отправлены.",
+  "file": "Файл",
+  "noMessagesSayHi": "Сообщений пока нет. Поздоровайтесь 👋",
+  "noSearchMatch": "Нет сообщений по вашему запросу.",
+  "messageDeleted": "Это сообщение удалено",
+  "edited": "изменено",
+  "react": "Реакция",
+  "reply": "Ответить",
+  "pin": "Закрепить",
+  "unpin": "Открепить",
+  "delete": "Удалить",
+  "report": "Пожаловаться",
+  "today": "Сегодня",
+  "yesterday": "Вчера",
+  "typingOne": "{{name}} печатает...",
+  "typingMany": "{{count}} человек печатают...",
+  "filePending": "{{kb}} КБ · Добавьте подпись (необязательно) и отправьте",
+  "replyingTo": "Ответ {{name}}",
+  "typeMessage": "Введите сообщение...",
+  "attachFile": "Прикрепить файл",
+  "send": "Отправить",
+  "attachmentPreview": {
+    "image": "📷 Изображение",
+    "video": "🎬 Видео",
+    "file": "📎 Файл",
+    "audio": "🎤 Аудио"
   },
-  "input": {
-    "placeholder": "Напишите сообщение...",
-    "send": "Отправить",
-    "attach": "Прикрепить файл"
+  "relative": {
+    "now": "сейчас",
+    "min": "{{count}} мин",
+    "hour": "{{count}} ч",
+    "day": "{{count}} дн"
   },
-  "owner": {
-    "label": "Владелец",
+  "toast": {
+    "sendFailed": "Не удалось отправить сообщение",
+    "maxFileSize": "Максимальный размер файла — 25 МБ",
+    "reactionFailed": "Ошибка",
+    "pinFailed": "Не удалось закрепить",
+    "deleteMsgFailed": "Не удалось удалить сообщение",
+    "actionFailed": "Действие не выполнено",
+    "deleteChatFailed": "Не удалось удалить чат",
+    "loadFilesFailed": "Не удалось загрузить файлы"
+  },
+  "deleteMsg": {
+    "title": "Удалить это сообщение?",
+    "desc": "Это действие нельзя отменить.",
+    "confirm": "Удалить"
+  },
+  "confirmModal": {
+    "fullTitle": "Удалить всю группу",
+    "deleteChatTitle": "Удалить чат",
+    "leaveGroupTitle": "Покинуть группу",
+    "fullBody": "Это навсегда удалит «{{title}}» для всех. Это нельзя отменить.",
+    "directBody": "Этот чат будет удалён из вашего списка. Собеседник всё ещё может его видеть; если он напишет, чат появится снова.",
+    "leaveBody": "Вы покинете «{{title}}» и перестанете получать его сообщения.",
+    "deleteForever": "Удалить навсегда",
+    "delete": "Удалить",
+    "leave": "Покинуть"
+  },
+  "newChat": {
+    "title": "Новый чат",
+    "groupNamePlaceholder": "Название группы (необязательно)",
+    "searchPlaceholder": "Поиск студентов по имени...",
+    "typeToSearch": "Введите не менее 2 символов для поиска.",
+    "noUsers": "Пользователи не найдены.",
+    "createGroup": "Создать группу",
+    "startChat": "Начать чат",
+    "errorTitle": "Не удалось начать чат",
+    "errorBody": "Что-то пошло не так при создании чата.",
+    "errorHint": "Пожалуйста, попробуйте через минуту.",
+    "defaultGroupTitle": "{{name}} и ещё {{count}}"
+  },
+  "members": {
+    "profile": "Профиль",
+    "title": "Участники",
+    "personOne": "{{count}} человек",
+    "personMany": "{{count}} человек",
     "addMember": "Добавить участника",
-    "removeMember": "Удалить участника",
-    "confirmRemove": "Удалить {{name}} из этой группы?"
+    "removeConfirmTitle": "Удалить {{name}}?",
+    "removeConfirmDesc": "{{name}} потеряет доступ к этой группе.",
+    "removeConfirmLabel": "Удалить",
+    "removed": "{{name}} удалён",
+    "removeFailed": "Не удалось удалить участника",
+    "you": "(вы)",
+    "owner": "Владелец",
+    "removeAria": "Удалить {{name}}"
   },
-  "mute": {
-    "mute": "Без звука",
-    "unmute": "Включить звук",
-    "muted": "Без звука"
-  },
-  "deleted": "Сообщение удалено"
+  "addMember": {
+    "searchPlaceholder": "Поиск пользователей для добавления...",
+    "cancel": "Отмена",
+    "noMatches": "Совпадений нет.",
+    "addFailed": "Не удалось добавить участника"
+  }
 }

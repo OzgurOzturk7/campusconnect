@@ -1,17 +1,33 @@
 {
   "welcome": "Welcome back, {{name}}",
   "welcomeAnon": "Welcome back",
-  "subtitle": "Here's what's happening on campus today.",
+  "subtitle": "Here's what's happening in your campus community today.",
   "sections": {
     "myProjects": "My Projects",
     "upcomingEvents": "Upcoming Events",
+    "openProjects": "Open Projects",
+    "notifications": "Notifications",
     "recentActivity": "Recent Activity",
     "deadlines": "Upcoming Deadlines"
+  },
+  "stats": {
+    "clubs": "Clubs",
+    "totalEvents": "Total Events"
   },
   "empty": {
     "noProjects": "You haven't joined any projects yet.",
     "noEvents": "No upcoming events.",
+    "noOpenProjects": "No open projects yet.",
+    "noNotifications": "No notifications yet.",
     "noActivity": "No recent activity.",
     "noDeadlines": "No deadlines coming up."
-  }
+  },
+  "actions": {
+    "browseEvents": "Browse Events",
+    "addToCalendar": "Add to Calendar",
+    "viewMoreEvents": "View more events",
+    "viewProject": "View Project",
+    "viewAllNotifications": "View all notifications"
+  },
+  "attending": "{{count}} attending"
 }

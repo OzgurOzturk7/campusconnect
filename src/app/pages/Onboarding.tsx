@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Lock, Loader2, AlertCircle, ShieldCheck, LogOut } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 import { apiFetch } from "../lib/api";
@@ -15,6 +16,7 @@ import { toUserError } from "../lib/errors";
  * Just an explanation, the form, and an emergency "sign out" escape.
  */
 export function Onboarding() {
+  const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const { user, logout, markPasswordChanged } = useAuth();
   const [current, setCurrent] = useState("");
@@ -27,15 +29,15 @@ export function Onboarding() {
     e.preventDefault();
     setError(null);
     if (next.length < 8) {
-      setError("Use at least 8 characters.");
+      setError(t("onboarding.tooShort"));
       return;
     }
     if (next !== confirm) {
-      setError("New password and confirmation don't match.");
+      setError(t("onboarding.mismatch"));
       return;
     }
     if (next === current) {
-      setError("Pick a new password different from the temporary one.");
+      setError(t("onboarding.sameAsTemp"));
       return;
     }
     setSubmitting(true);
@@ -66,30 +68,31 @@ export function Onboarding() {
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">Set a real password</h1>
+              <h1 className="text-xl font-bold tracking-tight">{t("onboarding.title")}</h1>
               <p className="text-sm text-muted-foreground mt-1 leading-snug">
-                Welcome{user?.name ? `, ${user.name.split(" ")[0]}` : ""}. You signed in with the
-                temporary password we emailed you. Pick a permanent one to continue.
+                {user?.name
+                  ? t("onboarding.welcomeNamed", { name: user.name.split(" ")[0] })
+                  : t("onboarding.welcome")}
               </p>
             </div>
           </div>
 
           <form onSubmit={onSubmit} className="space-y-4">
             <PasswordField
-              label="Temporary password (from email)"
+              label={t("onboarding.tempPassword")}
               value={current}
               onChange={setCurrent}
               autoComplete="current-password"
               autoFocus
             />
             <PasswordField
-              label="New password"
+              label={t("onboarding.newPassword")}
               value={next}
               onChange={setNext}
               autoComplete="new-password"
             />
             <PasswordField
-              label="Confirm new password"
+              label={t("onboarding.confirmPassword")}
               value={confirm}
               onChange={setConfirm}
               autoComplete="new-password"
@@ -108,10 +111,10 @@ export function Onboarding() {
             >
               {submitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin" /> Saving...
+                  <Loader2 className="w-4 h-4 animate-spin" /> {t("onboarding.saving")}
                 </>
               ) : (
-                "Continue"
+                t("onboarding.continue")
               )}
             </button>
           </form>
@@ -123,7 +126,7 @@ export function Onboarding() {
             className="text-xs text-muted-foreground hover:text-foreground flex items-center gap-1.5 transition-colors"
           >
             <LogOut className="w-3 h-3" />
-            Sign out instead
+            {t("onboarding.signOutInstead")}
           </button>
         </div>
       </div>

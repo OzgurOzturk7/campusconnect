@@ -1,4 +1,5 @@
 import { useState, useEffect, type ElementType } from "react";
+import { useTranslation } from "react-i18next";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
@@ -52,13 +53,14 @@ interface AdminStats {
   pending_requests: number;
 }
 
-function timeAgo(dateStr: string) {
+function timeAgo(dateStr: string, tc: (key: string, opts?: Record<string, unknown>) => string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const minutes = Math.floor(diff / 60000);
-  if (minutes < 60) return `${minutes}m ago`;
+  if (minutes < 1) return tc("notifications.justNow");
+  if (minutes < 60) return tc("notifications.minutesAgo", { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  return `${Math.floor(hours / 24)}d ago`;
+  if (hours < 24) return tc("notifications.hoursAgo", { count: hours });
+  return tc("notifications.daysAgo", { count: Math.floor(hours / 24) });
 }
 
 function buildGoogleCalendarUrl(event: Event): string {
@@ -100,6 +102,9 @@ function AdminStatCard({
 }
 
 export function Dashboard() {
+  const { t, i18n } = useTranslation("dashboard");
+  const { t: tc } = useTranslation("common");
+  const locale = i18n.language;
   const { user } = useAuth();
   const navigate = useNavigate();
   const [events, setEvents] = useState<Event[]>([]);
@@ -195,10 +200,10 @@ export function Dashboard() {
       {/* Welcome */}
       <div className="border-b border-border pb-6">
         <h1 className="text-2xl md:text-3xl font-bold tracking-tight">
-          Welcome back{user?.name ? `, ${user.name.split(" ")[0]}` : ""}
+          {user?.name ? t("welcome", { name: user.name.split(" ")[0] }) : t("welcomeAnon")}
         </h1>
         <p className="text-muted-foreground mt-1.5 text-sm md:text-base">
-          Here's what's happening in your campus community today.
+          {t("subtitle")}
         </p>
       </div>
 
@@ -229,7 +234,7 @@ export function Dashboard() {
         <Card className="p-4 md:p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Clubs</p>
+              <p className="text-sm text-muted-foreground">{t("stats.clubs")}</p>
               <p className="text-2xl font-bold mt-1">{stats.clubsJoined}</p>
             </div>
             <Users className="w-10 h-10 text-primary" />
@@ -238,7 +243,7 @@ export function Dashboard() {
         <Card className="p-4 md:p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm text-muted-foreground">Total Events</p>
+              <p className="text-sm text-muted-foreground">{t("stats.totalEvents")}</p>
               <p className="text-2xl font-bold mt-1">{stats.eventsRsvpd}</p>
             </div>
             <Calendar className="w-8 h-8 md:w-10 md:h-10 text-secondary flex-shrink-0" />
@@ -250,17 +255,17 @@ export function Dashboard() {
         {/* Left — Upcoming Events */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl md:text-2xl font-bold">Upcoming Events</h2>
+            <h2 className="text-xl md:text-2xl font-bold">{t("sections.upcomingEvents")}</h2>
             <Link to="/events">
-              <Button variant="ghost" size="sm">View all</Button>
+              <Button variant="ghost" size="sm">{tc("actions.viewAll")}</Button>
             </Link>
           </div>
           {events.length === 0 ? (
             <Card className="p-8 text-center">
               <Calendar className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-              <p className="text-muted-foreground">No upcoming events.</p>
+              <p className="text-muted-foreground">{t("empty.noEvents")}</p>
               <Link to="/events">
-                <Button className="mt-4">Browse Events</Button>
+                <Button className="mt-4">{t("actions.browseEvents")}</Button>
               </Link>
             </Card>
           ) : (
@@ -283,7 +288,7 @@ export function Dashboard() {
                       )}
                       <div className="absolute top-3 left-3 bg-card rounded-xl overflow-hidden shadow-md text-center w-12">
                         <div className="bg-primary text-primary-foreground text-xs font-bold py-0.5">
-                          {eventDate.toLocaleDateString("en-US", { month: "short" }).toUpperCase()}
+                          {eventDate.toLocaleDateString(locale, { month: "short" }).toUpperCase()}
                         </div>
                         <div className="text-foreground text-lg font-bold leading-tight py-0.5">{eventDate.getDate()}</div>
                       </div>
@@ -297,7 +302,7 @@ export function Dashboard() {
                       <div className="space-y-1.5 text-xs text-muted-foreground flex-1">
                         <div className="flex items-center gap-1.5">
                           <Clock className="w-3.5 h-3.5 flex-shrink-0" />
-                          <span>{eventDate.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} · {eventDate.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}</span>
+                          <span>{eventDate.toLocaleDateString(locale, { weekday: "short", month: "short", day: "numeric" })} · {eventDate.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" })}</span>
                         </div>
                         <div className="flex items-center gap-1.5">
                           <MapPin className="w-3.5 h-3.5 flex-shrink-0" />
@@ -306,7 +311,7 @@ export function Dashboard() {
                         {(event.attendee_count ?? 0) > 0 && (
                           <div className="flex items-center gap-1.5">
                             <Users className="w-3.5 h-3.5 flex-shrink-0" />
-                            <span>{event.attendee_count} attending</span>
+                            <span>{t("attending", { count: event.attendee_count ?? 0 })}</span>
                           </div>
                         )}
                       </div>
@@ -315,7 +320,7 @@ export function Dashboard() {
                         className="mt-3 w-full py-2 rounded-lg text-sm font-medium border border-border bg-card hover:bg-muted transition-colors flex items-center justify-center gap-2 text-muted-foreground hover:text-foreground"
                       >
                         <CalendarPlus className="w-4 h-4" />
-                        Add to Calendar
+                        {t("actions.addToCalendar")}
                       </button>
                     </div>
                   </Card>
@@ -327,7 +332,7 @@ export function Dashboard() {
           {events.length >= 6 && (
             <div className="flex justify-center mt-4">
               <Link to="/events">
-                <Button variant="outline">View more events</Button>
+                <Button variant="outline">{t("actions.viewMoreEvents")}</Button>
               </Link>
             </div>
           )}
@@ -337,14 +342,14 @@ export function Dashboard() {
         <div className="space-y-8">
           <div>
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl md:text-2xl font-bold">Open Projects</h2>
+              <h2 className="text-xl md:text-2xl font-bold">{t("sections.openProjects")}</h2>
               <Link to="/projects">
-                <Button variant="ghost" size="sm">View all</Button>
+                <Button variant="ghost" size="sm">{tc("actions.viewAll")}</Button>
               </Link>
             </div>
             {projects.length === 0 ? (
               <Card className="p-6 text-center">
-                <p className="text-muted-foreground text-sm">No open projects yet.</p>
+                <p className="text-muted-foreground text-sm">{t("empty.noOpenProjects")}</p>
               </Card>
             ) : (
               <div className="space-y-3">
@@ -361,7 +366,7 @@ export function Dashboard() {
                       )}
                     </div>
                     <Link to="/projects">
-                      <Button variant="outline" className="w-full text-xs py-1.5">View Project</Button>
+                      <Button variant="outline" className="w-full text-xs py-1.5">{t("actions.viewProject")}</Button>
                     </Link>
                   </Card>
                 ))}
@@ -372,7 +377,7 @@ export function Dashboard() {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <Bell className="w-5 h-5 text-primary" />
-              <h2 className="text-xl md:text-2xl font-bold">Notifications</h2>
+              <h2 className="text-xl md:text-2xl font-bold">{t("sections.notifications")}</h2>
               {unreadCount > 0 && (
                 <span className="w-6 h-6 bg-primary text-white text-xs rounded-full flex items-center justify-center font-bold">
                   {unreadCount}
@@ -381,7 +386,7 @@ export function Dashboard() {
             </div>
             {notifications.length === 0 ? (
               <Card className="p-6 text-center">
-                <p className="text-muted-foreground text-sm">No notifications yet.</p>
+                <p className="text-muted-foreground text-sm">{t("empty.noNotifications")}</p>
               </Card>
             ) : (
               <div className="space-y-2">
@@ -405,13 +410,13 @@ export function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <p className="font-semibold text-sm">{notification.title}</p>
                         <p className="text-xs text-muted-foreground truncate">{notification.body}</p>
-                        <p className="text-xs text-muted-foreground mt-1">{timeAgo(notification.created_at)}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{timeAgo(notification.created_at, tc)}</p>
                       </div>
                     </div>
                   </Card>
                 ))}
                 <Link to="/notifications">
-                  <Button variant="outline" className="w-full mt-2">View all notifications</Button>
+                  <Button variant="outline" className="w-full mt-2">{t("actions.viewAllNotifications")}</Button>
                 </Link>
               </div>
             )}

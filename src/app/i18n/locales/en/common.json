@@ -49,6 +49,60 @@
     "hoursAgo": "{{count}}h ago",
     "daysAgo": "{{count}}d ago"
   },
+  "notificationsPage": {
+    "subtitleUnread_one": "You have {{count}} unread notification.",
+    "subtitleUnread_other": "You have {{count}} unread notifications.",
+    "subtitleCaught": "You are all caught up.",
+    "markAllAsRead": "Mark all as read",
+    "clearAll": "Clear all",
+    "selected": "{{count}} selected",
+    "deleteSelected": "Delete selected",
+    "filterAll": "All",
+    "filterUnread": "Unread",
+    "emptyUnreadTitle": "No unread notifications",
+    "emptyAllTitle": "No notifications yet",
+    "emptyUnreadBody": "You are all caught up!",
+    "emptyAllBody": "Your notifications will appear here.",
+    "confirmClearAll": "Delete all notifications? This cannot be undone.",
+    "showing": "Showing {{from}}–{{to}} of {{total}}",
+    "pageOf": "Page {{current}} of {{total}}",
+    "selectAria": "Select notification: {{title}}",
+    "deleteAria": "Delete notification",
+    "deleteTitle": "Delete",
+    "prevPage": "Previous page",
+    "nextPage": "Next page",
+    "types": {
+      "project": "Project",
+      "club": "Club",
+      "event": "Event",
+      "study": "Study",
+      "system": "System"
+    }
+  },
+  "a11y": {
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu",
+    "userMenu": "User menu",
+    "navigation": "Navigation",
+    "menu": "Menu"
+  },
+  "pagination": {
+    "showing": "Showing {{from}}–{{to}} of {{total}}",
+    "pageOf": "Page {{current}} of {{total}}",
+    "prevPage": "Previous page",
+    "nextPage": "Next page"
+  },
+  "timeline": {
+    "title": "Timeline",
+    "weekDay": "Week {{week}} · Day {{day}}",
+    "startsIn": "Starts in {{count}}d",
+    "endedAgo": "Ended {{count}}d ago",
+    "dueToday": "Due today",
+    "daysLeft": "{{count}}d left",
+    "weeksLeft": "{{count}}w left",
+    "inProgress": "In progress",
+    "dayProgress": "{{elapsed}} / {{total}}d"
+  },
   "userMenu": {
     "profile": "Profile",
     "settings": "Settings",

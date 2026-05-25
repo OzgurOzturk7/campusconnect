@@ -5,13 +5,29 @@
   "sections": {
     "myProjects": "مشاريعي",
     "upcomingEvents": "الفعاليات القادمة",
+    "openProjects": "المشاريع المفتوحة",
+    "notifications": "الإشعارات",
     "recentActivity": "النشاط الأخير",
     "deadlines": "المواعيد النهائية القادمة"
+  },
+  "stats": {
+    "clubs": "النوادي",
+    "totalEvents": "إجمالي الفعاليات"
   },
   "empty": {
     "noProjects": "لم تنضم إلى أي مشروع بعد.",
     "noEvents": "لا توجد فعاليات قادمة.",
+    "noOpenProjects": "لا توجد مشاريع مفتوحة بعد.",
+    "noNotifications": "لا توجد إشعارات بعد.",
     "noActivity": "لا يوجد نشاط حديث.",
     "noDeadlines": "لا توجد مواعيد نهائية قادمة."
-  }
+  },
+  "actions": {
+    "browseEvents": "تصفّح الفعاليات",
+    "addToCalendar": "إضافة إلى التقويم",
+    "viewMoreEvents": "عرض المزيد من الفعاليات",
+    "viewProject": "عرض المشروع",
+    "viewAllNotifications": "عرض كل الإشعارات"
+  },
+  "attending": "{{count}} مشارك"
 }

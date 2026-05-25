@@ -1,0 +1,148 @@
+{
+  "backToProjects": "العودة إلى المشاريع",
+  "loadFailed": "تعذّر تحميل مساحة العمل",
+  "notFound": "مساحة العمل غير موجودة أو ليس لديك صلاحية الوصول.",
+  "memberCount": "{{count}} عضو",
+  "stageLabel": "المرحلة",
+  "stageUpdated": "تم تحديث المرحلة إلى {{stage}}",
+  "stageUpdateFailed": "تعذّر تحديث المرحلة",
+  "tabs": {
+    "overview": "نظرة عامة",
+    "chat": "دردشة الفريق",
+    "tasks": "المهام",
+    "members": "الأعضاء ({{count}})",
+    "resources": "الموارد",
+    "activity": "النشاط"
+  },
+  "stages": {
+    "recruiting": "التجنيد",
+    "planning": "التخطيط",
+    "development": "التطوير",
+    "testing": "الاختبار",
+    "launch": "الإطلاق",
+    "completed": "مكتمل"
+  },
+  "status": {
+    "open": "مفتوح",
+    "completed": "مكتمل",
+    "closed": "مغلق"
+  },
+  "columns": {
+    "todo": "للقيام به",
+    "in_progress": "قيد التنفيذ",
+    "review": "قيد المراجعة",
+    "done": "تم"
+  },
+  "priority": {
+    "low": "منخفض",
+    "medium": "متوسط",
+    "high": "عالٍ",
+    "urgent": "عاجل"
+  },
+  "priorityOption": {
+    "low": "أولوية منخفضة",
+    "medium": "أولوية متوسطة",
+    "high": "أولوية عالية",
+    "urgent": "عاجل"
+  },
+  "roles": {
+    "owner": "مالك",
+    "admin": "مسؤول",
+    "member": "عضو"
+  },
+  "overview": {
+    "taskProgress": "تقدّم المهام",
+    "tasksDone": "تم إنجاز {{done}} من {{total}} مهمة",
+    "noTasks": "لا توجد مهام بعد. انتقل إلى تبويب المهام للبدء.",
+    "projectInfo": "معلومات المشروع",
+    "roles": "الأدوار",
+    "team": "الفريق",
+    "activeMembers": "أعضاء نشطون",
+    "currentStage": "المرحلة الحالية",
+    "stepOf": "الخطوة {{step}} من {{total}}"
+  },
+  "chat": {
+    "noChat": "لم يتم العثور على دردشة المشروع.",
+    "subtitle": "{{count}} عضو · دردشة المشروع",
+    "teamMember": "عضو الفريق",
+    "attachment": "[مرفق]",
+    "noMessages": "لا توجد رسائل بعد. كن أول من يلقي التحية!",
+    "open": "فتح دردشة المشروع",
+    "footer": "تجربة الدردشة الكاملة مع التفاعلات ومشاركة الملفات والمزيد موجودة في قسم المحادثات."
+  },
+  "tasks": {
+    "loadFailed": "تعذّر تحميل المهام",
+    "created": "تم إنشاء المهمة!",
+    "createFailed": "تعذّر إنشاء المهمة",
+    "moveFailed": "تعذّر نقل المهمة",
+    "deleted": "تم حذف المهمة.",
+    "deleteFailed": "تعذّر حذف المهمة",
+    "updated": "تم تحديث المهمة",
+    "updateFailed": "تعذّر تحديث المهمة",
+    "titlePlaceholder": "عنوان المهمة…",
+    "noAssignee": "بدون مكلَّف",
+    "add": "إضافة",
+    "addTask": "إضافة مهمة",
+    "deleteConfirmTitle": "حذف هذه المهمة؟",
+    "deleteConfirmDesc": "لا يمكن التراجع عن هذا.",
+    "deleteConfirmLabel": "حذف",
+    "moveTo": "نقل إلى",
+    "assignee": "المكلَّف",
+    "unassigned": "غير مكلَّف",
+    "dueDate": "تاريخ الاستحقاق",
+    "comments": "التعليقات",
+    "noComments": "لا توجد تعليقات بعد.",
+    "commentPlaceholder": "أضف تعليقًا…",
+    "loadCommentsFailed": "تعذّر تحميل التعليقات",
+    "addCommentFailed": "تعذّر إضافة التعليق"
+  },
+  "members": {
+    "loadFailed": "تعذّر تحميل الأعضاء",
+    "removeConfirmTitle": "إزالة {{name}}؟",
+    "removeConfirmDesc": "سيفقد {{name}} الوصول إلى مساحة العمل هذه.",
+    "removeConfirmLabel": "إزالة",
+    "removed": "تمت إزالة {{name}} من مساحة العمل",
+    "removeFailed": "تعذّرت إزالة العضو",
+    "joinedLine": "{{role}} · انضم {{time}}"
+  },
+  "resources": {
+    "loadFailed": "تعذّر تحميل الموارد",
+    "added": "تمت إضافة المورد!",
+    "addFailed": "تعذّرت إضافة المورد",
+    "removed": "تمت إزالة المورد.",
+    "removeFailed": "تعذّرت إزالة المورد",
+    "addResource": "إضافة مورد",
+    "addShared": "إضافة مورد مشترك",
+    "title": "العنوان",
+    "titlePlaceholder": "مثال: مستودع المشروع",
+    "type": "النوع",
+    "url": "الرابط",
+    "empty": "لم تتم مشاركة موارد بعد.",
+    "emptyHint": "أضف مستودعات GitHub وملفات Figma وروابط Drive والمزيد.",
+    "by": "أضافه {{name}}",
+    "types": {
+      "github": "GitHub",
+      "figma": "Figma",
+      "drive": "Google Drive",
+      "notion": "Notion",
+      "meeting": "رابط اجتماع",
+      "link": "رابط آخر"
+    }
+  },
+  "activityTab": {
+    "empty": "لا يوجد نشاط بعد. ستظهر التغييرات هنا."
+  },
+  "activity": {
+    "workspace_created": "{{actor}} أنشأ مساحة العمل",
+    "member_joined": "{{actor}} انضم إلى مساحة العمل",
+    "member_removed": "{{actor}} تمت إزالته من مساحة العمل",
+    "task_created": "{{actor}} أنشأ مهمة «{{title}}»",
+    "task_moved": "{{actor}} نقل «{{title}}» من {{from}} → {{to}}",
+    "task_deleted": "{{actor}} حذف مهمة «{{title}}»",
+    "resource_added": "{{actor}} أضاف مورد «{{title}}»",
+    "resource_removed": "{{actor}} أزال موردًا",
+    "stage_updated": "{{actor}} حدّث مرحلة المشروع إلى {{stage}}",
+    "default": "{{actor}} قام بإجراء",
+    "someone": "شخص ما"
+  }
+}

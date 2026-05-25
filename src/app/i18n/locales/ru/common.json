@@ -49,6 +49,62 @@
     "hoursAgo": "{{count}} ч назад",
     "daysAgo": "{{count}} дн назад"
   },
+  "notificationsPage": {
+    "subtitleUnread_one": "У вас {{count}} непрочитанное уведомление.",
+    "subtitleUnread_few": "У вас {{count}} непрочитанных уведомления.",
+    "subtitleUnread_many": "У вас {{count}} непрочитанных уведомлений.",
+    "subtitleUnread_other": "У вас {{count}} непрочитанных уведомлений.",
+    "subtitleCaught": "Вы прочитали все уведомления.",
+    "markAllAsRead": "Прочитать все",
+    "clearAll": "Очистить все",
+    "selected": "Выбрано: {{count}}",
+    "deleteSelected": "Удалить выбранные",
+    "filterAll": "Все",
+    "filterUnread": "Непрочитанные",
+    "emptyUnreadTitle": "Нет непрочитанных уведомлений",
+    "emptyAllTitle": "Уведомлений пока нет",
+    "emptyUnreadBody": "Вы прочитали все уведомления!",
+    "emptyAllBody": "Здесь будут появляться ваши уведомления.",
+    "confirmClearAll": "Удалить все уведомления? Это действие нельзя отменить.",
+    "showing": "Показано {{from}}–{{to}} из {{total}}",
+    "pageOf": "Страница {{current}} из {{total}}",
+    "selectAria": "Выбрать уведомление: {{title}}",
+    "deleteAria": "Удалить уведомление",
+    "deleteTitle": "Удалить",
+    "prevPage": "Предыдущая страница",
+    "nextPage": "Следующая страница",
+    "types": {
+      "project": "Проект",
+      "club": "Клуб",
+      "event": "Событие",
+      "study": "Учёба",
+      "system": "Система"
+    }
+  },
+  "a11y": {
+    "openMenu": "Открыть меню",
+    "closeMenu": "Закрыть меню",
+    "userMenu": "Меню пользователя",
+    "navigation": "Навигация",
+    "menu": "Меню"
+  },
+  "pagination": {
+    "showing": "Показано {{from}}–{{to}} из {{total}}",
+    "pageOf": "Страница {{current}} из {{total}}",
+    "prevPage": "Предыдущая страница",
+    "nextPage": "Следующая страница"
+  },
+  "timeline": {
+    "title": "Хронология",
+    "weekDay": "Неделя {{week}} · День {{day}}",
+    "startsIn": "Начнётся через {{count}} дн.",
+    "endedAgo": "Завершён {{count}} дн. назад",
+    "dueToday": "Срок сегодня",
+    "daysLeft": "Осталось {{count}} дн.",
+    "weeksLeft": "Осталось {{count}} нед.",
+    "inProgress": "В процессе",
+    "dayProgress": "{{elapsed}} / {{total}} дн."
+  },
   "userMenu": {
     "profile": "Профиль",
     "settings": "Настройки",

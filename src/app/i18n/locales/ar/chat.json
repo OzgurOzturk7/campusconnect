@@ -1,26 +1,126 @@
 {
   "title": "المحادثات",
-  "newChat": "محادثة جديدة",
-  "search": "ابحث في المحادثات",
-  "empty": {
-    "list": "لا توجد محادثات بعد",
-    "messages": "لا توجد رسائل بعد. ألقِ التحية!"
+  "newChatTitle": "محادثة جديدة",
+  "searchChats": "ابحث في المحادثات...",
+  "noChatsFound": "لا توجد محادثات.",
+  "noChatsYet": "لا توجد محادثات بعد. ابدأ واحدة جديدة!",
+  "noMessagesShort": "لا توجد رسائل بعد",
+  "pinChat": "تثبيت المحادثة",
+  "unpinChat": "إلغاء التثبيت",
+  "directMessage": "رسالة مباشرة",
+  "groupChat": "محادثة جماعية",
+  "group": "مجموعة",
+  "selectChat": "اختر محادثة",
+  "selectChatHint": "اختر محادثة من القائمة أو ابدأ واحدة جديدة.",
+  "membersCount": "{{count}} عضو",
+  "directMessageLabel": "رسالة مباشرة",
+  "searchInChat": "البحث في المحادثة",
+  "pinnedMessages": "الرسائل المثبتة",
+  "filesMedia": "الملفات والوسائط",
+  "mute": "كتم",
+  "unmute": "إلغاء الكتم",
+  "more": "المزيد",
+  "deleteChat": "حذف المحادثة",
+  "leaveGroup": "مغادرة المجموعة",
+  "deleteEntireGroup": "حذف المجموعة بالكامل",
+  "searchInThisChat": "ابحث في هذه المحادثة...",
+  "matches": "{{count}} نتيجة",
+  "pinned": "المثبتة",
+  "noPinned": "لا توجد رسائل مثبتة.",
+  "unknown": "غير معروف",
+  "attachment": "[مرفق]",
+  "filesMediaTitle": "الملفات والوسائط",
+  "noFiles": "لم تتم مشاركة ملفات بعد.",
+  "file": "ملف",
+  "noMessagesSayHi": "لا توجد رسائل بعد. ألقِ التحية 👋",
+  "noSearchMatch": "لا توجد رسائل تطابق بحثك.",
+  "messageDeleted": "تم حذف هذه الرسالة",
+  "edited": "مُعدّلة",
+  "react": "تفاعل",
+  "reply": "رد",
+  "pin": "تثبيت",
+  "unpin": "إلغاء التثبيت",
+  "delete": "حذف",
+  "report": "إبلاغ",
+  "today": "اليوم",
+  "yesterday": "أمس",
+  "typingOne": "{{name}} يكتب...",
+  "typingMany": "{{count}} أشخاص يكتبون...",
+  "filePending": "{{kb}} كيلوبايت · أضف تعليقًا (اختياري) واضغط إرسال",
+  "replyingTo": "رد على {{name}}",
+  "typeMessage": "اكتب رسالة...",
+  "attachFile": "إرفاق ملف",
+  "send": "إرسال",
+  "attachmentPreview": {
+    "image": "📷 صورة",
+    "video": "🎬 فيديو",
+    "file": "📎 ملف",
+    "audio": "🎤 صوت"
   },
-  "input": {
-    "placeholder": "اكتب رسالة...",
-    "send": "إرسال",
-    "attach": "إرفاق ملف"
+  "relative": {
+    "now": "الآن",
+    "min": "{{count}} د",
+    "hour": "{{count}} س",
+    "day": "{{count}} ي"
   },
-  "owner": {
-    "label": "المالك",
+  "toast": {
+    "sendFailed": "تعذّر إرسال الرسالة",
+    "maxFileSize": "أقصى حجم للملف 25 ميجابايت",
+    "reactionFailed": "فشل",
+    "pinFailed": "تعذّر التثبيت",
+    "deleteMsgFailed": "تعذّر حذف الرسالة",
+    "actionFailed": "فشل الإجراء",
+    "deleteChatFailed": "تعذّر حذف المحادثة",
+    "loadFilesFailed": "تعذّر تحميل الملفات"
+  },
+  "deleteMsg": {
+    "title": "حذف هذه الرسالة؟",
+    "desc": "لا يمكن التراجع عن هذا الإجراء.",
+    "confirm": "حذف"
+  },
+  "confirmModal": {
+    "fullTitle": "حذف المجموعة بالكامل",
+    "deleteChatTitle": "حذف المحادثة",
+    "leaveGroupTitle": "مغادرة المجموعة",
+    "fullBody": "سيؤدي هذا إلى حذف «{{title}}» نهائيًا للجميع. لا يمكن التراجع عن هذا.",
+    "directBody": "ستُزال هذه المحادثة من قائمتك. لا يزال بإمكان الطرف الآخر رؤيتها؛ وإذا أرسل رسالة جديدة ستظهر مجددًا.",
+    "leaveBody": "ستغادر «{{title}}» وتتوقف عن تلقّي رسائلها.",
+    "deleteForever": "حذف نهائي",
+    "delete": "حذف",
+    "leave": "مغادرة"
+  },
+  "newChat": {
+    "title": "محادثة جديدة",
+    "groupNamePlaceholder": "اسم المجموعة (اختياري)",
+    "searchPlaceholder": "ابحث عن الطلاب بالاسم...",
+    "typeToSearch": "اكتب حرفين على الأقل للبحث.",
+    "noUsers": "لا يوجد مستخدمون.",
+    "createGroup": "إنشاء مجموعة",
+    "startChat": "بدء محادثة",
+    "errorTitle": "تعذّر بدء المحادثة",
+    "errorBody": "حدث خطأ ما أثناء إنشاء المحادثة.",
+    "errorHint": "يُرجى المحاولة بعد لحظات.",
+    "defaultGroupTitle": "{{name}} و{{count}} آخرين"
+  },
+  "members": {
+    "profile": "الملف الشخصي",
+    "title": "الأعضاء",
+    "personOne": "{{count}} شخص",
+    "personMany": "{{count}} أشخاص",
     "addMember": "إضافة عضو",
-    "removeMember": "إزالة عضو",
-    "confirmRemove": "هل تريد إزالة {{name}} من هذه المجموعة؟"
+    "removeConfirmTitle": "إزالة {{name}}؟",
+    "removeConfirmDesc": "سيفقد {{name}} الوصول إلى هذه المجموعة.",
+    "removeConfirmLabel": "إزالة",
+    "removed": "تمت إزالة {{name}}",
+    "removeFailed": "تعذّرت إزالة العضو",
+    "you": "(أنت)",
+    "owner": "المالك",
+    "removeAria": "إزالة {{name}}"
   },
-  "mute": {
-    "mute": "كتم",
-    "unmute": "إلغاء الكتم",
-    "muted": "مكتوم"
-  },
-  "deleted": "تم حذف الرسالة"
+  "addMember": {
+    "searchPlaceholder": "ابحث عن مستخدمين لإضافتهم...",
+    "cancel": "إلغاء",
+    "noMatches": "لا توجد نتائج.",
+    "addFailed": "تعذّرت إضافة العضو"
+  }
 }

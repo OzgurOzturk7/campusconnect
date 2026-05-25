@@ -49,6 +49,64 @@
     "hoursAgo": "منذ {{count}} س",
     "daysAgo": "منذ {{count}} ي"
   },
+  "notificationsPage": {
+    "subtitleUnread_zero": "ليس لديك إشعارات غير مقروءة.",
+    "subtitleUnread_one": "لديك إشعار واحد غير مقروء.",
+    "subtitleUnread_two": "لديك إشعاران غير مقروءين.",
+    "subtitleUnread_few": "لديك {{count}} إشعارات غير مقروءة.",
+    "subtitleUnread_many": "لديك {{count}} إشعارًا غير مقروء.",
+    "subtitleUnread_other": "لديك {{count}} إشعار غير مقروء.",
+    "subtitleCaught": "لقد اطلعت على كل الإشعارات.",
+    "markAllAsRead": "تعليم الكل كمقروء",
+    "clearAll": "مسح الكل",
+    "selected": "{{count}} محدد",
+    "deleteSelected": "حذف المحدد",
+    "filterAll": "الكل",
+    "filterUnread": "غير المقروءة",
+    "emptyUnreadTitle": "لا توجد إشعارات غير مقروءة",
+    "emptyAllTitle": "لا توجد إشعارات بعد",
+    "emptyUnreadBody": "لقد اطلعت على كل الإشعارات!",
+    "emptyAllBody": "ستظهر إشعاراتك هنا.",
+    "confirmClearAll": "هل تريد حذف جميع الإشعارات؟ لا يمكن التراجع عن هذا الإجراء.",
+    "showing": "عرض {{from}}–{{to}} من {{total}}",
+    "pageOf": "صفحة {{current}} من {{total}}",
+    "selectAria": "تحديد الإشعار: {{title}}",
+    "deleteAria": "حذف الإشعار",
+    "deleteTitle": "حذف",
+    "prevPage": "الصفحة السابقة",
+    "nextPage": "الصفحة التالية",
+    "types": {
+      "project": "مشروع",
+      "club": "نادٍ",
+      "event": "فعالية",
+      "study": "دراسة",
+      "system": "النظام"
+    }
+  },
+  "a11y": {
+    "openMenu": "فتح القائمة",
+    "closeMenu": "إغلاق القائمة",
+    "userMenu": "قائمة المستخدم",
+    "navigation": "التنقل",
+    "menu": "القائمة"
+  },
+  "pagination": {
+    "showing": "عرض {{from}}–{{to}} من {{total}}",
+    "pageOf": "صفحة {{current}} من {{total}}",
+    "prevPage": "الصفحة السابقة",
+    "nextPage": "الصفحة التالية"
+  },
+  "timeline": {
+    "title": "الجدول الزمني",
+    "weekDay": "الأسبوع {{week}} · اليوم {{day}}",
+    "startsIn": "يبدأ خلال {{count}} يوم",
+    "endedAgo": "انتهى منذ {{count}} يوم",
+    "dueToday": "مستحق اليوم",
+    "daysLeft": "بقي {{count}} يوم",
+    "weeksLeft": "بقي {{count}} أسبوع",
+    "inProgress": "قيد التنفيذ",
+    "dayProgress": "{{elapsed}} / {{total}} يوم"
+  },
   "userMenu": {
     "profile": "الملف الشخصي",
     "settings": "الإعدادات",

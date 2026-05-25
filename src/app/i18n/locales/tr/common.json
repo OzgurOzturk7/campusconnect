@@ -49,6 +49,60 @@
     "hoursAgo": "{{count}}sa önce",
     "daysAgo": "{{count}}g önce"
   },
+  "notificationsPage": {
+    "subtitleUnread_one": "{{count}} okunmamış bildirimin var.",
+    "subtitleUnread_other": "{{count}} okunmamış bildirimin var.",
+    "subtitleCaught": "Hepsini gördün.",
+    "markAllAsRead": "Tümünü okundu işaretle",
+    "clearAll": "Tümünü temizle",
+    "selected": "{{count}} seçili",
+    "deleteSelected": "Seçilenleri sil",
+    "filterAll": "Tümü",
+    "filterUnread": "Okunmamış",
+    "emptyUnreadTitle": "Okunmamış bildirim yok",
+    "emptyAllTitle": "Henüz bildirim yok",
+    "emptyUnreadBody": "Hepsini gördün!",
+    "emptyAllBody": "Bildirimlerin burada görünecek.",
+    "confirmClearAll": "Tüm bildirimler silinsin mi? Bu işlem geri alınamaz.",
+    "showing": "{{total}} bildirimden {{from}}–{{to}} arası gösteriliyor",
+    "pageOf": "Sayfa {{current}} / {{total}}",
+    "selectAria": "Bildirimi seç: {{title}}",
+    "deleteAria": "Bildirimi sil",
+    "deleteTitle": "Sil",
+    "prevPage": "Önceki sayfa",
+    "nextPage": "Sonraki sayfa",
+    "types": {
+      "project": "Proje",
+      "club": "Kulüp",
+      "event": "Etkinlik",
+      "study": "Çalışma",
+      "system": "Sistem"
+    }
+  },
+  "a11y": {
+    "openMenu": "Menüyü aç",
+    "closeMenu": "Menüyü kapat",
+    "userMenu": "Kullanıcı menüsü",
+    "navigation": "Gezinme",
+    "menu": "Menü"
+  },
+  "pagination": {
+    "showing": "{{total}} öğeden {{from}}–{{to}} arası gösteriliyor",
+    "pageOf": "Sayfa {{current}} / {{total}}",
+    "prevPage": "Önceki sayfa",
+    "nextPage": "Sonraki sayfa"
+  },
+  "timeline": {
+    "title": "Zaman Çizelgesi",
+    "weekDay": "Hafta {{week}} · Gün {{day}}",
+    "startsIn": "{{count}}g sonra başlıyor",
+    "endedAgo": "{{count}}g önce bitti",
+    "dueToday": "Bugün son gün",
+    "daysLeft": "{{count}}g kaldı",
+    "weeksLeft": "{{count}}h kaldı",
+    "inProgress": "Devam ediyor",
+    "dayProgress": "{{elapsed}} / {{total}}g"
+  },
   "userMenu": {
     "profile": "Profil",
     "settings": "Ayarlar",

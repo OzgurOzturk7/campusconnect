@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { useParams, useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft, Loader2, LayoutDashboard, MessageCircle, CheckSquare,
   Users, Link2, Activity, Plus, X, Github, Figma, HardDrive,
@@ -125,13 +126,14 @@ const ROLE_ICONS = { owner: Crown, admin: Shield, member: UserCircle };
 
 function DeleteTaskButton({ onDelete }: { onDelete: () => void }) {
   const { confirm } = useConfirm();
+  const { t } = useTranslation("workspace");
   return (
     <button
       onClick={async () => {
         const ok = await confirm({
-          title: "Delete this task?",
-          description: "This can't be undone.",
-          confirmLabel: "Delete",
+          title: t("tasks.deleteConfirmTitle"),
+          description: t("tasks.deleteConfirmDesc"),
+          confirmLabel: t("tasks.deleteConfirmLabel"),
           tone: "danger",
         });
         if (ok) onDelete();
@@ -143,32 +145,36 @@ function DeleteTaskButton({ onDelete }: { onDelete: () => void }) {
   );
 }
 
-function timeAgo(dateStr: string) {
+type TFunc = (key: string, opts?: Record<string, unknown>) => string;
+
+function timeAgo(dateStr: string, tc: TFunc, locale: string) {
   const diff = Date.now() - new Date(dateStr).getTime();
   const m = Math.floor(diff / 60000);
-  if (m < 1) return "just now";
-  if (m < 60) return `${m}m ago`;
+  if (m < 1) return tc("notifications.justNow");
+  if (m < 60) return tc("notifications.minutesAgo", { count: m });
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
+  if (h < 24) return tc("notifications.hoursAgo", { count: h });
   const d = Math.floor(h / 24);
-  if (d < 7) return `${d}d ago`;
-  return new Date(dateStr).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  if (d < 7) return tc("notifications.daysAgo", { count: d });
+  return new Date(dateStr).toLocaleDateString(locale, { month: "short", day: "numeric" });
 }
 
-function activityLabel(log: ActivityLog): string {
-  const actor = log.actor?.name || "Someone";
+function activityLabel(log: ActivityLog, t: TFunc): string {
+  const actor = log.actor?.name || t("activity.someone");
   const m = log.metadata as Record<string, string>;
+  const stageName = (s?: string) => (s ? t(`stages.${s}`, { defaultValue: s }) : "");
+  const colName = (s?: string) => (s ? t(`columns.${s}`, { defaultValue: s }) : "");
   switch (log.action) {
-    case "workspace_created": return `${actor} created the workspace`;
-    case "member_joined": return `${actor} joined the workspace`;
-    case "member_removed": return `${actor} was removed from the workspace`;
-    case "task_created": return `${actor} created task "${m.title}"`;
-    case "task_moved": return `${actor} moved "${m.title}" from ${m.from?.replace("_", " ")} → ${m.to?.replace("_", " ")}`;
-    case "task_deleted": return `${actor} deleted task "${m.title}"`;
-    case "resource_added": return `${actor} added resource "${m.title}"`;
-    case "resource_removed": return `${actor} removed a resource`;
-    case "stage_updated": return `${actor} updated project stage to ${m.stage}`;
-    default: return `${actor} performed an action`;
+    case "workspace_created": return t("activity.workspace_created", { actor });
+    case "member_joined": return t("activity.member_joined", { actor });
+    case "member_removed": return t("activity.member_removed", { actor });
+    case "task_created": return t("activity.task_created", { actor, title: m.title });
+    case "task_moved": return t("activity.task_moved", { actor, title: m.title, from: colName(m.from), to: colName(m.to) });
+    case "task_deleted": return t("activity.task_deleted", { actor, title: m.title });
+    case "resource_added": return t("activity.resource_added", { actor, title: m.title });
+    case "resource_removed": return t("activity.resource_removed", { actor });
+    case "stage_updated": return t("activity.stage_updated", { actor, stage: stageName(m.stage) });
+    default: return t("activity.default", { actor });
   }
 }
 
@@ -177,6 +183,7 @@ function activityLabel(log: ActivityLog): string {
 // ══════════════════════════════════════════════════════════════
 
 export function Workspace() {
+  const { t } = useTranslation("workspace");
   const { projectId } = useParams<{ projectId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -204,7 +211,7 @@ export function Workspace() {
       const data = await apiFetch(`/api/workspaces/project/${projectId}`);
       setWorkspace(data);
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Failed to load workspace");
+      setError(e instanceof Error ? e.message : t("loadFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -240,23 +247,23 @@ export function Workspace() {
     return (
       <div className="space-y-4">
         <button onClick={() => navigate("/projects")} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground">
-          <ArrowLeft className="w-4 h-4" /> Back to Projects
+          <ArrowLeft className="w-4 h-4" /> {t("backToProjects")}
         </button>
         <Card className="p-12 text-center">
           <AlertCircle className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-          <p className="text-muted-foreground">{error || "Workspace not found or you don't have access."}</p>
+          <p className="text-muted-foreground">{error || t("notFound")}</p>
         </Card>
       </div>
     );
   }
 
   const tabs = [
-    { key: "overview", label: "Overview", icon: LayoutDashboard },
-    { key: "chat", label: "Team Chat", icon: MessageCircle },
-    { key: "tasks", label: "Tasks", icon: CheckSquare },
-    { key: "members", label: `Members (${workspace.member_count})`, icon: Users },
-    { key: "resources", label: "Resources", icon: Link2 },
-    { key: "activity", label: "Activity", icon: Activity },
+    { key: "overview", label: t("tabs.overview"), icon: LayoutDashboard },
+    { key: "chat", label: t("tabs.chat"), icon: MessageCircle },
+    { key: "tasks", label: t("tabs.tasks"), icon: CheckSquare },
+    { key: "members", label: t("tabs.members", { count: workspace.member_count }), icon: Users },
+    { key: "resources", label: t("tabs.resources"), icon: Link2 },
+    { key: "activity", label: t("tabs.activity"), icon: Activity },
   ] as const;
 
   return (
@@ -272,7 +279,7 @@ export function Workspace() {
 
       {/* Back nav */}
       <button onClick={() => navigate("/projects")} className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors">
-        <ArrowLeft className="w-4 h-4" /> Back to Projects
+        <ArrowLeft className="w-4 h-4" /> {t("backToProjects")}
       </button>
 
       {/* Workspace Header */}
@@ -285,9 +292,9 @@ export function Workspace() {
               body: JSON.stringify({ stage }),
             });
             setWorkspace((w) => w ? { ...w, stage } : w);
-            showToast(`Stage updated to ${stage}`);
+            showToast(t("stageUpdated", { stage: t(`stages.${stage}`, { defaultValue: stage }) }));
           } catch (e: unknown) {
-            showToast(e instanceof Error ? e.message : "Failed to update stage", false);
+            showToast(e instanceof Error ? e.message : t("stageUpdateFailed"), false);
           }
         }}
       />
@@ -359,6 +366,7 @@ function WorkspaceHeader({
   workspace: WorkspaceData;
   onStageChange: (stage: string) => void;
 }) {
+  const { t } = useTranslation("workspace");
   const [stageOpen, setStageOpen] = useState(false);
   const canEditStage = workspace.my_role === "owner" || workspace.my_role === "admin";
 
@@ -375,7 +383,7 @@ function WorkspaceHeader({
                 ? "bg-blue-100 text-blue-700"
                 : "bg-muted text-muted-foreground"
             }`}>
-              {workspace.project.status}
+              {t(`status.${workspace.project.status}`, { defaultValue: workspace.project.status })}
             </span>
           </div>
           <p className="text-sm text-muted-foreground line-clamp-2 mb-3">{workspace.project.description}</p>
@@ -386,7 +394,7 @@ function WorkspaceHeader({
           </div>
           <div className="flex flex-wrap gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5">
-              <Users className="w-4 h-4" /> {workspace.member_count} member{workspace.member_count !== 1 ? "s" : ""}
+              <Users className="w-4 h-4" /> {t("memberCount", { count: workspace.member_count })}
             </span>
             {workspace.project.github_url && (
               <a href={workspace.project.github_url} target="_blank" rel="noopener noreferrer"
@@ -404,14 +412,14 @@ function WorkspaceHeader({
 
         {/* Stage selector */}
         <div className="relative flex-shrink-0">
-          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Stage</p>
+          <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t("stageLabel")}</p>
           <button
             onClick={() => canEditStage && setStageOpen(!stageOpen)}
             className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium transition-colors ${
               STAGE_COLORS[workspace.stage]
             } ${canEditStage ? "cursor-pointer hover:opacity-80" : "cursor-default"}`}
           >
-            <span className="capitalize">{workspace.stage}</span>
+            <span>{t(`stages.${workspace.stage}`, { defaultValue: workspace.stage })}</span>
             {canEditStage && <ChevronDown className="w-3.5 h-3.5" />}
           </button>
           {stageOpen && canEditStage && (
@@ -420,11 +428,11 @@ function WorkspaceHeader({
                 <button
                   key={s}
                   onClick={() => { onStageChange(s); setStageOpen(false); }}
-                  className={`w-full text-left px-4 py-2 text-sm capitalize hover:bg-muted transition-colors ${
+                  className={`w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors ${
                     workspace.stage === s ? "font-semibold text-primary" : ""
                   }`}
                 >
-                  {s}
+                  {t(`stages.${s}`, { defaultValue: s })}
                 </button>
               ))}
             </div>
@@ -448,7 +456,7 @@ function WorkspaceHeader({
         </div>
         <div className="flex justify-between mt-1">
           {STAGES.map((s) => (
-            <span key={s} className="text-[10px] text-muted-foreground capitalize hidden sm:block">{s}</span>
+            <span key={s} className="text-[10px] text-muted-foreground hidden sm:block">{t(`stages.${s}`, { defaultValue: s })}</span>
           ))}
         </div>
       </div>
@@ -459,6 +467,7 @@ function WorkspaceHeader({
 // ── Overview Tab ───────────────────────────────────────────────
 
 function OverviewTab({ workspace }: { workspace: WorkspaceData }) {
+  const { t } = useTranslation("workspace");
   const tc = workspace.task_counts;
   const total = Object.values(tc).reduce((a, b) => a + b, 0);
   const done = tc.done || 0;
@@ -471,7 +480,7 @@ function OverviewTab({ workspace }: { workspace: WorkspaceData }) {
         {/* Task overview */}
         <Card className="p-5">
           <h3 className="font-bold mb-4 flex items-center gap-2">
-            <CheckSquare className="w-4 h-4 text-primary" /> Task Progress
+            <CheckSquare className="w-4 h-4 text-primary" /> {t("overview.taskProgress")}
           </h3>
           {/* Stats grid — 2 columns on phones (so 4 boxes fit snugly in
               a 2×2), 4 columns from sm: up. Previous flex-wrap could
@@ -479,21 +488,21 @@ function OverviewTab({ workspace }: { workspace: WorkspaceData }) {
               the card's inner width. */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3 mb-4">
             {[
-              { key: "todo", label: "To Do", color: "bg-muted text-muted-foreground" },
-              { key: "in_progress", label: "In Progress", color: "bg-blue-100 text-blue-700" },
-              { key: "review", label: "Review", color: "bg-amber-100 text-amber-700" },
-              { key: "done", label: "Done", color: "bg-green-100 text-green-700" },
-            ].map(({ key, label, color }) => (
+              { key: "todo", color: "bg-muted text-muted-foreground" },
+              { key: "in_progress", color: "bg-blue-100 text-blue-700" },
+              { key: "review", color: "bg-amber-100 text-amber-700" },
+              { key: "done", color: "bg-green-100 text-green-700" },
+            ].map(({ key, color }) => (
               <div key={key} className={`rounded-xl p-3 text-center ${color}`}>
                 <p className="text-2xl font-bold">{tc[key] || 0}</p>
-                <p className="text-xs font-medium mt-0.5">{label}</p>
+                <p className="text-xs font-medium mt-0.5">{t(`columns.${key}`)}</p>
               </div>
             ))}
           </div>
           {total > 0 && (
             <>
               <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                <span>{done} of {total} tasks done</span>
+                <span>{t("overview.tasksDone", { done, total })}</span>
                 <span>{progress}%</span>
               </div>
               <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -502,19 +511,19 @@ function OverviewTab({ workspace }: { workspace: WorkspaceData }) {
             </>
           )}
           {total === 0 && (
-            <p className="text-sm text-muted-foreground italic">No tasks yet. Head to the Tasks tab to get started.</p>
+            <p className="text-sm text-muted-foreground italic">{t("overview.noTasks")}</p>
           )}
         </Card>
 
         {/* Project details */}
         <Card className="p-5">
           <h3 className="font-bold mb-3 flex items-center gap-2">
-            <LayoutDashboard className="w-4 h-4 text-primary" /> Project Info
+            <LayoutDashboard className="w-4 h-4 text-primary" /> {t("overview.projectInfo")}
           </h3>
           <p className="text-sm text-muted-foreground leading-relaxed mb-4">{workspace.project.description}</p>
           {(workspace.project.roles_needed || []).length > 0 && (
             <div>
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Roles</p>
+              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("overview.roles")}</p>
               <div className="flex flex-wrap gap-2">
                 {workspace.project.roles_needed.map((r) => (
                   <Tag key={r} variant="muted" className="text-xs">{r}</Tag>
@@ -529,21 +538,21 @@ function OverviewTab({ workspace }: { workspace: WorkspaceData }) {
       <div className="space-y-6">
         <Card className="p-5">
           <h3 className="font-bold mb-3 flex items-center gap-2">
-            <Users className="w-4 h-4 text-primary" /> Team
+            <Users className="w-4 h-4 text-primary" /> {t("overview.team")}
           </h3>
           <p className="text-3xl font-bold text-primary">{workspace.member_count}</p>
-          <p className="text-sm text-muted-foreground">active members</p>
+          <p className="text-sm text-muted-foreground">{t("overview.activeMembers")}</p>
         </Card>
 
         <Card className="p-5">
           <h3 className="font-bold mb-3 flex items-center gap-2">
-            <Circle className="w-4 h-4 text-primary" /> Current Stage
+            <Circle className="w-4 h-4 text-primary" /> {t("overview.currentStage")}
           </h3>
-          <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold capitalize ${STAGE_COLORS[workspace.stage]}`}>
-            {workspace.stage}
+          <span className={`inline-block px-3 py-1.5 rounded-lg text-sm font-semibold ${STAGE_COLORS[workspace.stage]}`}>
+            {t(`stages.${workspace.stage}`, { defaultValue: workspace.stage })}
           </span>
           <p className="text-xs text-muted-foreground mt-2">
-            Step {STAGES.indexOf(workspace.stage as typeof STAGES[number]) + 1} of {STAGES.length}
+            {t("overview.stepOf", { step: STAGES.indexOf(workspace.stage as typeof STAGES[number]) + 1, total: STAGES.length })}
           </p>
         </Card>
       </div>
@@ -562,6 +571,8 @@ function ChatBridgeTab({
   projectTitle: string;
   memberCount: number;
 }) {
+  const { t, i18n } = useTranslation("workspace");
+  const { t: tc } = useTranslation("common");
   const navigate = useNavigate();
   const [lastMessage, setLastMessage] = useState<{
     body?: string;
@@ -585,7 +596,7 @@ function ChatBridgeTab({
     return (
       <Card className="p-12 text-center">
         <MessageCircle className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-        <p className="text-muted-foreground">No project chat found.</p>
+        <p className="text-muted-foreground">{t("chat.noChat")}</p>
       </Card>
     );
   }
@@ -598,7 +609,7 @@ function ChatBridgeTab({
         </div>
         <div>
           <h3 className="font-bold text-lg">{projectTitle}</h3>
-          <p className="text-sm text-muted-foreground">{memberCount} member{memberCount !== 1 ? "s" : ""} · Project chat</p>
+          <p className="text-sm text-muted-foreground">{t("chat.subtitle", { count: memberCount })}</p>
         </div>
       </div>
 
@@ -609,20 +620,20 @@ function ChatBridgeTab({
         ) : lastMessage ? (
           <div className="w-full">
             <p className="text-xs font-semibold text-muted-foreground mb-1">
-              {lastMessage.sender?.name || "Team member"} · {timeAgo(lastMessage.created_at)}
+              {lastMessage.sender?.name || t("chat.teamMember")} · {timeAgo(lastMessage.created_at, tc, i18n.language)}
             </p>
-            <p className="text-sm line-clamp-2">{lastMessage.body || "[attachment]"}</p>
+            <p className="text-sm line-clamp-2">{lastMessage.body || t("chat.attachment")}</p>
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground italic w-full text-center">No messages yet. Be the first to say hello!</p>
+          <p className="text-sm text-muted-foreground italic w-full text-center">{t("chat.noMessages")}</p>
         )}
       </div>
 
       <Button className="w-full" onClick={() => navigate(`/chats?chatId=${chatId}`)}>
-        Open Project Chat <ArrowRight className="w-4 h-4 ml-2" />
+        {t("chat.open")} <ArrowRight className="w-4 h-4 ml-2" />
       </Button>
       <p className="text-xs text-muted-foreground text-center mt-3">
-        The full chat experience lives in the Chats section with reactions, file sharing, and more.
+        {t("chat.footer")}
       </p>
     </Card>
   );
@@ -662,6 +673,8 @@ function TasksTab({
   showToast: (msg: string, ok?: boolean) => void;
   onTaskCountChange: (changes: Array<{ status: Task["status"]; delta: number }>) => void;
 }) {
+  const { t, i18n } = useTranslation("workspace");
+  const { t: tc } = useTranslation("common");
   const [tasks, setTasks] = useState<Task[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -734,7 +747,7 @@ function TasksTab({
       setTasks(tasksData || []);
       setMembers(membersData || []);
     } catch {
-      showToast("Failed to load tasks", false);
+      showToast(t("tasks.loadFailed"), false);
     } finally {
       setIsLoading(false);
     }
@@ -769,9 +782,9 @@ function TasksTab({
       onTaskCountChange([{ status, delta: 1 }]);
       setShowCreate(null);
       setForm({ ...DEFAULT_FORM });
-      showToast("Task created!");
+      showToast(t("tasks.created"));
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : "Failed to create task", false);
+      showToast(e instanceof Error ? e.message : t("tasks.createFailed"), false);
     } finally {
       setIsCreating(false);
     }
@@ -793,7 +806,7 @@ function TasksTab({
     } catch (e: unknown) {
       setTasks((prev) => prev.map((t) => t.id === taskId ? { ...t, status: oldStatus } : t));
       onTaskCountChange([{ status: newStatus, delta: -1 }, { status: oldStatus, delta: 1 }]);
-      showToast(e instanceof Error ? e.message : "Failed to move task", false);
+      showToast(e instanceof Error ? e.message : t("tasks.moveFailed"), false);
     }
   }
 
@@ -804,9 +817,9 @@ function TasksTab({
       setTasks((prev) => prev.filter((t) => t.id !== taskId));
       if (task) onTaskCountChange([{ status: task.status, delta: -1 }]);
       setSelectedTask(null);
-      showToast("Task deleted.");
+      showToast(t("tasks.deleted"));
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : "Failed to delete task", false);
+      showToast(e instanceof Error ? e.message : t("tasks.deleteFailed"), false);
     }
   }
 
@@ -844,7 +857,7 @@ function TasksTab({
               }}
             >
               <div className="flex items-center justify-between mb-3">
-                <h3 className="font-semibold text-sm">{col.label}</h3>
+                <h3 className="font-semibold text-sm">{t(`columns.${col.key}`)}</h3>
                 <span className="text-xs bg-card border border-border rounded-full px-2 py-0.5 font-medium">
                   {colTasks.length}
                 </span>
@@ -865,7 +878,7 @@ function TasksTab({
                     <div className="flex items-start justify-between gap-2 mb-2">
                       <p className="font-medium text-sm leading-snug">{task.title}</p>
                       <span className={`text-xs px-1.5 py-0.5 rounded font-medium flex-shrink-0 ${PRIORITY_BG[task.priority]}`}>
-                        {task.priority}
+                        {t(`priority.${task.priority}`, { defaultValue: task.priority })}
                       </span>
                     </div>
                     {task.description && (
@@ -875,7 +888,7 @@ function TasksTab({
                       {task.due_date && (
                         <span className="text-[10px] text-muted-foreground flex items-center gap-1">
                           <Calendar className="w-3 h-3" />
-                          {new Date(task.due_date).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+                          {new Date(task.due_date).toLocaleDateString(i18n.language, { month: "short", day: "numeric" })}
                         </span>
                       )}
                       {task.assignee && (
@@ -896,7 +909,7 @@ function TasksTab({
                       if (e.key === "Enter") createTask(col.key);
                       if (e.key === "Escape") setShowCreate(null);
                     }}
-                    placeholder="Task title…"
+                    placeholder={t("tasks.titlePlaceholder")}
                     className="w-full text-sm bg-muted px-2 py-1.5 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
                   />
                   <select
@@ -904,17 +917,17 @@ function TasksTab({
                     onChange={(e) => setForm({ ...form, priority: e.target.value as Task["priority"] })}
                     className="w-full text-xs bg-muted px-2 py-1.5 rounded-lg border border-border focus:outline-none"
                   >
-                    <option value="low">Low priority</option>
-                    <option value="medium">Medium priority</option>
-                    <option value="high">High priority</option>
-                    <option value="urgent">Urgent</option>
+                    <option value="low">{t("priorityOption.low")}</option>
+                    <option value="medium">{t("priorityOption.medium")}</option>
+                    <option value="high">{t("priorityOption.high")}</option>
+                    <option value="urgent">{t("priorityOption.urgent")}</option>
                   </select>
                   <select
                     value={form.assignee_id}
                     onChange={(e) => setForm({ ...form, assignee_id: e.target.value })}
                     className="w-full text-xs bg-muted px-2 py-1.5 rounded-lg border border-border focus:outline-none"
                   >
-                    <option value="">No assignee</option>
+                    <option value="">{t("tasks.noAssignee")}</option>
                     {members.map((m) => (
                       <option key={m.user_id} value={m.user_id}>{m.user?.name}</option>
                     ))}
@@ -933,10 +946,10 @@ function TasksTab({
                       onClick={() => createTask(col.key)}
                       disabled={!form.title.trim() || isCreating}
                     >
-                      {isCreating ? <Loader2 className="w-3 h-3 animate-spin" /> : "Add"}
+                      {isCreating ? <Loader2 className="w-3 h-3 animate-spin" /> : t("tasks.add")}
                     </Button>
                     <Button size="sm" variant="outline" onClick={() => setShowCreate(null)}>
-                      Cancel
+                      {tc("actions.cancel")}
                     </Button>
                   </div>
                 </div>
@@ -945,7 +958,7 @@ function TasksTab({
                   onClick={() => openCreate(col.key)}
                   className="mt-2 w-full flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground px-2 py-1.5 rounded-lg hover:bg-card/60 transition-colors"
                 >
-                  <Plus className="w-3.5 h-3.5" /> Add task
+                  <Plus className="w-3.5 h-3.5" /> {t("tasks.addTask")}
                 </button>
               )}
             </div>
@@ -977,9 +990,9 @@ function TasksTab({
                   { status: updates.status as Task["status"], delta: 1 },
                 ]);
               }
-              showToast("Task updated");
+              showToast(t("tasks.updated"));
             } catch (e: unknown) {
-              showToast(e instanceof Error ? e.message : "Failed to update task", false);
+              showToast(e instanceof Error ? e.message : t("tasks.updateFailed"), false);
             }
           }}
           showToast={showToast}
@@ -1012,6 +1025,8 @@ function TaskDetailModal({
   onUpdate: (updates: Record<string, unknown>) => Promise<void>;
   showToast: (msg: string, ok?: boolean) => void;
 }) {
+  const { t, i18n } = useTranslation("workspace");
+  const { t: tc } = useTranslation("common");
   const [comments, setComments] = useState<Array<{
     id: string; body: string; created_at: string;
     user?: { id: string; name: string; avatar_url?: string };
@@ -1034,7 +1049,7 @@ function TaskDetailModal({
   useEffect(() => {
     apiFetch(`/api/workspaces/${workspaceId}/tasks/${task.id}/comments`)
       .then(setComments)
-      .catch(() => showToast("Failed to load comments", false))
+      .catch(() => showToast(t("tasks.loadCommentsFailed"), false))
       .finally(() => setIsLoadingComments(false));
   }, [task.id]);
 
@@ -1049,7 +1064,7 @@ function TaskDetailModal({
       setComments((prev) => [...prev, c]);
       setCommentInput("");
     } catch {
-      showToast("Failed to add comment", false);
+      showToast(t("tasks.addCommentFailed"), false);
     } finally {
       setIsSendingComment(false);
     }
@@ -1063,10 +1078,10 @@ function TaskDetailModal({
             <h3 className="font-bold text-lg mb-1">{task.title}</h3>
             <div className="flex gap-2 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${PRIORITY_BG[task.priority]}`}>
-                {task.priority}
+                {t(`priority.${task.priority}`, { defaultValue: task.priority })}
               </span>
-              <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-muted text-muted-foreground capitalize">
-                {task.status.replace("_", " ")}
+              <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-muted text-muted-foreground">
+                {t(`columns.${task.status}`, { defaultValue: task.status })}
               </span>
             </div>
           </div>
@@ -1087,7 +1102,7 @@ function TaskDetailModal({
 
           {/* Move status */}
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Move to</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t("tasks.moveTo")}</p>
             <div className="flex gap-2 flex-wrap">
               {COLUMNS.filter((c) => c.key !== task.status).map((c) => (
                 <button
@@ -1095,7 +1110,7 @@ function TaskDetailModal({
                   onClick={() => onUpdate({ status: c.key })}
                   className="text-xs px-3 py-1.5 rounded-lg border border-border hover:bg-muted transition-colors"
                 >
-                  {c.label}
+                  {t(`columns.${c.key}`)}
                 </button>
               ))}
             </div>
@@ -1103,7 +1118,7 @@ function TaskDetailModal({
 
           {/* Assignee */}
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Assignee</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t("tasks.assignee")}</p>
             <select
               value={assigneeId}
               onChange={(e) => {
@@ -1113,7 +1128,7 @@ function TaskDetailModal({
               }}
               className="text-sm bg-muted px-3 py-2 rounded-lg border border-border focus:outline-none w-full"
             >
-              <option value="">Unassigned</option>
+              <option value="">{t("tasks.unassigned")}</option>
               {members.map((m) => (
                 <option key={m.user_id} value={m.user_id}>{m.user?.name}</option>
               ))}
@@ -1122,7 +1137,7 @@ function TaskDetailModal({
 
           {/* Due date */}
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Due Date</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">{t("tasks.dueDate")}</p>
             <input
               type="date"
               value={dueDate}
@@ -1138,11 +1153,11 @@ function TaskDetailModal({
 
           {/* Comments */}
           <div>
-            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Comments</p>
+            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">{t("tasks.comments")}</p>
             {isLoadingComments ? (
               <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
             ) : comments.length === 0 ? (
-              <p className="text-xs text-muted-foreground italic">No comments yet.</p>
+              <p className="text-xs text-muted-foreground italic">{t("tasks.noComments")}</p>
             ) : (
               <div className="space-y-3 mb-3">
                 {comments.map((c) => (
@@ -1150,7 +1165,7 @@ function TaskDetailModal({
                     <Avatar name={c.user?.name || "?"} size="sm" src={c.user?.avatar_url} />
                     <div>
                       <p className="text-xs font-medium">
-                        {c.user?.name} <span className="text-muted-foreground font-normal">{timeAgo(c.created_at)}</span>
+                        {c.user?.name} <span className="text-muted-foreground font-normal">{timeAgo(c.created_at, tc, i18n.language)}</span>
                       </p>
                       <p className="text-sm mt-0.5">{c.body}</p>
                     </div>
@@ -1163,7 +1178,7 @@ function TaskDetailModal({
                 value={commentInput}
                 onChange={(e) => setCommentInput(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") addComment(); }}
-                placeholder="Add a comment…"
+                placeholder={t("tasks.commentPlaceholder")}
                 className="flex-1 text-sm bg-muted px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
               />
               <Button size="sm" onClick={addComment} disabled={!commentInput.trim() || isSendingComment}>
@@ -1192,22 +1207,24 @@ function MembersTab({
   showToast: (msg: string, ok?: boolean) => void;
   onMemberCountChange: (delta: number) => void;
 }) {
+  const { t, i18n } = useTranslation("workspace");
+  const { t: tc } = useTranslation("common");
   const [members, setMembers] = useState<Member[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     apiFetch(`/api/workspaces/${workspaceId}/members`)
       .then(setMembers)
-      .catch(() => showToast("Failed to load members", false))
+      .catch(() => showToast(t("members.loadFailed"), false))
       .finally(() => setIsLoading(false));
   }, [workspaceId]);
 
   const { confirm: confirmDialog } = useConfirm();
   async function removeMember(userId: string, name: string) {
     const ok = await confirmDialog({
-      title: `Remove ${name}?`,
-      description: `${name} will lose access to this workspace.`,
-      confirmLabel: "Remove",
+      title: t("members.removeConfirmTitle", { name }),
+      description: t("members.removeConfirmDesc", { name }),
+      confirmLabel: t("members.removeConfirmLabel"),
       tone: "danger",
     });
     if (!ok) return;
@@ -1215,9 +1232,9 @@ function MembersTab({
       await apiFetch(`/api/workspaces/${workspaceId}/members/${userId}`, { method: "DELETE" });
       setMembers((prev) => prev.filter((m) => m.user_id !== userId));
       onMemberCountChange(-1);
-      showToast(`${name} removed from workspace`);
+      showToast(t("members.removed", { name }));
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : "Failed to remove member", false);
+      showToast(e instanceof Error ? e.message : t("members.removeFailed"), false);
     }
   }
 
@@ -1243,11 +1260,11 @@ function MembersTab({
               {m.user?.department && (
                 <p className="text-xs text-muted-foreground truncate">{m.user.department}</p>
               )}
-              <p className="text-[10px] text-muted-foreground mt-0.5 capitalize">{m.role} · Joined {timeAgo(m.joined_at)}</p>
+              <p className="text-[10px] text-muted-foreground mt-0.5">{t("members.joinedLine", { role: t(`roles.${m.role}`, { defaultValue: m.role }), time: timeAgo(m.joined_at, tc, i18n.language) })}</p>
             </div>
             {canRemove && (
               <button
-                onClick={() => removeMember(m.user_id, m.user?.name || "member")}
+                onClick={() => removeMember(m.user_id, m.user?.name || t("roles.member"))}
                 className="p-1.5 text-muted-foreground hover:text-red-500 transition-colors flex-shrink-0"
               >
                 <X className="w-4 h-4" />
@@ -1273,6 +1290,8 @@ function ResourcesTab({
   currentUserId: string;
   showToast: (msg: string, ok?: boolean) => void;
 }) {
+  const { t } = useTranslation("workspace");
+  const { t: tc } = useTranslation("common");
   const [resources, setResources] = useState<Resource[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
@@ -1282,7 +1301,7 @@ function ResourcesTab({
   useEffect(() => {
     apiFetch(`/api/workspaces/${workspaceId}/resources`)
       .then(setResources)
-      .catch(() => showToast("Failed to load resources", false))
+      .catch(() => showToast(t("resources.loadFailed"), false))
       .finally(() => setIsLoading(false));
   }, [workspaceId]);
 
@@ -1297,9 +1316,9 @@ function ResourcesTab({
       setResources((prev) => [r, ...prev]);
       setShowAdd(false);
       setForm({ title: "", url: "", type: "link" });
-      showToast("Resource added!");
+      showToast(t("resources.added"));
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : "Failed to add resource", false);
+      showToast(e instanceof Error ? e.message : t("resources.addFailed"), false);
     } finally {
       setIsSubmitting(false);
     }
@@ -1309,19 +1328,19 @@ function ResourcesTab({
     try {
       await apiFetch(`/api/workspaces/${workspaceId}/resources/${id}`, { method: "DELETE" });
       setResources((prev) => prev.filter((r) => r.id !== id));
-      showToast("Resource removed.");
+      showToast(t("resources.removed"));
     } catch (e: unknown) {
-      showToast(e instanceof Error ? e.message : "Failed to remove resource", false);
+      showToast(e instanceof Error ? e.message : t("resources.removeFailed"), false);
     }
   }
 
   const RESOURCE_TYPES = [
-    { value: "github", label: "GitHub" },
-    { value: "figma", label: "Figma" },
-    { value: "drive", label: "Google Drive" },
-    { value: "notion", label: "Notion" },
-    { value: "meeting", label: "Meeting Link" },
-    { value: "link", label: "Other Link" },
+    { value: "github", label: t("resources.types.github") },
+    { value: "figma", label: t("resources.types.figma") },
+    { value: "drive", label: t("resources.types.drive") },
+    { value: "notion", label: t("resources.types.notion") },
+    { value: "meeting", label: t("resources.types.meeting") },
+    { value: "link", label: t("resources.types.link") },
   ];
 
   if (isLoading) {
@@ -1332,25 +1351,25 @@ function ResourcesTab({
     <div className="space-y-4">
       <div className="flex justify-end">
         <Button onClick={() => setShowAdd(true)}>
-          <Plus className="w-4 h-4" /> Add Resource
+          <Plus className="w-4 h-4" /> {t("resources.addResource")}
         </Button>
       </div>
 
       {showAdd && (
         <Card className="p-5 space-y-3">
-          <h3 className="font-semibold">Add Shared Resource</h3>
+          <h3 className="font-semibold">{t("resources.addShared")}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-medium mb-1 block">Title</label>
+              <label className="text-xs font-medium mb-1 block">{t("resources.title")}</label>
               <input
                 value={form.title}
                 onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="e.g. Project Repo"
+                placeholder={t("resources.titlePlaceholder")}
                 className="w-full text-sm bg-muted px-3 py-2 rounded-lg border border-border focus:outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
             <div>
-              <label className="text-xs font-medium mb-1 block">Type</label>
+              <label className="text-xs font-medium mb-1 block">{t("resources.type")}</label>
               <select
                 value={form.type}
                 onChange={(e) => setForm({ ...form, type: e.target.value })}
@@ -1363,7 +1382,7 @@ function ResourcesTab({
             </div>
           </div>
           <div>
-            <label className="text-xs font-medium mb-1 block">URL</label>
+            <label className="text-xs font-medium mb-1 block">{t("resources.url")}</label>
             <input
               value={form.url}
               onChange={(e) => setForm({ ...form, url: e.target.value })}
@@ -1373,9 +1392,9 @@ function ResourcesTab({
           </div>
           <div className="flex gap-3">
             <Button onClick={addResource} disabled={isSubmitting || !form.title.trim() || !form.url.trim()}>
-              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : "Add Resource"}
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : t("resources.addResource")}
             </Button>
-            <Button variant="outline" onClick={() => setShowAdd(false)}>Cancel</Button>
+            <Button variant="outline" onClick={() => setShowAdd(false)}>{tc("actions.cancel")}</Button>
           </div>
         </Card>
       )}
@@ -1383,8 +1402,8 @@ function ResourcesTab({
       {resources.length === 0 ? (
         <Card className="p-12 text-center">
           <Link2 className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-          <p className="text-muted-foreground text-sm">No resources shared yet.</p>
-          <p className="text-xs text-muted-foreground mt-1">Add GitHub repos, Figma files, Drive links, and more.</p>
+          <p className="text-muted-foreground text-sm">{t("resources.empty")}</p>
+          <p className="text-xs text-muted-foreground mt-1">{t("resources.emptyHint")}</p>
         </Card>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -1398,9 +1417,9 @@ function ResourcesTab({
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-sm truncate">{r.title}</p>
-                  <p className="text-xs text-muted-foreground capitalize">{r.type}</p>
+                  <p className="text-xs text-muted-foreground">{t(`resources.types.${r.type}`, { defaultValue: r.type })}</p>
                   {r.added_by_user && (
-                    <p className="text-[10px] text-muted-foreground">by {r.added_by_user.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{t("resources.by", { name: r.added_by_user.name })}</p>
                   )}
                 </div>
                 <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -1433,6 +1452,8 @@ function ResourcesTab({
 // ── Activity Tab ───────────────────────────────────────────────
 
 function ActivityTab({ workspaceId }: { workspaceId: string }) {
+  const { t, i18n } = useTranslation("workspace");
+  const { t: tc } = useTranslation("common");
   const [logs, setLogs] = useState<ActivityLog[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -1465,7 +1486,7 @@ function ActivityTab({ workspaceId }: { workspaceId: string }) {
     return (
       <Card className="p-12 text-center">
         <Activity className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-        <p className="text-muted-foreground text-sm">No activity yet. Changes will appear here.</p>
+        <p className="text-muted-foreground text-sm">{t("activityTab.empty")}</p>
       </Card>
     );
   }
@@ -1485,8 +1506,8 @@ function ActivityTab({ workspaceId }: { workspaceId: string }) {
                 )}
               </div>
               <div className="flex-1 pt-1">
-                <p className="text-sm">{activityLabel(log)}</p>
-                <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(log.created_at)}</p>
+                <p className="text-sm">{activityLabel(log, t)}</p>
+                <p className="text-xs text-muted-foreground mt-0.5">{timeAgo(log.created_at, tc, i18n.language)}</p>
               </div>
             </div>
           ))}

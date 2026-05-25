@@ -1,0 +1,77 @@
+{
+  "heading": "Kampüs Etkinlikleri",
+  "searchPlaceholder": "Etkinlik ara...",
+  "filters": {
+    "upcoming": "Yaklaşan",
+    "all": "Tümü",
+    "past": "Geçmiş"
+  },
+  "months": ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"],
+  "days": ["Paz", "Pzt", "Sal", "Çar", "Per", "Cum", "Cmt"],
+  "noEvents": "Etkinlik bulunamadı.",
+  "members": "Üyeler",
+  "attending": "Katılıyorsun",
+  "full": "Dolu",
+  "past": "Geçmiş",
+  "edit": "Düzenle",
+  "delete": "Sil",
+  "markAttending": "Katılacağım",
+  "eventFull": "Etkinlik dolu",
+  "attendees": "Katılımcılar ({{count}})",
+  "addToCalendar": "Google Takvim'e Ekle",
+  "attendingCount": "{{count}} katılıyor",
+  "attendingCountCap": "{{count}} / {{capacity}} katılıyor",
+  "deleteModal": {
+    "title": "Etkinliği Sil",
+    "confirm": "\"{{title}}\" silinsin mi? Bu işlem geri alınamaz.",
+    "delete": "Sil"
+  },
+  "editModal": {
+    "title": "Etkinliği Düzenle",
+    "titleLabel": "Başlık",
+    "description": "Açıklama",
+    "dateTime": "Tarih ve Saat",
+    "location": "Konum",
+    "locationPlaceholder": "Fiziksel konum veya Çevrimiçi",
+    "saving": "Kaydediliyor...",
+    "saveChanges": "Değişiklikleri Kaydet"
+  },
+  "createModal": {
+    "title": "Etkinlik Oluştur",
+    "titleLabel": "Başlık",
+    "titlePlaceholder": "Etkinlik başlığı",
+    "description": "Açıklama",
+    "descriptionPlaceholder": "Etkinlik açıklaması",
+    "dateTime": "Tarih ve Saat",
+    "location": "Konum",
+    "locationPlaceholder": "Fiziksel konum veya Çevrimiçi",
+    "linkClub": "Kulübe Bağla (isteğe bağlı)",
+    "noneGeneral": "Yok (genel etkinlik)",
+    "schoolWide": "Okul geneli etkinlik",
+    "schoolWideHint": "(tüm öğrencilere bildirilir)",
+    "creating": "Oluşturuluyor...",
+    "create": "Etkinlik Oluştur"
+  },
+  "toast": {
+    "attendFailed": "Katılım güncellenemedi",
+    "eventCreated": "Etkinlik oluşturuldu!",
+    "createFailed": "Etkinlik oluşturulamadı",
+    "eventUpdated": "Etkinlik güncellendi!",
+    "updateFailed": "Güncelleme başarısız",
+    "eventDeleted": "Etkinlik silindi.",
+    "deleteFailed": "Silme başarısız"
+  },
+  "attendeesModal": {
+    "loading": "Yükleniyor…",
+    "attending": "{{count}} katılıyor",
+    "downloadCsv": "CSV İndir",
+    "noAttendeesTitle": "Henüz katılımcı yok",
+    "downloadTitle": "CSV olarak indir",
+    "close": "Kapat",
+    "empty": "Henüz kimse katılım işaretlemedi.",
+    "unknown": "Bilinmiyor",
+    "year": "{{year}}. Sınıf",
+    "loadFailed": "Katılımcılar yüklenemedi",
+    "exportFailed": "CSV dışa aktarılamadı"
+  }
+}

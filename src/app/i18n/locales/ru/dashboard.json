@@ -5,13 +5,29 @@
   "sections": {
     "myProjects": "Мои проекты",
     "upcomingEvents": "Ближайшие события",
+    "openProjects": "Открытые проекты",
+    "notifications": "Уведомления",
     "recentActivity": "Недавняя активность",
     "deadlines": "Ближайшие сроки"
+  },
+  "stats": {
+    "clubs": "Клубы",
+    "totalEvents": "Всего событий"
   },
   "empty": {
     "noProjects": "Вы пока не присоединились ни к одному проекту.",
     "noEvents": "Нет предстоящих событий.",
+    "noOpenProjects": "Пока нет открытых проектов.",
+    "noNotifications": "Пока нет уведомлений.",
     "noActivity": "Недавней активности нет.",
     "noDeadlines": "Ближайших сроков нет."
-  }
+  },
+  "actions": {
+    "browseEvents": "Смотреть события",
+    "addToCalendar": "Добавить в календарь",
+    "viewMoreEvents": "Показать больше событий",
+    "viewProject": "Открыть проект",
+    "viewAllNotifications": "Все уведомления"
+  },
+  "attending": "{{count}} участников"
 }

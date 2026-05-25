@@ -14,7 +14,7 @@ import { ApiError } from "../lib/api";
  * screen regardless.
  */
 export function ForgotPassword() {
-  const { t: _t } = useTranslation("auth"); // kept for future translation keys
+  const { t } = useTranslation("auth");
   const [email, setEmail] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -35,9 +35,9 @@ export function ForgotPassword() {
       // Rate-limit (429) is the only error worth surfacing — everything
       // else the server intentionally swallows to prevent enumeration.
       if (e instanceof ApiError && e.status === 429) {
-        setError("Too many attempts. Please wait a minute and try again.");
+        setError(t("forgot.rateLimit"));
       } else {
-        setError("Something went wrong. Please try again.");
+        setError(t("forgot.genericError"));
       }
     } finally {
       setSubmitting(false);
@@ -52,23 +52,22 @@ export function ForgotPassword() {
           className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors mb-6"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to sign in
+          {t("reset.backToSignIn")}
         </Link>
 
         <div className="bg-card border border-border rounded-2xl shadow-lg p-6 md:p-8">
           {submitted ? <SuccessView email={email} /> : (
             <>
               <div className="mb-6">
-                <h1 className="text-2xl font-bold tracking-tight">Reset your password</h1>
+                <h1 className="text-2xl font-bold tracking-tight">{t("forgot.title")}</h1>
                 <p className="text-sm text-muted-foreground mt-1.5">
-                  Enter the email you signed in with and we'll send you a link to reset
-                  your password.
+                  {t("forgot.subtitle")}
                 </p>
               </div>
 
               <form onSubmit={onSubmit} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium mb-1.5">Email</label>
+                  <label className="block text-sm font-medium mb-1.5">{t("email")}</label>
                   <div className="relative">
                     <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <input
@@ -95,10 +94,10 @@ export function ForgotPassword() {
                 >
                   {submitting ? (
                     <>
-                      <Loader2 className="w-4 h-4 animate-spin" /> Sending...
+                      <Loader2 className="w-4 h-4 animate-spin" /> {t("forgot.sending")}
                     </>
                   ) : (
-                    "Send reset link"
+                    t("forgot.sendLink")
                   )}
                 </button>
               </form>
@@ -111,21 +110,18 @@ export function ForgotPassword() {
 }
 
 function SuccessView({ email }: { email: string }) {
+  const { t } = useTranslation("auth");
   return (
     <div className="text-center py-6">
       <div className="w-14 h-14 mx-auto rounded-full bg-green-100 dark:bg-green-500/10 flex items-center justify-center mb-4">
         <CheckCircle2 className="w-7 h-7 text-green-600 dark:text-green-400" />
       </div>
-      <h2 className="text-xl font-bold mb-2">Check your inbox</h2>
-      <p className="text-sm text-muted-foreground mb-1">
-        If an account exists for{" "}
-        <span className="font-semibold text-foreground break-all">{email}</span>,
-      </p>
+      <h2 className="text-xl font-bold mb-2">{t("forgot.successTitle")}</h2>
       <p className="text-sm text-muted-foreground mb-6">
-        we've sent a password reset link.
+        {t("forgot.successBody", { email })}
       </p>
       <p className="text-xs text-muted-foreground">
-        Didn't get it? Check your spam folder or try again in a minute.
+        {t("forgot.successHint")}
       </p>
     </div>
   );

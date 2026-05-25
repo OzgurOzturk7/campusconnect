@@ -1,17 +1,33 @@
 {
   "welcome": "Tekrar hoş geldin, {{name}}",
   "welcomeAnon": "Tekrar hoş geldin",
-  "subtitle": "Bugün kampüste neler olduğunu görelim.",
+  "subtitle": "Bugün kampüs topluluğunda olup bitenler burada.",
   "sections": {
     "myProjects": "Projelerim",
     "upcomingEvents": "Yaklaşan Etkinlikler",
+    "openProjects": "Açık Projeler",
+    "notifications": "Bildirimler",
     "recentActivity": "Son Etkinlikler",
     "deadlines": "Yaklaşan Son Tarihler"
+  },
+  "stats": {
+    "clubs": "Kulüpler",
+    "totalEvents": "Toplam Etkinlik"
   },
   "empty": {
     "noProjects": "Henüz bir projeye katılmadın.",
     "noEvents": "Yaklaşan etkinlik yok.",
+    "noOpenProjects": "Henüz açık proje yok.",
+    "noNotifications": "Henüz bildirim yok.",
     "noActivity": "Son etkinlik yok.",
     "noDeadlines": "Yaklaşan son tarih yok."
-  }
+  },
+  "actions": {
+    "browseEvents": "Etkinliklere Göz At",
+    "addToCalendar": "Takvime Ekle",
+    "viewMoreEvents": "Daha fazla etkinlik gör",
+    "viewProject": "Projeyi Gör",
+    "viewAllNotifications": "Tüm bildirimleri gör"
+  },
+  "attending": "{{count}} katılıyor"
 }

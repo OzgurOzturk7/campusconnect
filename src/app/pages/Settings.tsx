@@ -54,6 +54,7 @@ const TABS: { key: TabKey; icon: typeof UserIcon }[] = [
   { key: "profile", icon: UserIcon },
   { key: "password", icon: Lock },
   { key: "appearance", icon: Palette },
+  { key: "language", icon: Globe },
 ];
 
 export function Settings() {
@@ -90,7 +91,7 @@ export function Settings() {
         {/* Sidebar / tab rail */}
         <nav
           className="flex md:flex-col gap-1 overflow-x-auto md:overflow-visible -mx-1 px-1"
-          aria-label="Settings sections"
+          aria-label={t("sectionsAria")}
         >
           {tabs.map(({ key, icon: Icon }) => {
             const isActive = activeTab === key;
@@ -116,6 +117,7 @@ export function Settings() {
           {activeTab === "profile" && <ProfileTab />}
           {activeTab === "password" && <PasswordTab />}
           {activeTab === "appearance" && <AppearanceTab />}
+          {activeTab === "language" && <LanguageTab />}
           {activeTab === "domains" && isAdmin && <DomainsTab />}
           {activeTab === "reports" && isAdmin && <ReportsTab />}
         </div>

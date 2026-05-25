@@ -1,0 +1,148 @@
+{
+  "backToProjects": "Back to Projects",
+  "loadFailed": "Failed to load workspace",
+  "notFound": "Workspace not found or you don't have access.",
+  "memberCount": "{{count}} members",
+  "stageLabel": "Stage",
+  "stageUpdated": "Stage updated to {{stage}}",
+  "stageUpdateFailed": "Failed to update stage",
+  "tabs": {
+    "overview": "Overview",
+    "chat": "Team Chat",
+    "tasks": "Tasks",
+    "members": "Members ({{count}})",
+    "resources": "Resources",
+    "activity": "Activity"
+  },
+  "stages": {
+    "recruiting": "Recruiting",
+    "planning": "Planning",
+    "development": "Development",
+    "testing": "Testing",
+    "launch": "Launch",
+    "completed": "Completed"
+  },
+  "status": {
+    "open": "Open",
+    "completed": "Completed",
+    "closed": "Closed"
+  },
+  "columns": {
+    "todo": "To Do",
+    "in_progress": "In Progress",
+    "review": "Review",
+    "done": "Done"
+  },
+  "priority": {
+    "low": "low",
+    "medium": "medium",
+    "high": "high",
+    "urgent": "urgent"
+  },
+  "priorityOption": {
+    "low": "Low priority",
+    "medium": "Medium priority",
+    "high": "High priority",
+    "urgent": "Urgent"
+  },
+  "roles": {
+    "owner": "owner",
+    "admin": "admin",
+    "member": "member"
+  },
+  "overview": {
+    "taskProgress": "Task Progress",
+    "tasksDone": "{{done}} of {{total}} tasks done",
+    "noTasks": "No tasks yet. Head to the Tasks tab to get started.",
+    "projectInfo": "Project Info",
+    "roles": "Roles",
+    "team": "Team",
+    "activeMembers": "active members",
+    "currentStage": "Current Stage",
+    "stepOf": "Step {{step}} of {{total}}"
+  },
+  "chat": {
+    "noChat": "No project chat found.",
+    "subtitle": "{{count}} members · Project chat",
+    "teamMember": "Team member",
+    "attachment": "[attachment]",
+    "noMessages": "No messages yet. Be the first to say hello!",
+    "open": "Open Project Chat",
+    "footer": "The full chat experience lives in the Chats section with reactions, file sharing, and more."
+  },
+  "tasks": {
+    "loadFailed": "Failed to load tasks",
+    "created": "Task created!",
+    "createFailed": "Failed to create task",
+    "moveFailed": "Failed to move task",
+    "deleted": "Task deleted.",
+    "deleteFailed": "Failed to delete task",
+    "updated": "Task updated",
+    "updateFailed": "Failed to update task",
+    "titlePlaceholder": "Task title…",
+    "noAssignee": "No assignee",
+    "add": "Add",
+    "addTask": "Add task",
+    "deleteConfirmTitle": "Delete this task?",
+    "deleteConfirmDesc": "This can't be undone.",
+    "deleteConfirmLabel": "Delete",
+    "moveTo": "Move to",
+    "assignee": "Assignee",
+    "unassigned": "Unassigned",
+    "dueDate": "Due Date",
+    "comments": "Comments",
+    "noComments": "No comments yet.",
+    "commentPlaceholder": "Add a comment…",
+    "loadCommentsFailed": "Failed to load comments",
+    "addCommentFailed": "Failed to add comment"
+  },
+  "members": {
+    "loadFailed": "Failed to load members",
+    "removeConfirmTitle": "Remove {{name}}?",
+    "removeConfirmDesc": "{{name}} will lose access to this workspace.",
+    "removeConfirmLabel": "Remove",
+    "removed": "{{name}} removed from workspace",
+    "removeFailed": "Failed to remove member",
+    "joinedLine": "{{role}} · Joined {{time}}"
+  },
+  "resources": {
+    "loadFailed": "Failed to load resources",
+    "added": "Resource added!",
+    "addFailed": "Failed to add resource",
+    "removed": "Resource removed.",
+    "removeFailed": "Failed to remove resource",
+    "addResource": "Add Resource",
+    "addShared": "Add Shared Resource",
+    "title": "Title",
+    "titlePlaceholder": "e.g. Project Repo",
+    "type": "Type",
+    "url": "URL",
+    "empty": "No resources shared yet.",
+    "emptyHint": "Add GitHub repos, Figma files, Drive links, and more.",
+    "by": "by {{name}}",
+    "types": {
+      "github": "GitHub",
+      "figma": "Figma",
+      "drive": "Google Drive",
+      "notion": "Notion",
+      "meeting": "Meeting Link",
+      "link": "Other Link"
+    }
+  },
+  "activityTab": {
+    "empty": "No activity yet. Changes will appear here."
+  },
+  "activity": {
+    "workspace_created": "{{actor}} created the workspace",
+    "member_joined": "{{actor}} joined the workspace",
+    "member_removed": "{{actor}} was removed from the workspace",
+    "task_created": "{{actor}} created task \"{{title}}\"",
+    "task_moved": "{{actor}} moved \"{{title}}\" from {{from}} → {{to}}",
+    "task_deleted": "{{actor}} deleted task \"{{title}}\"",
+    "resource_added": "{{actor}} added resource \"{{title}}\"",
+    "resource_removed": "{{actor}} removed a resource",
+    "stage_updated": "{{actor}} updated project stage to {{stage}}",
+    "default": "{{actor}} performed an action",
+    "someone": "Someone"
+  }
+}

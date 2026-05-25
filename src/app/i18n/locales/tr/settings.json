@@ -1,6 +1,7 @@
 {
   "title": "Ayarlar",
   "subtitle": "Hesabınızı, görünümünüzü ve tercihlerinizi yönetin.",
+  "sectionsAria": "Ayar bölümleri",
 
   "tabs": {
     "profile": "Profil",

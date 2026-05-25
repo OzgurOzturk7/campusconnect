@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
 import { Tag } from "../components/Tag";
@@ -48,6 +49,8 @@ interface MyClub {
 }
 
 export function Profile() {
+  const { t } = useTranslation("profile");
+  const { t: tc } = useTranslation("common");
   const { error: toastError } = useToast();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -178,7 +181,7 @@ export function Profile() {
       const data = await apiFetch("/api/auth/ai-analysis", { method: "POST" });
       setAiAnalysis(data);
     } catch (err: unknown) {
-      setAnalysisError(err instanceof Error ? err.message : "Analysis failed");
+      setAnalysisError(err instanceof Error ? err.message : t("ai.failed"));
     } finally {
       setIsAnalyzing(false);
     }
@@ -193,7 +196,7 @@ export function Profile() {
   }
 
   if (!profile) {
-    return <div className="text-center py-12 text-muted-foreground">Profile not found.</div>;
+    return <div className="text-center py-12 text-muted-foreground">{t("notFound")}</div>;
   }
 
   return (
@@ -201,7 +204,7 @@ export function Profile() {
       {saveSuccess && (
         <div className="flex items-center gap-2 bg-green-50 text-green-700 border border-green-200 rounded-lg px-4 py-3 text-sm">
           <Check className="w-4 h-4" />
-          Profile updated successfully!
+          {t("updated")}
         </div>
       )}
 
@@ -222,7 +225,7 @@ export function Profile() {
                       <GraduationCap className="w-4 h-4" />
                       <span>
                         {profile.department}
-                        {profile.year ? `, Semester ${profile.year}` : ""}
+                        {profile.year ? `, ${t("semester", { n: profile.year })}` : ""}
                       </span>
                     </div>
                   )}
@@ -258,7 +261,7 @@ export function Profile() {
               </div>
               <Button variant="outline" onClick={() => setIsEditing(true)} className="md:flex-shrink-0">
                 <Edit className="w-4 h-4" />
-                Edit Profile
+                {t("editProfile")}
               </Button>
             </div>
           </div>
@@ -267,11 +270,11 @@ export function Profile() {
 
       {/* ── About ── */}
       <Card className="p-6">
-        <h2 className="text-xl font-bold mb-4">About</h2>
+        <h2 className="text-xl font-bold mb-4">{t("about")}</h2>
         {profile.bio ? (
           <p className="text-muted-foreground leading-relaxed">{profile.bio}</p>
         ) : (
-          <p className="text-muted-foreground italic">No bio yet. Click Edit Profile to add one.</p>
+          <p className="text-muted-foreground italic">{t("noBio")}</p>
         )}
       </Card>
 
@@ -279,7 +282,7 @@ export function Profile() {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="p-6">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold">Skills</h2>
+            <h2 className="text-xl font-bold">{t("skills")}</h2>
             <span className="text-sm font-medium text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
               {profile.skills?.length || 0}
             </span>
@@ -291,7 +294,7 @@ export function Profile() {
               ))}
             </div>
           ) : (
-            <p className="text-muted-foreground italic">No skills added yet.</p>
+            <p className="text-muted-foreground italic">{t("noSkills")}</p>
           )}
         </Card>
 
@@ -299,7 +302,7 @@ export function Profile() {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <BookOpen className="w-5 h-5 text-primary" />
-              <h2 className="text-xl font-bold">Current Courses</h2>
+              <h2 className="text-xl font-bold">{t("currentCourses")}</h2>
             </div>
             <span className="text-sm font-medium text-muted-foreground bg-muted px-2.5 py-0.5 rounded-full">
               {profile.courses?.length || 0}
@@ -312,7 +315,7 @@ export function Profile() {
               ))}
             </div>
           ) : (
-            <p className="text-muted-foreground italic">No courses added yet.</p>
+            <p className="text-muted-foreground italic">{t("noCourses")}</p>
           )}
         </Card>
       </div>
@@ -322,15 +325,15 @@ export function Profile() {
         <div className="flex items-center justify-between mb-4">
           <div className="flex items-center gap-2">
             <Sparkles className="w-5 h-5 text-primary" />
-            <h2 className="text-xl font-bold">AI Profile Analysis</h2>
+            <h2 className="text-xl font-bold">{t("ai.title")}</h2>
           </div>
           <Button variant="outline" onClick={fetchAIAnalysis} disabled={isAnalyzing}>
             {isAnalyzing ? (
-              <><Loader2 className="w-4 h-4 animate-spin" /> Analyzing...</>
+              <><Loader2 className="w-4 h-4 animate-spin" /> {t("ai.analyzing")}</>
             ) : aiAnalysis ? (
-              <><RefreshCw className="w-4 h-4" /> Refresh</>
+              <><RefreshCw className="w-4 h-4" /> {t("ai.refresh")}</>
             ) : (
-              <><Sparkles className="w-4 h-4" /> Analyze Profile</>
+              <><Sparkles className="w-4 h-4" /> {t("ai.analyze")}</>
             )}
           </Button>
         </div>
@@ -344,8 +347,7 @@ export function Profile() {
 
         {!aiAnalysis && !isAnalyzing && !analysisError && (
           <p className="text-muted-foreground text-sm">
-            Get personalized tips, club suggestions, and improvement ideas based on your profile.
-            Analysis is cached for 24 hours.
+            {t("ai.intro")}
           </p>
         )}
 
@@ -354,7 +356,7 @@ export function Profile() {
             {aiAnalysis.missing_fields.length > 0 && (
               <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
                 <p className="text-sm font-medium text-amber-800 mb-2">
-                  Complete your profile for better suggestions:
+                  {t("ai.completeProfile")}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {aiAnalysis.missing_fields.map((f) => (
@@ -368,7 +370,7 @@ export function Profile() {
 
             {aiAnalysis.tips.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold mb-2 text-foreground">Profile Improvement Tips</h3>
+                <h3 className="text-sm font-semibold mb-2 text-foreground">{t("ai.tips")}</h3>
                 <ul className="space-y-2">
                   {aiAnalysis.tips.map((tip, i) => (
                     <li key={i} className="flex items-start gap-2 text-sm text-muted-foreground">
@@ -382,7 +384,7 @@ export function Profile() {
 
             {aiAnalysis.club_suggestions.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold mb-2 text-foreground">Suggested Clubs for You</h3>
+                <h3 className="text-sm font-semibold mb-2 text-foreground">{t("ai.suggestedClubs")}</h3>
                 <div className="flex flex-wrap gap-2">
                   {aiAnalysis.club_suggestions.map((club) => (
                     <Tag key={club} variant="primary">{club}</Tag>
@@ -393,7 +395,7 @@ export function Profile() {
 
             {aiAnalysis.event_suggestions.length > 0 && (
               <div>
-                <h3 className="text-sm font-semibold mb-2 text-foreground">Recommended Event Types</h3>
+                <h3 className="text-sm font-semibold mb-2 text-foreground">{t("ai.recommendedEvents")}</h3>
                 <div className="flex flex-wrap gap-2">
                   {aiAnalysis.event_suggestions.map((ev) => (
                     <Tag key={ev} variant="muted">{ev}</Tag>
@@ -409,7 +411,7 @@ export function Profile() {
       <div>
         <div className="flex items-center gap-2 mb-4">
           <Users className="w-5 h-5 text-primary" />
-          <h2 className="text-xl font-bold">My Clubs</h2>
+          <h2 className="text-xl font-bold">{t("myClubs")}</h2>
           <span className="text-sm text-muted-foreground">({myClubs.length})</span>
         </div>
 
@@ -420,9 +422,9 @@ export function Profile() {
         ) : myClubs.length === 0 ? (
           <Card className="p-8 text-center">
             <Users className="w-10 h-10 text-muted-foreground mx-auto mb-3 opacity-40" />
-            <p className="text-muted-foreground text-sm">You haven't joined any clubs yet.</p>
+            <p className="text-muted-foreground text-sm">{t("noClubs")}</p>
             <Link to="/clubs" className="inline-block mt-3">
-              <Button variant="outline" size="sm">Browse Clubs</Button>
+              <Button variant="outline" size="sm">{t("browseClubs")}</Button>
             </Link>
           </Card>
         ) : (
@@ -457,7 +459,7 @@ export function Profile() {
                     {club.my_status === "pending" && (
                       <div className="absolute top-2 left-2">
                         <span className="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-500 text-white">
-                          Pending
+                          {t("pending")}
                         </span>
                       </div>
                     )}
@@ -473,12 +475,12 @@ export function Profile() {
                     </p>
                     <div className="flex items-center gap-1 text-xs text-muted-foreground mb-3">
                       <Users className="w-3.5 h-3.5" />
-                      <span>{club.member_count ?? 0} members</span>
+                      <span>{t("members", { count: club.member_count ?? 0 })}</span>
                     </div>
 
                     <div className="flex gap-2">
                       <Link to={`/clubs/${club.id}`} className="flex-1">
-                        <Button variant="outline" className="w-full text-xs py-1.5">View Club</Button>
+                        <Button variant="outline" className="w-full text-xs py-1.5">{t("viewClub")}</Button>
                       </Link>
                       {club.my_role !== "president" && (
                         <Button
@@ -510,17 +512,17 @@ export function Profile() {
               <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0">
                 <LogOut className="w-5 h-5 text-red-500" />
               </div>
-              <h3 className="font-bold text-base">Leave Club</h3>
+              <h3 className="font-bold text-base">{t("leaveClub")}</h3>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
-              Are you sure you want to leave <span className="font-semibold text-foreground">"{leaveConfirm.name}"</span>? You can rejoin later.
+              {t("leaveConfirm", { name: leaveConfirm.name })}
             </p>
             <div className="flex gap-3">
               <Button onClick={confirmLeave} className="flex-1" style={{ background: "#ef4444" }}>
-                Leave Club
+                {t("leaveClub")}
               </Button>
               <Button variant="outline" className="flex-1" onClick={() => setLeaveConfirm(null)}>
-                Cancel
+                {tc("actions.cancel")}
               </Button>
             </div>
           </div>
@@ -532,7 +534,7 @@ export function Profile() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-card rounded-xl border border-border p-5 md:p-6 w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-bold">Edit Profile</h2>
+              <h2 className="text-xl font-bold">{t("editProfile")}</h2>
               <button onClick={() => setIsEditing(false)} className="text-muted-foreground hover:text-foreground">
                 <X className="w-5 h-5" />
               </button>
@@ -540,7 +542,7 @@ export function Profile() {
 
             <div className="space-y-4">
               <div>
-                <label className="block text-sm font-medium mb-1.5">Full Name</label>
+                <label className="block text-sm font-medium mb-1.5">{t("edit.fullName")}</label>
                 <input
                   value={editForm.name}
                   onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
@@ -548,74 +550,74 @@ export function Profile() {
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Department</label>
+                <label className="block text-sm font-medium mb-1.5">{t("edit.department")}</label>
                 <input
                   value={editForm.department}
                   onChange={(e) => setEditForm({ ...editForm, department: e.target.value })}
-                  placeholder="e.g. Software Engineering"
+                  placeholder={t("edit.departmentPlaceholder")}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Semester</label>
+                <label className="block text-sm font-medium mb-1.5">{t("edit.semesterLabel")}</label>
                 <select
                   value={editForm.year}
                   onChange={(e) => setEditForm({ ...editForm, year: e.target.value })}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 >
-                  <option value="">Select semester</option>
+                  <option value="">{t("edit.selectSemester")}</option>
                   {[1, 2, 3, 4, 5, 6, 7, 8].map((s) => (
-                    <option key={s} value={s}>Semester {s}</option>
+                    <option key={s} value={s}>{t("semester", { n: s })}</option>
                   ))}
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">Bio</label>
+                <label className="block text-sm font-medium mb-1.5">{t("edit.bio")}</label>
                 <textarea
                   value={editForm.bio}
                   onChange={(e) => setEditForm({ ...editForm, bio: e.target.value })}
-                  placeholder="Tell us about yourself..."
+                  placeholder={t("edit.bioPlaceholder")}
                   rows={3}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">
-                  Skills <span className="text-muted-foreground font-normal">(comma separated)</span>
+                  {t("edit.skillsLabel")} <span className="text-muted-foreground font-normal">{t("edit.commaSeparated")}</span>
                 </label>
                 <input
                   value={editForm.skills}
                   onChange={(e) => setEditForm({ ...editForm, skills: e.target.value })}
-                  placeholder="React, Python, TypeScript"
+                  placeholder={t("edit.skillsPlaceholder")}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">
-                  Current Courses <span className="text-muted-foreground font-normal">(comma separated)</span>
+                  {t("edit.coursesLabel")} <span className="text-muted-foreground font-normal">{t("edit.commaSeparated")}</span>
                 </label>
                 <input
                   value={editForm.courses}
                   onChange={(e) => setEditForm({ ...editForm, courses: e.target.value })}
-                  placeholder="Data Structures, Web Development, Algorithms"
+                  placeholder={t("edit.coursesPlaceholder")}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">GitHub URL</label>
+                <label className="block text-sm font-medium mb-1.5">{t("edit.githubUrl")}</label>
                 <input
                   value={editForm.github_url}
                   onChange={(e) => setEditForm({ ...editForm, github_url: e.target.value })}
-                  placeholder="https://github.com/username"
+                  placeholder={t("edit.githubPlaceholder")}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-1.5">LinkedIn URL</label>
+                <label className="block text-sm font-medium mb-1.5">{t("edit.linkedinUrl")}</label>
                 <input
                   value={editForm.linkedin_url}
                   onChange={(e) => setEditForm({ ...editForm, linkedin_url: e.target.value })}
-                  placeholder="https://linkedin.com/in/username"
+                  placeholder={t("edit.linkedinPlaceholder")}
                   className="w-full px-3 py-2.5 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
                 />
               </div>
@@ -624,13 +626,13 @@ export function Profile() {
             <div className="flex gap-3 mt-6">
               <Button onClick={handleSave} disabled={isSaving}>
                 {isSaving ? (
-                  <><Loader2 className="w-4 h-4 animate-spin" /> Saving...</>
+                  <><Loader2 className="w-4 h-4 animate-spin" /> {t("edit.saving")}</>
                 ) : (
-                  "Save Changes"
+                  t("edit.saveChanges")
                 )}
               </Button>
               <Button variant="outline" onClick={() => setIsEditing(false)}>
-                Cancel
+                {tc("actions.cancel")}
               </Button>
             </div>
           </div>

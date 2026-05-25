@@ -1,5 +1,6 @@
 import { useState, FormEvent, useEffect, useRef, MouseEvent as ReactMouseEvent } from "react";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 import { Eye, EyeOff, Loader2, AlertCircle, ShieldCheck, Mail, ArrowLeft, Sparkles, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
 
@@ -349,7 +350,13 @@ function StaggeredText({ text, className, style }: { text: string; className?: s
 // 8) Rotating tagline
 // =============================================================================
 function RotatingTagline() {
-  const lines = ["Connect.", "Discover.", "Build together.", "Shine."];
+  const { t } = useTranslation("auth");
+  const lines = [
+    t("login.taglines.connect"),
+    t("login.taglines.discover"),
+    t("login.taglines.build"),
+    t("login.taglines.shine"),
+  ];
   const [idx, setIdx] = useState(0);
   useEffect(() => {
     const i = setInterval(() => setIdx((p) => (p + 1) % lines.length), 2400);
@@ -378,6 +385,7 @@ function RotatingTagline() {
 // MAIN
 // =============================================================================
 export function Login() {
+  const { t } = useTranslation("auth");
   const { login, loginWithGoogle } = useAuth();
   const navigate = useNavigate();
   const googleBtnRef = useRef<HTMLDivElement>(null);
@@ -406,7 +414,7 @@ export function Login() {
       await login(email, password, remember);
       navigate("/", { replace: true });
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Login failed. Please try again.");
+      setError(err instanceof Error ? err.message : t("login.loginFailed"));
     } finally {
       setIsLoading(false);
     }
@@ -425,7 +433,7 @@ export function Login() {
       try {
         const payload = JSON.parse(atob(response.credential.split(".")[1]));
         if (payload.email && !payload.email.endsWith(`@${ALLOWED_EMAIL_DOMAIN}`)) {
-          throw new Error(`Only @${ALLOWED_EMAIL_DOMAIN} accounts are allowed.`);
+          throw new Error(t("login.domainOnly", { domain: ALLOWED_EMAIL_DOMAIN }));
         }
         const result = await loginWithGoogle(response.credential, rememberRef.current);
         if (result.kind === "invited") {
@@ -439,7 +447,7 @@ export function Login() {
           navigate("/", { replace: true });
         }
       } catch (err: unknown) {
-        setError(err instanceof Error ? err.message : "Google sign-in failed.");
+        setError(err instanceof Error ? err.message : t("login.googleFailed"));
       } finally { setIsLoading(false); }
     };
 
@@ -565,11 +573,11 @@ export function Login() {
             className="text-3xl sm:text-4xl font-extrabold mb-1 tracking-tight"
             style={{ color: "#7c3aed" }}
           >
-            <StaggeredText text="Welcome" />
+            <StaggeredText text={t("login.welcome")} />
           </h2>
           <p className="text-sm mb-7 flex items-center gap-1.5" style={{ color: "#6d28d9" }}>
             <Sparkles className="w-3.5 h-3.5" />
-            {showEmailForm ? "Sign in with your university credentials" : "Sign in to continue to CampusConnect"}
+            {showEmailForm ? t("login.subtitleEmail") : t("login.subtitleGoogle")}
           </p>
 
           {error && (
@@ -593,13 +601,13 @@ export function Login() {
                 style={{ background: "rgba(124,58,237,0.1)", color: "#6d28d9" }}>
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span className="text-[11px] font-semibold tracking-wide">
-                  Secured by Google · @{ALLOWED_EMAIL_DOMAIN} only
+                  {t("login.securedByGoogle", { domain: ALLOWED_EMAIL_DOMAIN })}
                 </span>
               </div>
 
               <div className="flex items-center gap-3 my-6">
                 <div className="flex-1 h-px" style={{ background: "linear-gradient(to right, transparent, #ddd6fe, transparent)" }} />
-                <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "#a78bfa" }}>or</span>
+                <span className="text-[11px] font-semibold uppercase tracking-widest" style={{ color: "#a78bfa" }}>{t("login.or")}</span>
                 <div className="flex-1 h-px" style={{ background: "linear-gradient(to right, transparent, #ddd6fe, transparent)" }} />
               </div>
 
@@ -610,7 +618,7 @@ export function Login() {
                 style={{ borderColor: "#e9d5ff", background: "rgba(255,255,255,0.55)", color: "#6d28d9" }}
               >
                 <Mail className="w-4 h-4" />
-                Sign in with email
+                {t("login.signInWithEmail")}
               </button>
             </div>
           )}
@@ -623,7 +631,7 @@ export function Login() {
                   className="flex items-center gap-1.5 text-xs font-semibold mb-5 transition-colors hover:underline"
                   style={{ color: "#7c3aed" }}>
                   <ArrowLeft className="w-3.5 h-3.5" />
-                  Use Google instead
+                  {t("login.useGoogleInstead")}
                 </button>
               )}
 
@@ -644,13 +652,13 @@ export function Login() {
                   <div className="flex-1 text-xs leading-relaxed">
                     {invitedView.emailFailed ? (
                       <>
-                        <span className="font-bold block mb-0.5">Account created, but the email couldn't be sent.</span>
-                        Ask the admin for your temporary password or use "Forgot password?" to set one yourself.
+                        <span className="font-bold block mb-0.5">{t("login.invite.emailFailedTitle")}</span>
+                        {t("login.invite.emailFailedBody")}
                       </>
                     ) : (
                       <>
-                        <span className="font-bold block mb-0.5">A temporary password was sent to <span className="break-all">{invitedView.email}</span>.</span>
-                        Check your inbox (and spam folder), paste the password below, and sign in.
+                        <span className="font-bold block mb-0.5">{t("login.invite.sentTitle", { email: invitedView.email })}</span>
+                        {t("login.invite.sentBody")}
                       </>
                     )}
                   </div>
@@ -659,11 +667,11 @@ export function Login() {
 
               <form onSubmit={handleSubmit}>
                 <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#a78bfa" }}>
-                  Email Address
+                  {t("login.emailAddress")}
                 </label>
                 <input
                   type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@final.edu.tr" required autoComplete="email" disabled={isLoading} autoFocus
+                  placeholder={t("login.emailPlaceholder")} required autoComplete="email" disabled={isLoading} autoFocus
                   className="w-full px-4 py-3 rounded-xl text-sm outline-none transition-all mb-5 disabled:opacity-60"
                   style={fieldBase}
                   onFocus={(e) => { e.target.style.borderColor = "#7c3aed"; e.target.style.background = "white"; e.target.style.boxShadow = "0 0 0 4px rgba(124,58,237,0.12)"; }}
@@ -671,7 +679,7 @@ export function Login() {
                 />
 
                 <label className="block text-xs font-bold uppercase tracking-widest mb-2" style={{ color: "#a78bfa" }}>
-                  Password
+                  {t("login.passwordLabel")}
                 </label>
                 <div className="relative mb-2">
                   <input
@@ -695,7 +703,7 @@ export function Login() {
                     className="text-xs font-semibold hover:underline transition-colors"
                     style={{ color: "#7c3aed" }}
                   >
-                    Forgot password?
+                    {t("forgotPassword")}
                   </button>
                 </div>
 
@@ -715,9 +723,9 @@ export function Login() {
                       {isLoading ? (
                         <span className="flex items-center justify-center gap-2">
                           <Loader2 className="w-4 h-4 animate-spin" />
-                          Signing in...
+                          {t("login.signingIn")}
                         </span>
-                      ) : "Sign In"}
+                      ) : t("login.signInButton")}
                     </span>
                   </button>
                 </Magnetic>
@@ -726,9 +734,9 @@ export function Login() {
           )}
 
           <p className="text-center text-xs mt-6" style={{ color: "#a78bfa" }}>
-            No account?{" "}
+            {t("login.noAccount")}{" "}
             <span className="font-semibold" style={{ color: "#7c3aed" }}>
-              Contact your university admin.
+              {t("login.contactAdmin")}
             </span>
           </p>
         </TiltCard>

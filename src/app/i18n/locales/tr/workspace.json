@@ -1,0 +1,148 @@
+{
+  "backToProjects": "Projelere Dön",
+  "loadFailed": "Çalışma alanı yüklenemedi",
+  "notFound": "Çalışma alanı bulunamadı veya erişimin yok.",
+  "memberCount": "{{count}} üye",
+  "stageLabel": "Aşama",
+  "stageUpdated": "Aşama {{stage}} olarak güncellendi",
+  "stageUpdateFailed": "Aşama güncellenemedi",
+  "tabs": {
+    "overview": "Genel Bakış",
+    "chat": "Ekip Sohbeti",
+    "tasks": "Görevler",
+    "members": "Üyeler ({{count}})",
+    "resources": "Kaynaklar",
+    "activity": "Etkinlik"
+  },
+  "stages": {
+    "recruiting": "Ekip Kurma",
+    "planning": "Planlama",
+    "development": "Geliştirme",
+    "testing": "Test",
+    "launch": "Yayın",
+    "completed": "Tamamlandı"
+  },
+  "status": {
+    "open": "Açık",
+    "completed": "Tamamlandı",
+    "closed": "Kapalı"
+  },
+  "columns": {
+    "todo": "Yapılacak",
+    "in_progress": "Devam Eden",
+    "review": "İncelemede",
+    "done": "Bitti"
+  },
+  "priority": {
+    "low": "düşük",
+    "medium": "orta",
+    "high": "yüksek",
+    "urgent": "acil"
+  },
+  "priorityOption": {
+    "low": "Düşük öncelik",
+    "medium": "Orta öncelik",
+    "high": "Yüksek öncelik",
+    "urgent": "Acil"
+  },
+  "roles": {
+    "owner": "sahip",
+    "admin": "yönetici",
+    "member": "üye"
+  },
+  "overview": {
+    "taskProgress": "Görev İlerlemesi",
+    "tasksDone": "{{total}} görevden {{done}} tanesi bitti",
+    "noTasks": "Henüz görev yok. Başlamak için Görevler sekmesine git.",
+    "projectInfo": "Proje Bilgisi",
+    "roles": "Roller",
+    "team": "Ekip",
+    "activeMembers": "aktif üye",
+    "currentStage": "Mevcut Aşama",
+    "stepOf": "{{total}} adımdan {{step}}. adım"
+  },
+  "chat": {
+    "noChat": "Proje sohbeti bulunamadı.",
+    "subtitle": "{{count}} üye · Proje sohbeti",
+    "teamMember": "Ekip üyesi",
+    "attachment": "[ek]",
+    "noMessages": "Henüz mesaj yok. İlk merhaba diyen sen ol!",
+    "open": "Proje Sohbetini Aç",
+    "footer": "Tam sohbet deneyimi; tepkiler, dosya paylaşımı ve daha fazlasıyla Sohbetler bölümünde."
+  },
+  "tasks": {
+    "loadFailed": "Görevler yüklenemedi",
+    "created": "Görev oluşturuldu!",
+    "createFailed": "Görev oluşturulamadı",
+    "moveFailed": "Görev taşınamadı",
+    "deleted": "Görev silindi.",
+    "deleteFailed": "Görev silinemedi",
+    "updated": "Görev güncellendi",
+    "updateFailed": "Görev güncellenemedi",
+    "titlePlaceholder": "Görev başlığı…",
+    "noAssignee": "Atanan yok",
+    "add": "Ekle",
+    "addTask": "Görev ekle",
+    "deleteConfirmTitle": "Bu görev silinsin mi?",
+    "deleteConfirmDesc": "Bu işlem geri alınamaz.",
+    "deleteConfirmLabel": "Sil",
+    "moveTo": "Taşı",
+    "assignee": "Atanan",
+    "unassigned": "Atanmamış",
+    "dueDate": "Son Tarih",
+    "comments": "Yorumlar",
+    "noComments": "Henüz yorum yok.",
+    "commentPlaceholder": "Yorum ekle…",
+    "loadCommentsFailed": "Yorumlar yüklenemedi",
+    "addCommentFailed": "Yorum eklenemedi"
+  },
+  "members": {
+    "loadFailed": "Üyeler yüklenemedi",
+    "removeConfirmTitle": "{{name}} çıkarılsın mı?",
+    "removeConfirmDesc": "{{name}} bu çalışma alanına erişimini kaybedecek.",
+    "removeConfirmLabel": "Çıkar",
+    "removed": "{{name}} çalışma alanından çıkarıldı",
+    "removeFailed": "Üye çıkarılamadı",
+    "joinedLine": "{{role}} · Katıldı {{time}}"
+  },
+  "resources": {
+    "loadFailed": "Kaynaklar yüklenemedi",
+    "added": "Kaynak eklendi!",
+    "addFailed": "Kaynak eklenemedi",
+    "removed": "Kaynak kaldırıldı.",
+    "removeFailed": "Kaynak kaldırılamadı",
+    "addResource": "Kaynak Ekle",
+    "addShared": "Paylaşılan Kaynak Ekle",
+    "title": "Başlık",
+    "titlePlaceholder": "örn. Proje Deposu",
+    "type": "Tür",
+    "url": "URL",
+    "empty": "Henüz kaynak paylaşılmadı.",
+    "emptyHint": "GitHub depoları, Figma dosyaları, Drive bağlantıları ve daha fazlasını ekle.",
+    "by": "ekleyen {{name}}",
+    "types": {
+      "github": "GitHub",
+      "figma": "Figma",
+      "drive": "Google Drive",
+      "notion": "Notion",
+      "meeting": "Toplantı Bağlantısı",
+      "link": "Diğer Bağlantı"
+    }
+  },
+  "activityTab": {
+    "empty": "Henüz etkinlik yok. Değişiklikler burada görünecek."
+  },
+  "activity": {
+    "workspace_created": "{{actor}} çalışma alanını oluşturdu",
+    "member_joined": "{{actor}} çalışma alanına katıldı",
+    "member_removed": "{{actor}} çalışma alanından çıkarıldı",
+    "task_created": "{{actor}} \"{{title}}\" görevini oluşturdu",
+    "task_moved": "{{actor}} \"{{title}}\" görevini {{from}} → {{to}} olarak taşıdı",
+    "task_deleted": "{{actor}} \"{{title}}\" görevini sildi",
+    "resource_added": "{{actor}} \"{{title}}\" kaynağını ekledi",
+    "resource_removed": "{{actor}} bir kaynağı kaldırdı",
+    "stage_updated": "{{actor}} proje aşamasını {{stage}} olarak güncelledi",
+    "default": "{{actor}} bir işlem yaptı",
+    "someone": "Biri"
+  }
+}

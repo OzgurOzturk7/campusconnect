@@ -1,4 +1,5 @@
 import { Calendar, Clock, Target, CheckCircle2 } from "lucide-react";
+import { useTranslation } from "react-i18next";
 
 interface ProjectTimelineProps {
   project: {
@@ -16,6 +17,7 @@ interface ProjectTimelineProps {
  * projects without dates don't get an empty box).
  */
 export function ProjectTimeline({ project }: ProjectTimelineProps) {
+  const { t, i18n } = useTranslation("common");
   const hasStart = Boolean(project.start_date);
   const hasEnd = Boolean(project.deadline);
   if (!hasStart && !hasEnd) return null;
@@ -36,32 +38,32 @@ export function ProjectTimeline({ project }: ProjectTimelineProps) {
   const isBeforeStart = today.getTime() < start.getTime();
   const isCompleted = end && today.getTime() > end.getTime();
 
-  const fmt = (d: Date) => d.toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
+  const fmt = (d: Date) => d.toLocaleDateString(i18n.language, { day: "numeric", month: "short", year: "numeric" });
 
   // Status text
   let statusLabel = "";
   let statusColor = "";
   if (isBeforeStart) {
     const daysToStart = Math.round((start.getTime() - today.getTime()) / 86_400_000);
-    statusLabel = `Starts in ${daysToStart} day${daysToStart === 1 ? "" : "s"}`;
+    statusLabel = t("timeline.startsIn", { count: daysToStart });
     statusColor = "text-blue-600";
   } else if (isCompleted) {
-    statusLabel = `Ended ${Math.abs(remainingDays || 0)} day${Math.abs(remainingDays || 0) === 1 ? "" : "s"} ago`;
+    statusLabel = t("timeline.endedAgo", { count: Math.abs(remainingDays || 0) });
     statusColor = "text-muted-foreground";
   } else if (remainingDays !== null) {
     if (remainingDays <= 0) {
-      statusLabel = "Due today";
+      statusLabel = t("timeline.dueToday");
       statusColor = "text-red-600";
     } else if (remainingDays <= 7) {
-      statusLabel = `${remainingDays} day${remainingDays === 1 ? "" : "s"} left`;
+      statusLabel = t("timeline.daysLeft", { count: remainingDays });
       statusColor = "text-amber-600";
     } else {
       const weeks = Math.round(remainingDays / 7);
-      statusLabel = `${weeks} week${weeks === 1 ? "" : "s"} left`;
+      statusLabel = t("timeline.weeksLeft", { count: weeks });
       statusColor = "text-primary";
     }
   } else {
-    statusLabel = "In progress";
+    statusLabel = t("timeline.inProgress");
     statusColor = "text-muted-foreground";
   }
 
@@ -69,7 +71,7 @@ export function ProjectTimeline({ project }: ProjectTimelineProps) {
   let currentLabel = "";
   if (!isBeforeStart && !isCompleted) {
     const elapsedWeeks = Math.floor(elapsedDays / 7) + 1;
-    currentLabel = `Week ${elapsedWeeks} · Day ${elapsedDays + 1}`;
+    currentLabel = t("timeline.weekDay", { week: elapsedWeeks, day: elapsedDays + 1 });
   }
 
   return (
@@ -77,7 +79,7 @@ export function ProjectTimeline({ project }: ProjectTimelineProps) {
       <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
         <div className="flex items-center gap-2 text-sm font-semibold">
           <Target className="w-4 h-4 text-primary" />
-          <span>Timeline</span>
+          <span>{t("timeline.title")}</span>
           {currentLabel && (
             <span className="text-xs font-medium text-muted-foreground">· {currentLabel}</span>
           )}
@@ -111,7 +113,7 @@ export function ProjectTimeline({ project }: ProjectTimelineProps) {
           {fmt(start)}
         </span>
         {totalDays && (
-          <span>{elapsedDays} / {totalDays} day{totalDays === 1 ? "" : "s"}</span>
+          <span>{t("timeline.dayProgress", { elapsed: elapsedDays, total: totalDays })}</span>
         )}
         {end && (
           <span className="flex items-center gap-1">

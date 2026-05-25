@@ -1,0 +1,77 @@
+{
+  "heading": "События кампуса",
+  "searchPlaceholder": "Поиск событий...",
+  "filters": {
+    "upcoming": "Предстоящие",
+    "all": "Все",
+    "past": "Прошедшие"
+  },
+  "months": ["Январь", "Февраль", "Март", "Апрель", "Май", "Июнь", "Июль", "Август", "Сентябрь", "Октябрь", "Ноябрь", "Декабрь"],
+  "days": ["Вс", "Пн", "Вт", "Ср", "Чт", "Пт", "Сб"],
+  "noEvents": "События не найдены.",
+  "members": "Участники",
+  "attending": "Вы идёте",
+  "full": "Заполнено",
+  "past": "Прошло",
+  "edit": "Изменить",
+  "delete": "Удалить",
+  "markAttending": "Я пойду",
+  "eventFull": "Мест нет",
+  "attendees": "Участники ({{count}})",
+  "addToCalendar": "Добавить в Google Календарь",
+  "attendingCount": "{{count}} участников",
+  "attendingCountCap": "{{count}} / {{capacity}} участников",
+  "deleteModal": {
+    "title": "Удалить событие",
+    "confirm": "Удалить «{{title}}»? Это нельзя отменить.",
+    "delete": "Удалить"
+  },
+  "editModal": {
+    "title": "Изменить событие",
+    "titleLabel": "Название",
+    "description": "Описание",
+    "dateTime": "Дата и время",
+    "location": "Место",
+    "locationPlaceholder": "Физическое место или онлайн",
+    "saving": "Сохранение...",
+    "saveChanges": "Сохранить изменения"
+  },
+  "createModal": {
+    "title": "Создать событие",
+    "titleLabel": "Название",
+    "titlePlaceholder": "Название события",
+    "description": "Описание",
+    "descriptionPlaceholder": "Описание события",
+    "dateTime": "Дата и время",
+    "location": "Место",
+    "locationPlaceholder": "Физическое место или онлайн",
+    "linkClub": "Привязать к клубу (необязательно)",
+    "noneGeneral": "Нет (общее событие)",
+    "schoolWide": "Общеуниверситетское событие",
+    "schoolWideHint": "(уведомляет всех студентов)",
+    "creating": "Создание...",
+    "create": "Создать событие"
+  },
+  "toast": {
+    "attendFailed": "Не удалось обновить участие",
+    "eventCreated": "Событие создано!",
+    "createFailed": "Не удалось создать событие",
+    "eventUpdated": "Событие обновлено!",
+    "updateFailed": "Не удалось обновить",
+    "eventDeleted": "Событие удалено.",
+    "deleteFailed": "Не удалось удалить"
+  },
+  "attendeesModal": {
+    "loading": "Загрузка…",
+    "attending": "{{count}} участников",
+    "downloadCsv": "Скачать CSV",
+    "noAttendeesTitle": "Пока нет участников",
+    "downloadTitle": "Скачать как CSV",
+    "close": "Закрыть",
+    "empty": "Пока никто не отметил участие.",
+    "unknown": "Неизвестно",
+    "year": "{{year}} курс",
+    "loadFailed": "Не удалось загрузить участников",
+    "exportFailed": "Не удалось экспортировать CSV"
+  }
+}

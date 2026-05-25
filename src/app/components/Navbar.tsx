@@ -246,7 +246,7 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
       {onMenuClick && (
         <button
           onClick={onMenuClick}
-          aria-label="Open menu"
+          aria-label={t("a11y.openMenu")}
           className="md:hidden p-2 rounded-lg hover:bg-muted -ml-1"
         >
           <Menu className="w-5 h-5" />
@@ -402,7 +402,7 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
         <div ref={userMenuRef} className="relative">
           <button
             onClick={() => setUserMenuOpen((v) => !v)}
-            aria-label="User menu"
+            aria-label={t("a11y.userMenu")}
             className={`rounded-full transition-all ${userMenuOpen ? "ring-2 ring-primary/40" : "hover:opacity-80"}`}
           >
             <Avatar name={user?.name || "User"} size="sm" />

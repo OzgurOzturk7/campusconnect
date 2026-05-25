@@ -16,7 +16,10 @@ function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "light";
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === "dark" || stored === "light") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  // Default to light for a consistent first impression — the OS dark-mode
+  // preference is intentionally ignored. Users can switch in Settings, and
+  // that choice is remembered (localStorage) from then on.
+  return "light";
 }
 
 export function ThemeProvider({ children }: { children: ReactNode }) {

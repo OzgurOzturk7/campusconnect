@@ -122,5 +122,13 @@
     "cancel": "İptal",
     "noMatches": "Eşleşme yok.",
     "addFailed": "Üye eklenemedi"
+  },
+  "reportModal": {
+    "title": "Mesajı şikayet et",
+    "placeholder": "Bu mesajı neden şikayet ediyorsun?",
+    "submit": "Şikayet et",
+    "submitting": "Gönderiliyor…",
+    "success": "Şikayet gönderildi. Bildirdiğin için teşekkürler.",
+    "failed": "Şikayet gönderilemedi"
   }
 }

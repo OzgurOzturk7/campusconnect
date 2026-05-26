@@ -29,5 +29,13 @@
     "viewProject": "View Project",
     "viewAllNotifications": "View all notifications"
   },
-  "attending": "{{count}} attending"
+  "attending": "{{count}} attending",
+  "admin": {
+    "overview": "Platform Overview",
+    "users": "Users",
+    "clubs": "Clubs",
+    "events": "Events",
+    "projects": "Projects",
+    "pending": "Pending"
+  }
 }

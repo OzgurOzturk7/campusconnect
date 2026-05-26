@@ -210,15 +210,15 @@ export function Dashboard() {
       {/* Admin-only platform overview */}
       {user?.role === "admin" && adminStats && (
         <div>
-          <h2 className="text-lg font-bold mb-3">Platform Overview</h2>
+          <h2 className="text-lg font-bold mb-3">{t("admin.overview")}</h2>
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3">
-            <AdminStatCard label="Users" value={adminStats.users} icon={Users} />
-            <AdminStatCard label="Clubs" value={adminStats.clubs} icon={Building2} />
-            <AdminStatCard label="Events" value={adminStats.events} icon={Calendar} />
-            <AdminStatCard label="Projects" value={adminStats.projects} icon={Briefcase} />
+            <AdminStatCard label={t("admin.users")} value={adminStats.users} icon={Users} />
+            <AdminStatCard label={t("admin.clubs")} value={adminStats.clubs} icon={Building2} />
+            <AdminStatCard label={t("admin.events")} value={adminStats.events} icon={Calendar} />
+            <AdminStatCard label={t("admin.projects")} value={adminStats.projects} icon={Briefcase} />
             <Link to="/clubs?tab=requests" className="block">
               <AdminStatCard
-                label="Pending"
+                label={t("admin.pending")}
                 value={adminStats.pending_requests}
                 icon={Clock}
                 highlight={adminStats.pending_requests > 0}

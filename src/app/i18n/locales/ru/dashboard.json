@@ -29,5 +29,13 @@
     "viewProject": "Открыть проект",
     "viewAllNotifications": "Все уведомления"
   },
-  "attending": "{{count}} участников"
+  "attending": "{{count}} участников",
+  "admin": {
+    "overview": "Обзор платформы",
+    "users": "Пользователи",
+    "clubs": "Клубы",
+    "events": "События",
+    "projects": "Проекты",
+    "pending": "В ожидании"
+  }
 }

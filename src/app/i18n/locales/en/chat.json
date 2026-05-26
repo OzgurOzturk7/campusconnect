@@ -122,5 +122,13 @@
     "cancel": "Cancel",
     "noMatches": "No matches.",
     "addFailed": "Couldn't add member"
+  },
+  "reportModal": {
+    "title": "Report message",
+    "placeholder": "Why are you reporting this message?",
+    "submit": "Report",
+    "submitting": "Reporting…",
+    "success": "Report submitted. Thanks for flagging it.",
+    "failed": "Couldn't submit the report"
   }
 }

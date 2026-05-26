@@ -29,5 +29,13 @@
     "viewProject": "Projeyi Gör",
     "viewAllNotifications": "Tüm bildirimleri gör"
   },
-  "attending": "{{count}} katılıyor"
+  "attending": "{{count}} katılıyor",
+  "admin": {
+    "overview": "Platform Genel Bakışı",
+    "users": "Kullanıcılar",
+    "clubs": "Kulüpler",
+    "events": "Etkinlikler",
+    "projects": "Projeler",
+    "pending": "Bekleyen"
+  }
 }

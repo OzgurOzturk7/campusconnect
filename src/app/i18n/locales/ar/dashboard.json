@@ -29,5 +29,13 @@
     "viewProject": "عرض المشروع",
     "viewAllNotifications": "عرض كل الإشعارات"
   },
-  "attending": "{{count}} مشارك"
+  "attending": "{{count}} مشارك",
+  "admin": {
+    "overview": "نظرة عامة على المنصة",
+    "users": "المستخدمون",
+    "clubs": "النوادي",
+    "events": "الفعاليات",
+    "projects": "المشاريع",
+    "pending": "قيد الانتظار"
+  }
 }

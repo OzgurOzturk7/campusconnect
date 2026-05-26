@@ -714,11 +714,11 @@ export function Chat() {
           chat_id: activeChatId,
         }),
       });
-      toastSuccess("Report submitted. Thanks for flagging it.");
+      toastSuccess(t("reportModal.success"));
       setReportingMsg(null);
       setReportReason("");
     } catch (e: unknown) {
-      toastError(e instanceof Error ? e.message : "Couldn't submit the report");
+      toastError(e instanceof Error ? e.message : t("reportModal.failed"));
     } finally {
       setReportSubmitting(false);
     }
@@ -1510,26 +1510,26 @@ export function Chat() {
               <div className="w-10 h-10 rounded-full bg-destructive/10 flex items-center justify-center flex-shrink-0">
                 <Flag className="w-5 h-5 text-destructive" />
               </div>
-              <h3 className="font-bold text-base">Report message</h3>
+              <h3 className="font-bold text-base">{t("reportModal.title")}</h3>
             </div>
             <p className="text-xs text-muted-foreground mb-3 line-clamp-2 bg-muted rounded-lg px-3 py-2">
-              {reportingMsg.body || "[attachment]"}
+              {reportingMsg.body || t("attachment")}
             </p>
             <textarea
               value={reportReason}
               onChange={(e) => setReportReason(e.target.value)}
-              placeholder="Why are you reporting this message?"
+              placeholder={t("reportModal.placeholder")}
               rows={3}
               className="w-full px-3 py-2 text-sm bg-muted border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none"
             />
             <div className="flex gap-3 mt-4">
-              <Button variant="outline" className="flex-1" onClick={() => setReportingMsg(null)}>Cancel</Button>
+              <Button variant="outline" className="flex-1" onClick={() => setReportingMsg(null)}>{t("addMember.cancel")}</Button>
               <Button
                 className="flex-1"
                 disabled={reportSubmitting || !reportReason.trim()}
                 onClick={submitReport}
               >
-                {reportSubmitting ? "Reporting…" : "Report"}
+                {reportSubmitting ? t("reportModal.submitting") : t("reportModal.submit")}
               </Button>
             </div>
           </div>

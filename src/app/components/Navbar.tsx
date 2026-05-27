@@ -256,7 +256,7 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
         <img
           src="/logo.png"
           alt="CampusConnect"
-          className="cc-logo h-9 md:h-11 w-auto object-contain"
+          className="cc-logo h-12 md:h-14 w-auto object-contain"
         />
       </Link>
 

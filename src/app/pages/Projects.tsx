@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { Card } from "../components/Card";
 import { Button } from "../components/Button";
@@ -15,6 +15,7 @@ import { useLocation, useNavigate } from "react-router";
 import { Pagination } from "../components/Pagination";
 import { ProjectTimeline } from "../components/ProjectTimeline";
 import { getStoredToken } from "../context/AuthContext";
+import { useRealtimeChannel } from "../hooks/useRealtimeChannel";
 
 interface Owner {
   name: string;
@@ -182,6 +183,28 @@ export function Projects() {
     fetchAll();
   }, []);
 
+  // Keep a ref to the open project so the realtime callback (captured at
+  // subscribe time) can refresh the detail's application list if needed.
+  const selectedProjectRef = useRef<Project | null>(null);
+  useEffect(() => { selectedProjectRef.current = selectedProject; }, [selectedProject]);
+
+  // Live updates: new/edited postings and incoming/decided applications, so
+  // the owner sees applications and applicants see decisions without a
+  // refresh. Re-fetches through the (RLS-scoped) API on every change.
+  useRealtimeChannel({ table: "project_posts", onChange: () => fetchAll({ silent: true }) });
+  useRealtimeChannel({
+    table: "project_applications",
+    onChange: () => {
+      fetchAll({ silent: true });
+      const sp = selectedProjectRef.current;
+      if (sp && (sp.owner_id === user?.user_id || user?.role === "admin")) {
+        apiFetch(`/api/projects/${sp.id}/applications`)
+          .then(setProjectApplications)
+          .catch(() => {});
+      }
+    },
+  });
+
   // React to URL changes (from notification clicks)
   useEffect(() => {
     const params = new URLSearchParams(location.search);
@@ -206,8 +229,8 @@ export function Projects() {
     }
   }, [location.search, projects]);
 
-  async function fetchAll() {
-    setIsLoading(true);
+  async function fetchAll(opts?: { silent?: boolean }) {
+    if (!opts?.silent) setIsLoading(true);
     try {
       const [all, mine, mineProj, apps, sugg, limit] = await Promise.all([
         apiFetch("/api/projects/"),

@@ -12,6 +12,7 @@ import { Link, useLocation } from "react-router";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
 import { SkeletonPage, SkeletonGrid } from "../components/Skeleton";
+import { useRealtimeChannel } from "../hooks/useRealtimeChannel";
 
 interface Club {
   id: string;
@@ -150,15 +151,29 @@ export function Clubs() {
     if (user?.role === "admin") fetchClubRequests();
   }, []);
 
-  async function fetchClubs() {
+  // Live updates: new/edited clubs, my own membership status (join/approve/
+  // reject), and — for admins — incoming club-creation requests. Each event
+  // just re-fetches through the API so RLS scoping is preserved.
+  useRealtimeChannel({ table: "clubs", onChange: () => fetchClubs({ silent: true }) });
+  useRealtimeChannel({
+    table: "club_memberships",
+    onChange: () => { fetchClubs({ silent: true }); fetchMemberships(); },
+  });
+  useRealtimeChannel({
+    table: "club_requests",
+    enabled: user?.role === "admin",
+    onChange: () => fetchClubRequests({ silent: true }),
+  });
+
+  async function fetchClubs(opts?: { silent?: boolean }) {
     try {
-      setIsLoading(true);
+      if (!opts?.silent) setIsLoading(true);
       const data = await apiFetch("/api/clubs/");
       setClubs(data);
     } catch {
       console.error("Failed to load clubs");
     } finally {
-      setIsLoading(false);
+      if (!opts?.silent) setIsLoading(false);
     }
   }
 
@@ -169,15 +184,15 @@ export function Clubs() {
     } catch { /* ignore */ }
   }
 
-  async function fetchClubRequests() {
+  async function fetchClubRequests(opts?: { silent?: boolean }) {
     try {
-      setIsLoadingRequests(true);
+      if (!opts?.silent) setIsLoadingRequests(true);
       const data = await apiFetch("/api/clubs/admin-requests");
       setClubRequests((data || []).filter((r: ClubRequest) => r.status === "pending"));
     } catch {
       console.error("Failed to load requests");
     } finally {
-      setIsLoadingRequests(false);
+      if (!opts?.silent) setIsLoadingRequests(false);
     }
   }
 

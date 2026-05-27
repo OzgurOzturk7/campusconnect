@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { apiFetch } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { useRealtimeChannel } from "../hooks/useRealtimeChannel";
 
 interface Event {
   id: string;
@@ -96,15 +97,23 @@ export function Events() {
     fetchAttending();
   }, []);
 
-  async function fetchEvents() {
+  // Live updates: new/edited events and attendance changes (so RSVP counts
+  // and the "going" state reflect across accounts without a refresh).
+  useRealtimeChannel({ table: "events", onChange: () => fetchEvents({ silent: true }) });
+  useRealtimeChannel({
+    table: "event_attendees",
+    onChange: () => { fetchEvents({ silent: true }); fetchAttending(); },
+  });
+
+  async function fetchEvents(opts?: { silent?: boolean }) {
     try {
-      setIsLoading(true);
+      if (!opts?.silent) setIsLoading(true);
       const data = await apiFetch("/api/events/");
       setEvents(data);
     } catch {
       console.error("Failed to load events");
     } finally {
-      setIsLoading(false);
+      if (!opts?.silent) setIsLoading(false);
     }
   }
 

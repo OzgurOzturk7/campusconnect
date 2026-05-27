@@ -863,7 +863,7 @@ export function Chat() {
   }, [messages]);
 
   return (
-    <div className="flex bg-card border border-border rounded-xl overflow-hidden" style={{ height: "calc(100vh - 8rem)" }}>
+    <div className="flex bg-card border border-border rounded-xl overflow-hidden" style={{ height: "calc(100dvh - 8rem)" }}>
       {/* ========== LEFT: chat list ========== */}
       <aside className={`${activeChatId ? "hidden md:flex" : "flex"} w-full md:w-80 lg:w-96 flex-col border-r border-border`}>
         <div className="p-4 border-b border-border flex items-center gap-2">

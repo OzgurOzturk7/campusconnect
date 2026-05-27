@@ -247,13 +247,22 @@ def join_club(request: Request, club_id: str, current_user: dict = Depends(get_c
     club = get_club_or_404(supabase, club_id)
     existing = supabase.table("club_memberships").select("id, status") \
         .eq("club_id", club_id).eq("user_id", current_user["id"]).execute()
-    if existing.data:
-        raise HTTPException(status_code=400, detail="Already a member or request pending")
     membership_status = "approved" if club["is_open"] else "pending"
-    result = supabase.table("club_memberships").insert({
-        "club_id": club_id, "user_id": current_user["id"],
-        "role": "member", "status": membership_status,
-    }).execute()
+    if existing.data:
+        row = existing.data[0]
+        # Block only if they're already in or awaiting review. A previously
+        # rejected applicant may re-apply — reset the existing row instead of
+        # inserting a duplicate (avoids the (club_id, user_id) unique clash).
+        if row["status"] in ("approved", "pending"):
+            raise HTTPException(status_code=400, detail="Already a member or request pending")
+        supabase.table("club_memberships").update({
+            "role": "member", "status": membership_status,
+        }).eq("id", row["id"]).execute()
+    else:
+        supabase.table("club_memberships").insert({
+            "club_id": club_id, "user_id": current_user["id"],
+            "role": "member", "status": membership_status,
+        }).execute()
     if membership_status == "pending":
         send_notification(user_id=club["admin_user_id"], type="club_application",
             title="New membership request",

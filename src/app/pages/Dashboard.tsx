@@ -228,28 +228,30 @@ export function Dashboard() {
         </div>
       )}
 
-      {/* Stats — two-up always so the second card is visible above the fold
-          on phones too, just narrower. */}
-      <div className="grid grid-cols-2 gap-3 md:gap-6">
-        <Card className="p-4 md:p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">{t("stats.clubs")}</p>
-              <p className="text-2xl font-bold mt-1">{stats.clubsJoined}</p>
+      {/* Personal stats — hidden for admins, whose platform overview above
+          already shows clubs/events totals (no point duplicating). */}
+      {user?.role !== "admin" && (
+        <div className="grid grid-cols-2 gap-3 md:gap-6">
+          <Card className="p-4 md:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{t("stats.clubs")}</p>
+                <p className="text-2xl font-bold mt-1">{stats.clubsJoined}</p>
+              </div>
+              <Users className="w-10 h-10 text-primary" />
             </div>
-            <Users className="w-10 h-10 text-primary" />
-          </div>
-        </Card>
-        <Card className="p-4 md:p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-muted-foreground">{t("stats.totalEvents")}</p>
-              <p className="text-2xl font-bold mt-1">{stats.eventsRsvpd}</p>
+          </Card>
+          <Card className="p-4 md:p-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-sm text-muted-foreground">{t("stats.totalEvents")}</p>
+                <p className="text-2xl font-bold mt-1">{stats.eventsRsvpd}</p>
+              </div>
+              <Calendar className="w-8 h-8 md:w-10 md:h-10 text-secondary flex-shrink-0" />
             </div>
-            <Calendar className="w-8 h-8 md:w-10 md:h-10 text-secondary flex-shrink-0" />
-          </div>
-        </Card>
-      </div>
+          </Card>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
         {/* Left — Upcoming Events */}

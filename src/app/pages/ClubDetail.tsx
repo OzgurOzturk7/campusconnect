@@ -15,6 +15,7 @@ import { apiFetch } from "../lib/api";
 import { renderRichText } from "../lib/richText";
 import { useAuth } from "../context/AuthContext";
 import { getStoredToken } from "../context/AuthContext";
+import { useRealtimeChannel } from "../hooks/useRealtimeChannel";
 
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8000";
 
@@ -131,6 +132,26 @@ export function ClubDetail() {
     if (id) fetchData();
   }, [id]);
 
+  // Live membership changes: president sees new join requests instantly,
+  // applicants see approve/reject decisions instantly — no manual refresh.
+  useRealtimeChannel({
+    table: "club_memberships",
+    filter: `club_id=eq.${id}`,
+    enabled: !!id,
+    onChange: () => refetchMembers(),
+  });
+
+  // Lightweight refresh of just the member list — used for realtime pings
+  // and membership actions so the page doesn't flash the full skeleton.
+  async function refetchMembers() {
+    try {
+      const membersData = await apiFetch(`/api/clubs/${id}/members`);
+      setMembers(membersData);
+    } catch {
+      // best-effort; a failed background refresh shouldn't surface an error
+    }
+  }
+
   async function fetchData() {
     try {
       setIsLoading(true);
@@ -161,7 +182,7 @@ export function ClubDetail() {
     try {
       setIsJoining(true);
       await apiFetch(`/api/clubs/${id}/join`, { method: "POST" });
-      fetchData();
+      await refetchMembers();
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : t("toast.joinFailed"), false);
     } finally {
@@ -195,7 +216,7 @@ export function ClubDetail() {
         method: "PATCH",
         body: JSON.stringify({ status: memberStatus }),
       });
-      fetchData();
+      await refetchMembers();
     } catch (err: unknown) {
       showToast(err instanceof Error ? err.message : t("toast.updateFailed"), false);
     } finally {

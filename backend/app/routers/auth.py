@@ -908,7 +908,7 @@ Max 3 clubs and 3 events. Use exact names from the lists."""
     try:
         supabase.table("users").update({
             "ai_analysis_cache": json.dumps(result.model_dump()),
-            "ai_analysis_updated_at": datetime.utcnow().isoformat(),
+            "ai_analysis_updated_at": datetime.now(timezone.utc).isoformat(),
         }).eq("id", current_user["id"]).execute()
     except Exception as e:
         logger.error(f"Cache save error: {e}")

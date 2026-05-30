@@ -28,6 +28,16 @@ function Constellation() {
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
+    // Respect the OS "Reduce motion" setting — the particle field is
+    // pure decoration and a non-trivial animation cost on low-power
+    // devices. When reduce-motion is on we skip the rAF loop entirely
+    // and leave the canvas blank (the page already has gradient
+    // backgrounds, so it doesn't look broken).
+    const reduceMotion =
+      typeof window.matchMedia === "function" &&
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduceMotion) return;
+
     const ctx = canvas.getContext("2d")!;
     let raf = 0;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -64,6 +74,19 @@ function Constellation() {
     canvas.addEventListener("mousemove", onMove);
     canvas.addEventListener("mouseleave", onLeave);
     window.addEventListener("resize", resize);
+
+    // Pause the loop while the tab is in the background — browsers
+    // throttle rAF on hidden tabs anyway, but explicitly cancelling
+    // releases the GPU + reduces wake-ups on battery.
+    const onVisibility = () => {
+      if (document.visibilityState === "hidden") {
+        cancelAnimationFrame(raf);
+        raf = 0;
+      } else if (raf === 0) {
+        draw();
+      }
+    };
+    document.addEventListener("visibilitychange", onVisibility);
 
     const draw = () => {
       ctx.clearRect(0, 0, w(), h());
@@ -136,6 +159,7 @@ function Constellation() {
       canvas.removeEventListener("mousemove", onMove);
       canvas.removeEventListener("mouseleave", onLeave);
       window.removeEventListener("resize", resize);
+      document.removeEventListener("visibilitychange", onVisibility);
     };
   }, []);
 

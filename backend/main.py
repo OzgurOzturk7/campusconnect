@@ -87,16 +87,37 @@ async def supabase_retry_middleware(request: Request, call_next):
         )
 
 
+_CSP_REPORT_ONLY = (
+    "default-src 'self'; "
+    "script-src 'self' 'unsafe-inline' https://accounts.google.com https://*.gstatic.com; "
+    "style-src 'self' 'unsafe-inline'; "
+    "img-src 'self' data: blob: https:; "
+    "font-src 'self' data:; "
+    "connect-src 'self' https: wss:; "
+    "frame-src https://accounts.google.com; "
+    "object-src 'none'; "
+    "base-uri 'self'; "
+    "form-action 'self'"
+)
+
+
 @app.middleware("http")
 async def security_headers_middleware(request: Request, call_next):
     """Defence-in-depth headers on every response. Uses setdefault so it
     never clobbers a header a route set deliberately. HSTS is production-only
-    (no point on plain-HTTP localhost) and gated on DEBUG."""
+    (no point on plain-HTTP localhost) and gated on DEBUG.
+
+    CSP is sent in report-only mode — useful for the SPA's HTML but
+    harmless on JSON responses. The frontend's real CSP comes from
+    netlify.toml; this duplicate ensures the same policy ships even if
+    the API is ever fronted by something that proxies HTML.
+    """
     response = await call_next(request)
     response.headers.setdefault("X-Content-Type-Options", "nosniff")
     response.headers.setdefault("X-Frame-Options", "DENY")
     response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
     response.headers.setdefault("Permissions-Policy", "geolocation=(), microphone=(), camera=()")
+    response.headers.setdefault("Content-Security-Policy-Report-Only", _CSP_REPORT_ONLY)
     if not settings.DEBUG:
         response.headers.setdefault(
             "Strict-Transport-Security", "max-age=31536000; includeSubDomains"

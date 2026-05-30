@@ -6,3 +6,23 @@
 
 [build.environment]
   NODE_VERSION = "20"
+
+# Security headers for every response. CSP is **report-only** for now —
+# the browser logs violations to DevTools but doesn't actually block
+# anything, so we can tighten the policy once we know what real traffic
+# needs. Flip the header name to `Content-Security-Policy` to enforce.
+#
+# Allowances baked in:
+#   - Google Identity Services (script + iframe) for Google sign-in
+#   - https:/wss: connect for Supabase REST + realtime and the backend API
+#   - img-src https:/data:/blob: for Supabase Storage signed URLs +
+#     base64 avatars + Object URL previews
+#   - 'unsafe-inline' style is needed by Tailwind v4 / inline style attrs
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Content-Security-Policy-Report-Only = "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://*.gstatic.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https: wss:; frame-src https://accounts.google.com; object-src 'none'; base-uri 'self'; form-action 'self'"
+    Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Permissions-Policy = "geolocation=(), microphone=(), camera=()"

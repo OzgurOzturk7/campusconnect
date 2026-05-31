@@ -198,6 +198,19 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
     navigate(path);
   }
 
+  async function handleUserPick(userId: string) {
+    // Resolve (or create) the 1-1 chat with this user, then open it.
+    // Without the chatId query param the Chat page just loads the list
+    // and the user has to find the conversation manually.
+    try {
+      const chat = await apiFetch(`/api/chats/direct/with/${userId}`);
+      handleSearchNavigate(`/chats?chatId=${chat.id}`);
+    } catch {
+      // Fall back to the chat list — better than swallowing the click.
+      handleSearchNavigate(`/chats`);
+    }
+  }
+
   async function fetchNotifications() {
     try {
       setLoadingNotifs(true);
@@ -296,7 +309,7 @@ export function Navbar({ onMenuClick }: NavbarProps = {}) {
                 <SearchGroup title={t("nav.clubs")} icon={Users} items={searchResults.clubs} render={(c) => c.name} onPick={(c) => handleSearchNavigate(`/clubs/${c.id}`)} />
                 <SearchGroup title={t("nav.events")} icon={Calendar} items={searchResults.events} render={(e) => e.title} onPick={() => handleSearchNavigate(`/events`)} />
                 <SearchGroup title={t("nav.projects")} icon={Briefcase} items={searchResults.projects} render={(p) => p.title} onPick={() => handleSearchNavigate(`/projects`)} />
-                <SearchGroup title={t("search.users")} icon={UserIcon} items={searchResults.users} render={(u) => u.name} onPick={() => handleSearchNavigate(`/chats`)} />
+                <SearchGroup title={t("search.users")} icon={UserIcon} items={searchResults.users} render={(u) => u.name} onPick={(u) => handleUserPick(u.id)} />
               </>
             )}
           </div>

@@ -977,7 +977,7 @@ export function Chat() {
       </aside>
 
       {/* ========== RIGHT: active chat ========== */}
-      <section className={`${activeChatId ? "flex" : "hidden md:flex"} flex-1 flex-col`}>
+      <section className={`${activeChatId ? "flex" : "hidden md:flex"} flex-1 min-w-0 flex-col`}>
         {!activeChatId ? (
           <div className="flex-1 flex items-center justify-center text-center px-8">
             <div>
@@ -1232,11 +1232,11 @@ export function Chat() {
                                 <>
                                   {m.attachment_url && m.attachment_type === "image" && (
                                     <a href={m.attachment_url} target="_blank" rel="noopener noreferrer">
-                                      <img src={m.attachment_url} alt={m.attachment_name || ""} loading="lazy" className="rounded-lg max-h-64 mb-1" />
+                                      <img src={m.attachment_url} alt={m.attachment_name || ""} loading="lazy" className="rounded-lg max-w-full max-h-64 mb-1" />
                                     </a>
                                   )}
                                   {m.attachment_url && m.attachment_type === "video" && (
-                                    <video src={m.attachment_url} controls className="rounded-lg max-h-64 mb-1" />
+                                    <video src={m.attachment_url} controls className="rounded-lg max-w-full max-h-64 mb-1" />
                                   )}
                                   {m.attachment_url && m.attachment_type === "file" && (
                                     <a href={m.attachment_url} target="_blank" rel="noopener noreferrer"

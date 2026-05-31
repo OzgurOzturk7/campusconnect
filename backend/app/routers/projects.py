@@ -41,16 +41,32 @@ PROJECT_MONTHLY_LIMIT = 3
 # Project chat helpers (auto-managed group chats per project)
 # ============================================================
 def _get_or_create_project_chat(supabase, project_id: str, title: str, owner_id: str) -> str:
-    """Return chat id for a project; create it if missing."""
+    """Return chat id for a project; create it if missing.
+
+    Migration 017 adds a partial unique index on chats(project_id) so a
+    second concurrent insert raises a unique-violation rather than
+    silently creating a duplicate. If that happens we re-read the row
+    that the other request just inserted and return its id, keeping the
+    caller's flow identical to the happy path.
+    """
     existing = supabase.table("chats").select("id").eq("project_id", project_id).maybe_single().execute()
     if existing and existing.data:
         return existing.data["id"]
-    new_chat = supabase.table("chats").insert({
-        "type": "project",
-        "title": title,
-        "project_id": project_id,
-        "created_by": owner_id,
-    }).execute().data[0]
+    try:
+        new_chat = supabase.table("chats").insert({
+            "type": "project",
+            "title": title,
+            "project_id": project_id,
+            "created_by": owner_id,
+        }).execute().data[0]
+    except Exception as e:
+        # Race lost — another request just inserted. Re-fetch and reuse.
+        msg = str(e).lower()
+        if "duplicate" in msg or "unique" in msg or "23505" in msg or "chats_project_id_uniq" in msg:
+            again = supabase.table("chats").select("id").eq("project_id", project_id).maybe_single().execute()
+            if again and again.data:
+                return again.data["id"]
+        raise
     supabase.table("chat_members").insert({
         "chat_id": new_chat["id"], "user_id": owner_id, "role": "admin",
     }).execute()

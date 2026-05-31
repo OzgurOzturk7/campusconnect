@@ -304,7 +304,7 @@ def export_attendees_csv(event_id: str, current_user: dict = Depends(get_current
     """
     import csv
     import io
-    from datetime import datetime
+    from datetime import datetime, timezone
     from fastapi.responses import StreamingResponse
 
     supabase = get_supabase_admin()
@@ -352,7 +352,7 @@ def export_attendees_csv(event_id: str, current_user: dict = Depends(get_current
     safe_title = "".join(
         c for c in (event.data.get("title") or "event") if c.isalnum() or c in (" ", "-", "_")
     ).strip().replace(" ", "_") or "event"
-    filename = f"{safe_title}_attendees_{datetime.utcnow().strftime('%Y%m%d')}.csv"
+    filename = f"{safe_title}_attendees_{datetime.now(timezone.utc).strftime('%Y%m%d')}.csv"
 
     return StreamingResponse(
         iter([buf.getvalue()]),

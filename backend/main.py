@@ -90,7 +90,7 @@ async def supabase_retry_middleware(request: Request, call_next):
 _CSP_REPORT_ONLY = (
     "default-src 'self'; "
     "script-src 'self' 'unsafe-inline' https://accounts.google.com https://*.gstatic.com; "
-    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://accounts.google.com; "
     "img-src 'self' data: blob: https:; "
     "font-src 'self' data: https://fonts.gstatic.com; "
     "connect-src 'self' https: wss:; "

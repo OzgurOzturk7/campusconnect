@@ -31,5 +31,5 @@ yarn-error.log*
 *.swo
 .DS_Store
 
-# Claude Code
+# Local tooling
 .claude/

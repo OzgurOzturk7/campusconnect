@@ -67,6 +67,28 @@ def get_active_allowed_domains(admin) -> list[str]:
     return domains
 
 
+@router.get("/public-domains")
+def public_allowed_domains():
+    """Public list of active email domains allowed to sign in.
+
+    The login page calls this without auth so the Google account picker
+    and the client-side domain check stay in sync with the admin-managed
+    allow-list. It returns only the domain strings — which are already
+    revealed in the sign-in error messages — so nothing sensitive leaks.
+    """
+    try:
+        admin = get_supabase_admin()
+        return {"domains": get_active_allowed_domains(admin)}
+    except Exception as e:
+        logger.error(f"PUBLIC DOMAINS ERROR: {e}")
+        return {
+            "domains": [
+                d.lower().lstrip("@").strip()
+                for d in (settings.INVITE_ALLOWED_DOMAINS or ["final.edu.tr"])
+            ]
+        }
+
+
 @router.post("/login", response_model=LoginResponse)
 # 5/minute is tight enough to make password brute-forcing impractical
 # but loose enough that a typo-prone user isn't locked out.

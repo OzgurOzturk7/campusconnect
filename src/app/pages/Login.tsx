@@ -3,9 +3,11 @@ import { useNavigate } from "react-router";
 import { useTranslation } from "react-i18next";
 import { Eye, EyeOff, Loader2, AlertCircle, ShieldCheck, Mail, ArrowLeft, Sparkles, CheckCircle2 } from "lucide-react";
 import { useAuth } from "../context/AuthContext";
+import { apiFetch } from "../lib/api";
 
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
-const ALLOWED_EMAIL_DOMAIN = "final.edu.tr";
+// Fallback domain used until the admin-managed allow-list loads (and if it fails to load).
+const DEFAULT_EMAIL_DOMAIN = "final.edu.tr";
 
 declare global { interface Window { google?: any; } }
 
@@ -428,6 +430,26 @@ export function Login() {
   const rememberRef = useRef(false);
   useEffect(() => { rememberRef.current = remember; }, [remember]);
 
+  // Email domains the backend will actually accept (admin-managed allow-list).
+  // Starts with the university default and is replaced once the public list
+  // loads, so newly activated domains can sign in too. A ref mirrors it for
+  // the one-time Google callback closure.
+  const [allowedDomains, setAllowedDomains] = useState<string[]>([DEFAULT_EMAIL_DOMAIN]);
+  const allowedDomainsRef = useRef<string[]>([DEFAULT_EMAIL_DOMAIN]);
+  useEffect(() => { allowedDomainsRef.current = allowedDomains; }, [allowedDomains]);
+  useEffect(() => {
+    let cancelled = false;
+    apiFetch("/api/auth/public-domains")
+      .then((d) => {
+        const list = Array.isArray(d?.domains)
+          ? d.domains.filter((x: unknown): x is string => typeof x === "string" && x.length > 0)
+          : [];
+        if (!cancelled && list.length) setAllowedDomains(list);
+      })
+      .catch(() => { /* keep the default domain if the list can't be loaded */ });
+    return () => { cancelled = true; };
+  }, []);
+
   const ripples = useRipples();
 
   const handleSubmit = async (e: FormEvent) => {
@@ -456,8 +478,10 @@ export function Login() {
       setError(null); setIsLoading(true);
       try {
         const payload = JSON.parse(atob(response.credential.split(".")[1]));
-        if (payload.email && !payload.email.endsWith(`@${ALLOWED_EMAIL_DOMAIN}`)) {
-          throw new Error(t("login.domainOnly", { domain: ALLOWED_EMAIL_DOMAIN }));
+        const allowed = allowedDomainsRef.current;
+        const emailDomain = ((payload.email || "").split("@")[1] || "").toLowerCase();
+        if (payload.email && !allowed.includes(emailDomain)) {
+          throw new Error(t("login.domainOnly", { domain: allowed.join(" or @") }));
         }
         const result = await loginWithGoogle(response.credential, rememberRef.current);
         if (result.kind === "invited") {
@@ -478,10 +502,12 @@ export function Login() {
     const init = () => {
       if (!window.google || !googleBtnRef.current) return;
       if (!gsiInitialized) {
+        // No `hosted_domain` lock here: it only accepts a single domain and
+        // would hide accounts from other admin-approved domains. The allowed
+        // domains are still enforced below (client check) and on the backend.
         window.google.accounts.id.initialize({
           client_id: GOOGLE_CLIENT_ID,
           callback: (response: { credential: string }) => gsiCallback?.(response),
-          hosted_domain: ALLOWED_EMAIL_DOMAIN,
           ux_mode: "popup",
           auto_select: false,
         });
@@ -625,7 +651,7 @@ export function Login() {
                 style={{ background: "rgba(124,58,237,0.1)", color: "#6d28d9" }}>
                 <ShieldCheck className="w-3.5 h-3.5" />
                 <span className="text-[11px] font-semibold tracking-wide">
-                  {t("login.securedByGoogle", { domain: ALLOWED_EMAIL_DOMAIN })}
+                  {t("login.securedByGoogle", { domain: allowedDomains.join(" or @") })}
                 </span>
               </div>
 
